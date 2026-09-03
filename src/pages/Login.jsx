@@ -1,21 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 
 export default function Login() {
-  const { login } = useAuth()
+  const { login, session } = useAuth()
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    const { error } = await login(email, password)
-    setLoading(false)
-    if (error) setError('Email o contraseña incorrectos.')
-  }
+  useEffect(() => {
+    if (session) navigate('/', { replace: true })
+  }, [session, navigate])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
