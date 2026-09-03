@@ -14,6 +14,15 @@ export default function Login() {
     if (session) navigate('/', { replace: true })
   }, [session, navigate])
 
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    const { error } = await login(email, password)
+    setLoading(false)
+    if (error) setError(error.message)
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <form
