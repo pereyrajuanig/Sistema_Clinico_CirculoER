@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { limpiarDni } from '@/lib/dni'
 
 const initialForm = {
   nombre: '',
@@ -39,6 +40,7 @@ export default function PacienteFormModal({ paciente, onClose, onSaved }) {
     const payload = Object.fromEntries(
       Object.entries(form).map(([key, value]) => [key, value === '' ? null : value])
     )
+    payload.dni = limpiarDni(form.dni)
 
     const query = esEdicion
       ? supabase.from('pacientes').update(payload).eq('id', paciente.id)
