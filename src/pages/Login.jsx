@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import logo from '@/assets/Logo-Circulo_FondoTransparente.png'
+import ThemeToggle from '@/components/ThemeToggle'
 
 export default function Login() {
   const { login, session } = useAuth()
@@ -25,7 +26,10 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <form
         onSubmit={handleSubmit}
         className="bg-surface shadow-sm rounded-lg p-6 sm:p-8 w-full max-w-sm space-y-4 border border-border"
@@ -36,7 +40,7 @@ export default function Login() {
           className="h-32 sm:h-55 mx-auto"
         />
 
-        <h1 className="text-2xl font-bold text-accent-marino text-center">
+        <h1 className="text-2xl font-bold text-text-primary text-center">
           Historia Clínica — Círculo Policía
         </h1>
 
