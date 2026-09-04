@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
 
-export default function AntecedenteFormModal({ pacienteId, onClose, onCreated }) {
-  const [tipo, setTipo] = useState('')
-  const [descripcion, setDescripcion] = useState('')
+export default function AntecedenteFormModal({ pacienteId, antecedente, onClose, onSaved }) {
+  const esEdicion = Boolean(antecedente)
+  const [tipo, setTipo] = useState(antecedente?.tipo || '')
+  const [descripcion, setDescripcion] = useState(antecedente?.descripcion || '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -13,11 +14,11 @@ export default function AntecedenteFormModal({ pacienteId, onClose, onCreated })
     setError('')
     setLoading(true)
 
-    const { data, error } = await supabase
-      .from('antecedentes')
-      .insert({ paciente_id: pacienteId, tipo, descripcion })
-      .select()
-      .single()
+    const query = esEdicion
+      ? supabase.from('antecedentes').update({ tipo, descripcion }).eq('id', antecedente.id)
+      : supabase.from('antecedentes').insert({ paciente_id: pacienteId, tipo, descripcion })
+
+    const { data, error } = await query.select().single()
 
     setLoading(false)
 
@@ -26,7 +27,7 @@ export default function AntecedenteFormModal({ pacienteId, onClose, onCreated })
       return
     }
 
-    onCreated(data)
+    onSaved(data)
   }
 
   return (
@@ -34,7 +35,9 @@ export default function AntecedenteFormModal({ pacienteId, onClose, onCreated })
       <div className="bg-surface rounded-lg border border-border shadow-sm w-full max-w-md">
         <form onSubmit={handleSubmit}>
           <div className="px-4 sm:px-6 py-4 border-b border-border">
-            <h2 className="text-lg font-semibold text-text-primary">Nuevo antecedente</h2>
+            <h2 className="text-lg font-semibold text-text-primary">
+              {esEdicion ? 'Editar antecedente' : 'Nuevo antecedente'}
+            </h2>
           </div>
 
           <div className="p-4 sm:p-6 space-y-4">
@@ -84,7 +87,7 @@ export default function AntecedenteFormModal({ pacienteId, onClose, onCreated })
               disabled={loading}
               className="btn-primary"
             >
-              {loading ? 'Guardando...' : 'Guardar antecedente'}
+              {loading ? 'Guardando...' : esEdicion ? 'Guardar cambios' : 'Guardar antecedente'}
             </button>
           </div>
         </form>

@@ -34,10 +34,20 @@ const CAMPOS_NUMERICOS = new Set([
   'glucemia',
 ])
 
-export default function NuevaConsultaModal({ pacienteId, onClose, onCreated }) {
+function formatFecha(value) {
+  if (!value) return ''
+  return new Date(value).toLocaleDateString('es-AR', { dateStyle: 'medium' })
+}
+
+export default function NuevaConsultaModal({ pacienteId, consulta, onClose, onSaved }) {
+  const esEdicion = Boolean(consulta)
   const [profesionales, setProfesionales] = useState([])
-  const [profesionalId, setProfesionalId] = useState(null)
-  const [form, setForm] = useState(initialForm)
+  const [profesionalId, setProfesionalId] = useState(consulta?.profesional_id || null)
+  const [form, setForm] = useState(() =>
+    esEdicion
+      ? Object.fromEntries(Object.keys(initialForm).map((key) => [key, consulta[key] ?? '']))
+      : initialForm
+  )
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -67,23 +77,26 @@ export default function NuevaConsultaModal({ pacienteId, onClose, onCreated }) {
 
     setLoading(true)
 
-    const payload = {
-      paciente_id: pacienteId,
-      profesional_id: profesionalId,
-      fecha: new Date().toISOString(),
-      ...Object.fromEntries(
-        Object.entries(form).map(([key, value]) => [
-          key,
-          value === '' ? null : CAMPOS_NUMERICOS.has(key) ? Number(value) : value,
-        ])
-      ),
-    }
+    const camposClinicos = Object.fromEntries(
+      Object.entries(form).map(([key, value]) => [
+        key,
+        value === '' ? null : CAMPOS_NUMERICOS.has(key) ? Number(value) : value,
+      ])
+    )
 
-    const { data, error } = await supabase
-      .from('consultas')
-      .insert(payload)
-      .select('*, profesionales(nombre)')
-      .single()
+    const query = esEdicion
+      ? supabase
+          .from('consultas')
+          .update({ profesional_id: profesionalId, ...camposClinicos })
+          .eq('id', consulta.id)
+      : supabase.from('consultas').insert({
+          paciente_id: pacienteId,
+          profesional_id: profesionalId,
+          fecha: new Date().toISOString(),
+          ...camposClinicos,
+        })
+
+    const { data, error } = await query.select('*, profesionales(nombre)').single()
 
     setLoading(false)
 
@@ -92,7 +105,7 @@ export default function NuevaConsultaModal({ pacienteId, onClose, onCreated }) {
       return
     }
 
-    onCreated(data)
+    onSaved(data)
   }
 
   return (
@@ -100,7 +113,9 @@ export default function NuevaConsultaModal({ pacienteId, onClose, onCreated }) {
       <div className="bg-surface rounded-lg border border-border shadow-sm w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <div className="px-4 sm:px-6 py-4 border-b border-border">
-            <h2 className="text-lg font-semibold text-text-primary">Nueva consulta</h2>
+            <h2 className="text-lg font-semibold text-text-primary">
+              {esEdicion ? `Editar consulta — ${formatFecha(consulta.fecha)}` : 'Nueva consulta'}
+            </h2>
           </div>
 
           <div className="p-4 sm:p-6 space-y-6">
@@ -286,7 +301,7 @@ export default function NuevaConsultaModal({ pacienteId, onClose, onCreated }) {
               Cancelar
             </button>
             <button type="submit" disabled={loading} className="btn-primary">
-              {loading ? 'Guardando...' : 'Guardar consulta'}
+              {loading ? 'Guardando...' : esEdicion ? 'Guardar cambios' : 'Guardar consulta'}
             </button>
           </div>
         </form>
