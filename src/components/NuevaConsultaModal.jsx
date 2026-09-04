@@ -96,17 +96,17 @@ export default function NuevaConsultaModal({ pacienteId, onClose, onCreated }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-text-primary/40 flex items-center justify-center p-4 z-50">
+      <div className="bg-surface rounded-lg border border-border shadow-sm w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
-          <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-800">Nueva consulta</h2>
+          <div className="px-4 sm:px-6 py-4 border-b border-border">
+            <h2 className="text-lg font-semibold text-text-primary">Nueva consulta</h2>
           </div>
 
           <div className="p-4 sm:p-6 space-y-6">
             <div className="space-y-2">
-              <label className="text-sm text-slate-600">
-                ¿Quién atiende? <span className="text-red-500">*</span>
+              <label className="text-sm text-text-secondary">
+                ¿Quién atiende? <span className="text-alert">*</span>
               </label>
               <div className="flex flex-wrap gap-2">
                 {profesionales.map((p) => (
@@ -115,11 +115,12 @@ export default function NuevaConsultaModal({ pacienteId, onClose, onCreated }) {
                     type="button"
                     onClick={() => setProfesionalId(p.id)}
                     className={
-                      'rounded-lg px-4 py-2 text-sm font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1 ' +
+                      'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
                       (profesionalId === p.id
-                        ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50')
+                        ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
+                        : 'bg-surface text-text-primary border-border hover:bg-background')
                     }
+                    style={{ minHeight: '44px' }}
                   >
                     {p.nombre}
                   </button>
@@ -128,7 +129,7 @@ export default function NuevaConsultaModal({ pacienteId, onClose, onCreated }) {
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-slate-800">Signos vitales</h3>
+              <h3 className="text-lg font-semibold text-text-primary">Signos vitales</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Field label="P.A. sistólica">
                   <input
@@ -278,9 +279,9 @@ export default function NuevaConsultaModal({ pacienteId, onClose, onCreated }) {
             </div>
           </div>
 
-          {error && <p className="px-4 sm:px-6 text-sm text-red-600 -mt-2 pb-2">{error}</p>}
+          {error && <p className="px-4 sm:px-6 text-base text-alert -mt-2 pb-2">{error}</p>}
 
-          <div className="px-4 sm:px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+          <div className="px-4 sm:px-6 py-4 border-t border-border flex justify-end gap-3">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancelar
             </button>
@@ -297,7 +298,7 @@ export default function NuevaConsultaModal({ pacienteId, onClose, onCreated }) {
 function Field({ label, children }) {
   return (
     <div className="space-y-1">
-      <label className="text-sm text-slate-600">{label}</label>
+      <label className="text-sm text-text-secondary">{label}</label>
       {children}
     </div>
   )

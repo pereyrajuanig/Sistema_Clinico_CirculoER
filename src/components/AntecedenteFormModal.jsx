@@ -30,17 +30,17 @@ export default function AntecedenteFormModal({ pacienteId, onClose, onCreated })
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm w-full max-w-md">
+    <div className="fixed inset-0 bg-text-primary/40 flex items-center justify-center p-4 z-50">
+      <div className="bg-surface rounded-lg border border-border shadow-sm w-full max-w-md">
         <form onSubmit={handleSubmit}>
-          <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-800">Nuevo antecedente</h2>
+          <div className="px-4 sm:px-6 py-4 border-b border-border">
+            <h2 className="text-lg font-semibold text-text-primary">Nuevo antecedente</h2>
           </div>
 
           <div className="p-4 sm:p-6 space-y-4">
             <div className="space-y-1">
-              <label className="text-sm text-slate-600">
-                Tipo <span className="text-red-500">*</span>
+              <label className="text-sm text-text-secondary">
+                Tipo <span className="text-alert">*</span>
               </label>
               <select
                 required
@@ -60,8 +60,8 @@ export default function AntecedenteFormModal({ pacienteId, onClose, onCreated })
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm text-slate-600">
-                Descripción <span className="text-red-500">*</span>
+              <label className="text-sm text-text-secondary">
+                Descripción <span className="text-alert">*</span>
               </label>
               <textarea
                 required
@@ -73,9 +73,9 @@ export default function AntecedenteFormModal({ pacienteId, onClose, onCreated })
             </div>
           </div>
 
-          {error && <p className="px-4 sm:px-6 text-sm text-red-600 -mt-2 pb-2">{error}</p>}
+          {error && <p className="px-4 sm:px-6 text-base text-alert -mt-2 pb-2">{error}</p>}
 
-          <div className="px-4 sm:px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+          <div className="px-4 sm:px-6 py-4 border-t border-border flex justify-end gap-3">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancelar
             </button>

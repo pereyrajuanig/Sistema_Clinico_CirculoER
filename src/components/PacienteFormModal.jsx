@@ -57,11 +57,11 @@ export default function PacienteFormModal({ paciente, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-text-primary/40 flex items-center justify-center p-4 z-50">
+      <div className="bg-surface rounded-lg border border-border shadow-sm w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
-          <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-800">
+          <div className="px-4 sm:px-6 py-4 border-b border-border">
+            <h2 className="text-lg font-semibold text-text-primary">
               {esEdicion ? 'Editar paciente' : 'Nuevo paciente'}
             </h2>
           </div>
@@ -161,9 +161,9 @@ export default function PacienteFormModal({ paciente, onClose, onSaved }) {
             </Field>
           </div>
 
-          {error && <p className="px-4 sm:px-6 text-sm text-red-600 -mt-2 pb-2">{error}</p>}
+          {error && <p className="px-4 sm:px-6 text-base text-alert -mt-2 pb-2">{error}</p>}
 
-          <div className="px-4 sm:px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+          <div className="px-4 sm:px-6 py-4 border-t border-border flex justify-end gap-3">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancelar
             </button>
@@ -180,9 +180,9 @@ export default function PacienteFormModal({ paciente, onClose, onSaved }) {
 function Field({ label, required, children }) {
   return (
     <div className="space-y-1">
-      <label className="text-sm text-slate-600">
+      <label className="text-sm text-text-secondary">
         {label}
-        {required && <span className="text-red-500"> *</span>}
+        {required && <span className="text-alert"> *</span>}
       </label>
       {children}
     </div>

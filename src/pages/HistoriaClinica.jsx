@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import NuevaConsultaModal from '@/components/NuevaConsultaModal'
 import DocumentosConsulta from '@/components/DocumentosConsulta'
 import AntecedenteFormModal from '@/components/AntecedenteFormModal'
 import PacienteFormModal from '@/components/PacienteFormModal'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
+import logo from '@/assets/Logo-Circulo_FondoTransparente.png'
 
 const CAMPOS_CONSULTA = [
   ['motivo', 'Motivo'],
@@ -40,6 +41,7 @@ function signosVitales(c) {
 
 export default function HistoriaClinica() {
   const { id } = useParams()
+  const location = useLocation()
   const [paciente, setPaciente] = useState(null)
   const [antecedentes, setAntecedentes] = useState([])
   const [consultas, setConsultas] = useState([])
@@ -96,6 +98,12 @@ export default function HistoriaClinica() {
     fetchAll()
   }, [id])
 
+  useEffect(() => {
+    if (location.state?.abrirNuevaConsulta) {
+      setShowModal(true)
+    }
+  }, [location.state])
+
   function handlePacienteGuardado(pacienteActualizado) {
     setPaciente(pacienteActualizado)
     setShowEditModal(false)
@@ -114,14 +122,16 @@ export default function HistoriaClinica() {
   }
 
   if (loading) {
-    return <p className="p-10 text-center text-slate-400 text-sm">Cargando historia clínica...</p>
+    return (
+      <p className="p-10 text-center text-text-secondary text-base">Cargando historia clínica...</p>
+    )
   }
 
   if (error) {
     return (
       <div className="p-10 text-center space-y-3">
-        <p className="text-sm text-red-600">{error}</p>
-        <Link to="/" className="text-sm text-slate-500 hover:text-slate-800 underline">
+        <p className="text-base text-alert">{error}</p>
+        <Link to="/" className="text-base text-text-secondary hover:text-text-primary underline">
           Volver a pacientes
         </Link>
       </div>
@@ -129,29 +139,37 @@ export default function HistoriaClinica() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <Link to="/" className="text-sm text-slate-500 hover:text-slate-800">
-          ← Volver a pacientes
-        </Link>
-        <h1 className="text-lg font-semibold text-slate-800 mt-1">
-          {paciente.apellido}, {paciente.nombre}
-        </h1>
-        <p className="text-sm text-slate-500">DNI {paciente.dni}</p>
+    <div className="min-h-screen bg-background">
+      <header className="bg-surface border-b border-border px-6 py-4">
+        <div className="flex justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+            <img src={logo} alt="" className="h-20 w-20 object-contain" />
+            <h1 className="text-4xl font-bold text-accent-marino">
+              {paciente.apellido}, {paciente.nombre}
+            </h1>
+          </div>
+          <Link
+            to="/"
+            className="btn-secondary inline-flex items-center gap-1.5 border border-border px-3 py-1.5 shrink-0"
+          >
+            ← Volver a pacientes
+          </Link>
+        </div>
+        <p className="text-sm text-text-secondary">DNI {paciente.dni}</p>
       </header>
 
       <main className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto">
-        <section className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
+        <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-            <h2 className="text-sm font-semibold text-slate-800">Datos del paciente</h2>
+            <h2 className="text-lg font-semibold text-text-primary">Datos del paciente</h2>
             <button
               onClick={() => setShowEditModal(true)}
-              className="btn-secondary px-3 py-1.5"
+              className="bg-primary text-accent-marino rounded-lg px-3 py-1.5 text-base font-semibold transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             >
               Editar
             </button>
           </div>
-          <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+          <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-base">
             <Dato label="Fecha de nacimiento" value={formatFecha(paciente.fecha_nacimiento)} />
             <Dato label="Sexo / género" value={paciente.sexo} />
             <Dato label="Teléfono" value={paciente.telefono} />
@@ -164,9 +182,9 @@ export default function HistoriaClinica() {
           </dl>
         </section>
 
-        <section className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
+        <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-            <h2 className="text-sm font-semibold text-slate-800">Antecedentes</h2>
+            <h2 className="text-lg font-semibold text-text-primary">Antecedentes</h2>
             <button
               onClick={() => setShowAntecedenteModal(true)}
               className="btn-primary px-3 py-1.5"
@@ -175,24 +193,24 @@ export default function HistoriaClinica() {
             </button>
           </div>
           {antecedentes.length === 0 ? (
-            <p className="text-sm text-slate-400">No hay antecedentes registrados.</p>
+            <p className="text-base text-text-secondary">No hay antecedentes registrados.</p>
           ) : (
             <ul className="space-y-2">
               {antecedentes.map((a) => (
-                <li key={a.id} className="text-sm flex gap-2">
-                  <span className="shrink-0 bg-slate-100 text-slate-600 rounded-md px-2 py-0.5 text-xs font-medium">
+                <li key={a.id} className="text-base flex gap-2">
+                  <span className="shrink-0 bg-border/50 text-text-secondary rounded-md px-2 py-0.5 text-sm font-medium">
                     {TIPOS_ANTECEDENTE[a.tipo] || a.tipo}
                   </span>
-                  <span className="text-slate-700">{a.descripcion}</span>
+                  <span className="text-text-primary">{a.descripcion}</span>
                 </li>
               ))}
             </ul>
           )}
         </section>
 
-        <section className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
+        <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-            <h2 className="text-sm font-semibold text-slate-800">Consultas</h2>
+            <h2 className="text-lg font-semibold text-text-primary">Consultas</h2>
             <button
               onClick={() => setShowModal(true)}
               className="btn-primary px-3 py-1.5"
@@ -201,7 +219,7 @@ export default function HistoriaClinica() {
             </button>
           </div>
           {consultas.length === 0 ? (
-            <p className="text-sm text-slate-400">No hay consultas registradas.</p>
+            <p className="text-base text-text-secondary">No hay consultas registradas.</p>
           ) : (
             <div className="space-y-4">
               {consultas.map((c) => (
@@ -247,8 +265,8 @@ export default function HistoriaClinica() {
 function Dato({ label, value }) {
   return (
     <div>
-      <dt className="text-slate-400 text-xs">{label}</dt>
-      <dd className="text-slate-700">{value || '—'}</dd>
+      <dt className="text-text-secondary text-sm">{label}</dt>
+      <dd className="text-text-primary">{value || '—'}</dd>
     </div>
   )
 }
@@ -257,27 +275,27 @@ function ConsultaCard({ consulta: c, documentos, onDocumentoSubido }) {
   const vitales = signosVitales(c)
 
   return (
-    <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+    <div className="border border-border rounded-lg p-4 space-y-3">
       <div className="flex justify-between items-baseline flex-wrap gap-2">
-        <span className="text-sm font-medium text-slate-800">
+        <span className="text-base font-semibold text-text-primary">
           {formatFecha(c.fecha, { dateStyle: 'medium' })}
         </span>
-        <span className="text-xs text-slate-500">
+        <span className="text-sm text-text-secondary">
           Atendió: {c.profesionales?.nombre || 'sin asignar'}
         </span>
       </div>
 
-      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-base">
         {CAMPOS_CONSULTA.filter(([campo]) => c[campo]).map(([campo, label]) => (
           <div key={campo}>
-            <dt className="text-slate-400 text-xs">{label}</dt>
-            <dd className="text-slate-700">{c[campo]}</dd>
+            <dt className="text-text-secondary text-sm">{label}</dt>
+            <dd className="text-text-primary">{c[campo]}</dd>
           </div>
         ))}
         {c.proximo_control && (
           <div>
-            <dt className="text-slate-400 text-xs">Próximo control</dt>
-            <dd className="text-slate-700">{formatFecha(c.proximo_control)}</dd>
+            <dt className="text-text-secondary text-sm">Próximo control</dt>
+            <dd className="text-text-primary">{formatFecha(c.proximo_control)}</dd>
           </div>
         )}
       </dl>
@@ -287,7 +305,7 @@ function ConsultaCard({ consulta: c, documentos, onDocumentoSubido }) {
           {vitales.map(([label, value]) => (
             <span
               key={label}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-slate-600"
+              className="text-sm bg-background border border-border rounded-md px-2 py-1 text-text-secondary"
             >
               {label}: {value}
             </span>
