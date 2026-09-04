@@ -4,6 +4,8 @@ import { useAuth } from '@/lib/AuthContext'
 import { supabase } from '@/lib/supabaseClient'
 import PacienteFormModal from '@/components/PacienteFormModal'
 import logo from '@/assets/Logo-Circulo_FondoTransparente.png'
+import { limpiarDni, formatearDni } from '@/lib/dni'
+import ThemeToggle from '@/components/ThemeToggle'
 
 export default function Pacientes() {
   const { logout } = useAuth()
@@ -45,9 +47,15 @@ export default function Pacientes() {
     const query = search.trim().toLowerCase()
     if (!query) return pacientes
 
-    return pacientes.filter((p) =>
-      [p.nombre, p.apellido, p.dni].some((campo) => campo?.toLowerCase().includes(query))
-    )
+    const queryDni = limpiarDni(search)
+
+    return pacientes.filter((p) => {
+      const coincideTexto = [p.nombre, p.apellido].some((campo) =>
+        campo?.toLowerCase().includes(query)
+      )
+      const coincideDni = queryDni && p.dni?.includes(queryDni)
+      return coincideTexto || coincideDni
+    })
   }, [pacientes, search])
 
   const pacientesOrdenados = useMemo(() => {
@@ -87,14 +95,17 @@ export default function Pacientes() {
       <header className="bg-surface border-b border-border px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <img src={logo} alt="" className="h-20 w-20 object-contain" />
-          <h1 className="text-4xl font-bold text-accent-marino">Pacientes</h1>
+          <h1 className="text-4xl font-bold text-text-primary">Pacientes</h1>
         </div>
-        <button
-          onClick={logout}
-          className="bg-alert text-white rounded-lg px-3 py-1.5 text-base font-semibold transition-colors hover:brightness-90 focus:outline-none focus:ring-2 focus:ring-alert focus:ring-offset-1"
-        >
-          Cerrar sesión
-        </button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <button
+            onClick={logout}
+            className="bg-alert text-white rounded-lg px-3 py-1.5 text-base font-semibold transition-colors hover:brightness-90 focus:outline-none focus:ring-2 focus:ring-alert focus:ring-offset-1"
+          >
+            Cerrar sesión
+          </button>
+        </div>
       </header>
 
       <main className="p-4 sm:p-6 space-y-4">
@@ -135,7 +146,7 @@ export default function Pacientes() {
                       <p className="text-base text-text-primary">
                         {p.apellido}, {p.nombre}
                       </p>
-                      <p className="text-sm text-text-secondary mt-0.5">DNI {p.dni}</p>
+                      <p className="text-sm text-text-secondary mt-0.5">DNI {formatearDni(p.dni)}</p>
                       {(p.telefono || p.obra_social) && (
                         <p className="text-sm text-text-secondary mt-0.5">
                           {[p.telefono, p.obra_social].filter(Boolean).join(' · ')}
@@ -167,7 +178,7 @@ export default function Pacientes() {
                         <td className="px-4 py-3 text-text-primary">
                           {p.apellido}, {p.nombre}
                         </td>
-                        <td className="px-4 py-3 text-text-primary">{p.dni}</td>
+                        <td className="px-4 py-3 text-text-primary">{formatearDni(p.dni)}</td>
                         <td className="px-4 py-3 text-text-primary">{p.telefono || '—'}</td>
                         <td className="px-4 py-3 text-text-primary">{p.obra_social || '—'}</td>
                       </tr>

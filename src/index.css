@@ -2,6 +2,7 @@
 @import "tailwindcss";
 
 @theme {
+  /* Paleta clara (default) */
   --color-background: #faf6ec;
   --color-surface: #ffffff;
   --color-text-primary: #33363a;
@@ -15,6 +16,21 @@
   --color-border: #e8e1d3;
 
   --font-sans: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Paleta oscura — se activa con data-theme="dark" en <html> (ver ThemeContext.jsx) */
+:root[data-theme='dark'] {
+  --color-background: #161b22;
+  --color-surface: #202832;
+  --color-text-primary: #ecedee;
+  --color-text-secondary: #98a2ad;
+  --color-primary: #a8d4ef;
+  --color-primary-hover: #8ec3e2;
+  --color-accent-marino: #1f5a8f;
+  --color-accent-marino-hover: #17456e;
+  --color-alert: #e08a73;
+  --color-success: #7fb893;
+  --color-border: #333d4a;
 }
 
 @layer base {

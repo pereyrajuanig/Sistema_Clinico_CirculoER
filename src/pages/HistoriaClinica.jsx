@@ -8,6 +8,8 @@ import PacienteFormModal from '@/components/PacienteFormModal'
 import LaboratorioFormModal from '@/components/LaboratorioFormModal'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
 import { TIPOS_EXAMEN } from '@/lib/laboratorio'
+import { formatearDni } from '@/lib/dni'
+import ThemeToggle from '@/components/ThemeToggle'
 import logo from '@/assets/Logo-Circulo_FondoTransparente.png'
 
 const CAMPOS_CONSULTA = [
@@ -162,18 +164,23 @@ export default function HistoriaClinica() {
         <div className="flex justify-between items-center gap-4">
           <div className="flex items-center gap-3">
             <img src={logo} alt="" className="h-20 w-20 object-contain" />
-            <h1 className="text-4xl font-bold text-accent-marino">
-              {paciente.apellido}, {paciente.nombre}
-            </h1>
+            <div>
+              <h1 className="text-4xl font-bold text-text-primary">
+                {paciente.apellido}, {paciente.nombre}
+              </h1>
+              <p className="text-base font-medium text-text-primary">DNI {formatearDni(paciente.dni)}</p>
+            </div>
           </div>
-          <Link
-            to="/"
-            className="btn-secondary inline-flex items-center gap-1.5 border border-border px-3 py-1.5 shrink-0"
-          >
-            ← Volver a pacientes
-          </Link>
+          <div className="flex items-center gap-2 shrink-0">
+            <ThemeToggle />
+            <Link
+              to="/"
+              className="btn-secondary inline-flex items-center gap-1.5 border border-border px-3 py-1.5"
+            >
+              ← Volver a pacientes
+            </Link>
+          </div>
         </div>
-        <p className="text-sm text-text-secondary">DNI {paciente.dni}</p>
       </header>
 
       <main className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto">
@@ -202,32 +209,6 @@ export default function HistoriaClinica() {
 
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-text-primary">Antecedentes</h2>
-            <button
-              onClick={() => setShowAntecedenteModal(true)}
-              className="btn-primary px-3 py-1.5"
-            >
-              + Agregar antecedente
-            </button>
-          </div>
-          {antecedentes.length === 0 ? (
-            <p className="text-base text-text-secondary">No hay antecedentes registrados.</p>
-          ) : (
-            <ul className="space-y-2">
-              {antecedentes.map((a) => (
-                <li key={a.id} className="text-base flex gap-2">
-                  <span className="shrink-0 bg-border/50 text-text-secondary rounded-md px-2 py-0.5 text-sm font-medium">
-                    {TIPOS_ANTECEDENTE[a.tipo] || a.tipo}
-                  </span>
-                  <span className="text-text-primary">{a.descripcion}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-text-primary">Consultas</h2>
             <button
               onClick={() => setShowModal(true)}
@@ -249,6 +230,32 @@ export default function HistoriaClinica() {
                 />
               ))}
             </div>
+          )}
+        </section>
+
+        <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-text-primary">Antecedentes</h2>
+            <button
+              onClick={() => setShowAntecedenteModal(true)}
+              className="btn-primary px-3 py-1.5"
+            >
+              + Agregar antecedente
+            </button>
+          </div>
+          {antecedentes.length === 0 ? (
+            <p className="text-base text-text-secondary">No hay antecedentes registrados.</p>
+          ) : (
+            <ul className="space-y-2">
+              {antecedentes.map((a) => (
+                <li key={a.id} className="text-base flex gap-2">
+                  <span className="shrink-0 bg-border/50 text-text-secondary rounded-md px-2 py-0.5 text-sm font-medium">
+                    {TIPOS_ANTECEDENTE[a.tipo] || a.tipo}
+                  </span>
+                  <span className="text-text-primary">{a.descripcion}</span>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
 
