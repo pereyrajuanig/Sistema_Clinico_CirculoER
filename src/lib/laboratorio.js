@@ -17,22 +17,26 @@ const CONTIENE = ['No contiene', 'Contiene']
 
 export const TIPOS_EXAMEN = [
   {
-    // Unidades pendientes de confirmar con el bioquímico
     nombre: 'Hemograma',
-    campos: ['GB', 'GR', 'Hb', 'Hto', 'Plaquetas'].map((nombre) => ({ nombre })),
+    campos: [
+      { nombre: 'GB', unidad: '/mm3' },
+      { nombre: 'GR', unidad: '/mm3' },
+      { nombre: 'Hb', unidad: 'g/dL' },
+      { nombre: 'Hto', unidad: '%' },
+      { nombre: 'Plaquetas', unidad: '/mm3' },
+    ],
   },
   {
-    // Unidades pendientes de confirmar con el bioquímico
     nombre: 'Hepatograma',
     campos: [
-      'GOT',
-      'GPT',
-      'Fosfatasa alcalina',
-      'GGT',
-      'Bilirrubina total',
-      'Bilirrubina directa',
-      'Bilirrubina indirecta',
-    ].map((nombre) => ({ nombre })),
+      { nombre: 'GOT', unidad: 'UI/L' },
+      { nombre: 'GPT', unidad: 'UI/L' },
+      { nombre: 'Fosfatasa alcalina', unidad: 'UI/L' },
+      { nombre: 'GGT', unidad: 'UI/L' },
+      { nombre: 'Bilirrubina total', unidad: 'mg/dL' },
+      { nombre: 'Bilirrubina directa', unidad: 'mg/dL' },
+      { nombre: 'Bilirrubina indirecta', unidad: 'mg/dL' },
+    ],
   },
   { nombre: 'Glucemia', unidad: 'mg/dL' },
   { nombre: 'Creatinina', unidad: 'mg/dL' },
@@ -71,9 +75,12 @@ export const TIPOS_EXAMEN = [
   { nombre: 'PSA libre', unidad: 'ng/mL' },
   { nombre: 'PSA total', unidad: 'ng/mL' },
   {
-    // Unidades pendientes de confirmar con el bioquímico
     nombre: 'Coagulograma',
-    campos: ['Tiempo de protrombina (TP)', 'KPTT', 'Fibrinógeno'].map((nombre) => ({ nombre })),
+    campos: [
+      { nombre: 'Tiempo de protrombina (TP)', unidad: 'segundos' },
+      { nombre: 'KPTT', unidad: 'seg' },
+      { nombre: 'Fibrinógeno', unidad: 'mg/dL' },
+    ],
   },
   { nombre: 'RIN', placeholder: '(sin unidad, es un ratio)' },
 ]
