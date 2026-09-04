@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import NuevaConsultaModal from '@/components/NuevaConsultaModal'
+import DocumentosConsulta from '@/components/DocumentosConsulta'
 
 const TIPOS_ANTECEDENTE = {
   alergia: 'Alergia',
@@ -49,6 +50,7 @@ export default function HistoriaClinica() {
   const [paciente, setPaciente] = useState(null)
   const [antecedentes, setAntecedentes] = useState([])
   const [consultas, setConsultas] = useState([])
+  const [documentos, setDocumentos] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showModal, setShowModal] = useState(false)
@@ -83,6 +85,17 @@ export default function HistoriaClinica() {
       setPaciente(pacienteRes.data)
       setAntecedentes(antecedentesRes.data)
       setConsultas(consultasRes.data)
+
+      const consultaIds = consultasRes.data.map((c) => c.id)
+      if (consultaIds.length > 0) {
+        const { data, error } = await supabase
+          .from('documentos')
+          .select('*')
+          .in('consulta_id', consultaIds)
+
+        if (error) setError(error.message)
+        else setDocumentos(data)
+      }
     }
 
     fetchAll()
@@ -171,7 +184,12 @@ export default function HistoriaClinica() {
           ) : (
             <div className="space-y-4">
               {consultas.map((c) => (
-                <ConsultaCard key={c.id} consulta={c} />
+                <ConsultaCard
+                  key={c.id}
+                  consulta={c}
+                  documentos={documentos.filter((d) => d.consulta_id === c.id)}
+                  onDocumentoSubido={(doc) => setDocumentos((prev) => [...prev, doc])}
+                />
               ))}
             </div>
           )}
@@ -198,7 +216,7 @@ function Dato({ label, value }) {
   )
 }
 
-function ConsultaCard({ consulta: c }) {
+function ConsultaCard({ consulta: c, documentos, onDocumentoSubido }) {
   const vitales = signosVitales(c)
 
   return (
@@ -239,6 +257,12 @@ function ConsultaCard({ consulta: c }) {
           ))}
         </div>
       )}
+
+      <DocumentosConsulta
+        consultaId={c.id}
+        documentos={documentos}
+        onUploaded={onDocumentoSubido}
+      />
     </div>
   )
 }
