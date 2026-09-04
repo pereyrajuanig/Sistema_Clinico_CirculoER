@@ -57,6 +57,8 @@ export default function HistoriaClinica() {
   const [showAntecedenteModal, setShowAntecedenteModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showLabModal, setShowLabModal] = useState(false)
+  const [editingConsulta, setEditingConsulta] = useState(null)
+  const [editingAntecedente, setEditingAntecedente] = useState(null)
 
   useEffect(() => {
     async function fetchAll() {
@@ -122,16 +124,83 @@ export default function HistoriaClinica() {
     setShowEditModal(false)
   }
 
-  function handleAntecedenteCreado(nuevoAntecedente) {
-    setAntecedentes((prev) => [...prev, nuevoAntecedente])
+  function handleAntecedenteGuardado(antecedenteGuardado) {
+    setAntecedentes((prev) => {
+      const existe = prev.some((a) => a.id === antecedenteGuardado.id)
+      return existe
+        ? prev.map((a) => (a.id === antecedenteGuardado.id ? antecedenteGuardado : a))
+        : [...prev, antecedenteGuardado]
+    })
     setShowAntecedenteModal(false)
+    setEditingAntecedente(null)
   }
 
-  function handleConsultaCreada(nuevaConsulta) {
-    setConsultas((prev) =>
-      [nuevaConsulta, ...prev].sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
-    )
+  async function handleEliminarAntecedente(antecedenteId) {
+    if (!window.confirm('¿Eliminar este antecedente? Esta acción no se puede deshacer.')) return
+
+    const { error } = await supabase.from('antecedentes').delete().eq('id', antecedenteId)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    setAntecedentes((prev) => prev.filter((a) => a.id !== antecedenteId))
+  }
+
+  function handleConsultaGuardada(consultaGuardada) {
+    setConsultas((prev) => {
+      const existe = prev.some((c) => c.id === consultaGuardada.id)
+      const siguiente = existe
+        ? prev.map((c) => (c.id === consultaGuardada.id ? consultaGuardada : c))
+        : [consultaGuardada, ...prev]
+      return siguiente.sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+    })
     setShowModal(false)
+    setEditingConsulta(null)
+  }
+
+  async function handleEliminarConsulta(consultaId) {
+    if (
+      !window.confirm(
+        '¿Eliminar esta consulta? Se van a borrar también sus documentos adjuntos. Esta acción no se puede deshacer.'
+      )
+    ) {
+      return
+    }
+
+    const documentosDeConsulta = documentos.filter((d) => d.consulta_id === consultaId)
+
+    if (documentosDeConsulta.length > 0) {
+      const { error: storageError } = await supabase.storage
+        .from('documentos')
+        .remove(documentosDeConsulta.map((d) => d.url))
+
+      if (storageError) {
+        setError(storageError.message)
+        return
+      }
+
+      const { error: documentosError } = await supabase
+        .from('documentos')
+        .delete()
+        .eq('consulta_id', consultaId)
+
+      if (documentosError) {
+        setError(documentosError.message)
+        return
+      }
+    }
+
+    const { error } = await supabase.from('consultas').delete().eq('id', consultaId)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    setConsultas((prev) => prev.filter((c) => c.id !== consultaId))
+    setDocumentos((prev) => prev.filter((d) => d.consulta_id !== consultaId))
   }
 
   function handleResultadosCreados(nuevosResultados) {
@@ -157,6 +226,8 @@ export default function HistoriaClinica() {
       </div>
     )
   }
+
+  const alergias = antecedentes.filter((a) => a.tipo === 'alergia')
 
   return (
     <div className="min-h-screen bg-background">
@@ -184,6 +255,20 @@ export default function HistoriaClinica() {
       </header>
 
       <main className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto">
+        {alergias.length > 0 && (
+          <div className="bg-alert/10 border border-alert rounded-lg p-4 flex gap-3 items-start">
+            <IconoAlerta />
+            <div>
+              <p className="font-semibold text-alert">Alergias registradas</p>
+              <ul className="text-alert text-base list-disc list-inside">
+                {alergias.map((a) => (
+                  <li key={a.id}>{a.descripcion}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-text-primary">Datos del paciente</h2>
@@ -211,7 +296,10 @@ export default function HistoriaClinica() {
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-text-primary">Consultas</h2>
             <button
-              onClick={() => setShowModal(true)}
+              onClick={() => {
+                setEditingConsulta(null)
+                setShowModal(true)
+              }}
               className="btn-primary px-3 py-1.5"
             >
               + Nueva consulta
@@ -227,6 +315,11 @@ export default function HistoriaClinica() {
                   consulta={c}
                   documentos={documentos.filter((d) => d.consulta_id === c.id)}
                   onDocumentoSubido={(doc) => setDocumentos((prev) => [...prev, doc])}
+                  onEditar={() => {
+                    setEditingConsulta(c)
+                    setShowModal(true)
+                  }}
+                  onEliminar={() => handleEliminarConsulta(c.id)}
                 />
               ))}
             </div>
@@ -237,7 +330,10 @@ export default function HistoriaClinica() {
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-text-primary">Antecedentes</h2>
             <button
-              onClick={() => setShowAntecedenteModal(true)}
+              onClick={() => {
+                setEditingAntecedente(null)
+                setShowAntecedenteModal(true)
+              }}
               className="btn-primary px-3 py-1.5"
             >
               + Agregar antecedente
@@ -248,11 +344,30 @@ export default function HistoriaClinica() {
           ) : (
             <ul className="space-y-2">
               {antecedentes.map((a) => (
-                <li key={a.id} className="text-base flex gap-2">
-                  <span className="shrink-0 bg-border/50 text-text-secondary rounded-md px-2 py-0.5 text-sm font-medium">
-                    {TIPOS_ANTECEDENTE[a.tipo] || a.tipo}
-                  </span>
-                  <span className="text-text-primary">{a.descripcion}</span>
+                <li key={a.id} className="text-base flex items-start justify-between gap-2">
+                  <div className="flex gap-2">
+                    <span className="shrink-0 bg-border/50 text-text-secondary rounded-md px-2 py-0.5 text-sm font-medium">
+                      {TIPOS_ANTECEDENTE[a.tipo] || a.tipo}
+                    </span>
+                    <span className="text-text-primary">{a.descripcion}</span>
+                  </div>
+                  <div className="flex gap-3 shrink-0">
+                    <button
+                      onClick={() => {
+                        setEditingAntecedente(a)
+                        setShowAntecedenteModal(true)
+                      }}
+                      className="text-sm text-text-secondary hover:text-text-primary underline"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => handleEliminarAntecedente(a.id)}
+                      className="text-sm text-alert hover:underline"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -297,16 +412,24 @@ export default function HistoriaClinica() {
       {showModal && (
         <NuevaConsultaModal
           pacienteId={id}
-          onClose={() => setShowModal(false)}
-          onCreated={handleConsultaCreada}
+          consulta={editingConsulta}
+          onClose={() => {
+            setShowModal(false)
+            setEditingConsulta(null)
+          }}
+          onSaved={handleConsultaGuardada}
         />
       )}
 
       {showAntecedenteModal && (
         <AntecedenteFormModal
           pacienteId={id}
-          onClose={() => setShowAntecedenteModal(false)}
-          onCreated={handleAntecedenteCreado}
+          antecedente={editingAntecedente}
+          onClose={() => {
+            setShowAntecedenteModal(false)
+            setEditingAntecedente(null)
+          }}
+          onSaved={handleAntecedenteGuardado}
         />
       )}
 
@@ -338,7 +461,7 @@ function Dato({ label, value }) {
   )
 }
 
-function ConsultaCard({ consulta: c, documentos, onDocumentoSubido }) {
+function ConsultaCard({ consulta: c, documentos, onDocumentoSubido, onEditar, onEliminar }) {
   const vitales = signosVitales(c)
 
   return (
@@ -347,9 +470,17 @@ function ConsultaCard({ consulta: c, documentos, onDocumentoSubido }) {
         <span className="text-base font-semibold text-text-primary">
           {formatFecha(c.fecha, { dateStyle: 'medium' })}
         </span>
-        <span className="text-sm text-text-secondary">
-          Atendió: {c.profesionales?.nombre || 'sin asignar'}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-text-secondary">
+            Atendió: {c.profesionales?.nombre || 'sin asignar'}
+          </span>
+          <button onClick={onEditar} className="text-sm text-text-secondary hover:text-text-primary underline">
+            Editar
+          </button>
+          <button onClick={onEliminar} className="text-sm text-alert hover:underline">
+            Eliminar
+          </button>
+        </div>
       </div>
 
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-base">
@@ -386,5 +517,25 @@ function ConsultaCard({ consulta: c, documentos, onDocumentoSubido }) {
         onUploaded={onDocumentoSubido}
       />
     </div>
+  )
+}
+
+function IconoAlerta() {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="text-alert shrink-0 mt-0.5"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+      />
+    </svg>
   )
 }
