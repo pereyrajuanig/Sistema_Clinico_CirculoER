@@ -3,6 +3,7 @@ import { AuthProvider } from '@/lib/AuthContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import Login from '@/pages/Login'
 import Pacientes from '@/pages/Pacientes'
+import HistoriaClinica from '@/pages/HistoriaClinica'
 
 export default function App() {
   return (
@@ -15,6 +16,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Pacientes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/pacientes/:id"
+            element={
+              <ProtectedRoute>
+                <HistoriaClinica />
               </ProtectedRoute>
             }
           />

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import { supabase } from '@/lib/supabaseClient'
 import PacienteFormModal from '@/components/PacienteFormModal'
 
 export default function Pacientes() {
   const { logout } = useAuth()
+  const navigate = useNavigate()
   const [pacientes, setPacientes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -102,7 +104,11 @@ export default function Pacientes() {
               </thead>
               <tbody>
                 {pacientesFiltrados.map((p) => (
-                  <tr key={p.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                  <tr
+                    key={p.id}
+                    onClick={() => navigate(`/pacientes/${p.id}`)}
+                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50 cursor-pointer"
+                  >
                     <td className="px-4 py-3 text-slate-800">
                       {p.apellido}, {p.nombre}
                     </td>
