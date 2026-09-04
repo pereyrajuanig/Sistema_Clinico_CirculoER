@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import { supabase } from '@/lib/supabaseClient'
 import PacienteFormModal from '@/components/PacienteFormModal'
@@ -98,6 +98,12 @@ export default function Pacientes() {
           <h1 className="text-4xl font-bold text-text-primary">Pacientes</h1>
         </div>
         <div className="flex items-center gap-2">
+          <Link to="/proximos-controles" className="btn-secondary border border-border px-3 py-1.5">
+            Próximos controles
+          </Link>
+          <Link to="/medicamentos" className="btn-secondary border border-border px-3 py-1.5">
+            Medicamentos
+          </Link>
           <ThemeToggle />
           <button
             onClick={logout}
