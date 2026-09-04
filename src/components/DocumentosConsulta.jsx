@@ -52,19 +52,19 @@ export default function DocumentosConsulta({ consultaId, documentos, onUploaded 
   }
 
   return (
-    <div className="space-y-2 pt-2 border-t border-slate-100">
+    <div className="space-y-2 pt-2 border-t border-border">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-slate-500">Documentos adjuntos</span>
-        <label className="text-xs text-slate-500 hover:text-slate-800 cursor-pointer underline">
+        <span className="text-sm font-medium text-text-secondary">Documentos adjuntos</span>
+        <label className="text-sm text-text-secondary hover:text-text-primary cursor-pointer underline">
           {uploading ? 'Subiendo...' : '+ Adjuntar'}
           <input type="file" className="hidden" onChange={handleFileChange} disabled={uploading} />
         </label>
       </div>
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-sm text-alert">{error}</p>}
 
       {documentos.length === 0 ? (
-        <p className="text-xs text-slate-400">Sin documentos adjuntos.</p>
+        <p className="text-sm text-text-secondary">Sin documentos adjuntos.</p>
       ) : (
         <ul className="space-y-1">
           {documentos.map((d) => (
@@ -72,7 +72,7 @@ export default function DocumentosConsulta({ consultaId, documentos, onUploaded 
               <button
                 type="button"
                 onClick={() => handleVer(d)}
-                className="text-xs text-slate-600 hover:text-slate-900 underline"
+                className="text-sm text-text-secondary hover:text-text-primary underline"
               >
                 {d.nombre || 'Documento'}
               </button>
