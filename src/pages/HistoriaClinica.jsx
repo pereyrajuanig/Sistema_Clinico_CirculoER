@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
+import NuevaConsultaModal from '@/components/NuevaConsultaModal'
 
 const TIPOS_ANTECEDENTE = {
   alergia: 'Alergia',
@@ -50,6 +51,7 @@ export default function HistoriaClinica() {
   const [consultas, setConsultas] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [showModal, setShowModal] = useState(false)
 
   useEffect(() => {
     async function fetchAll() {
@@ -85,6 +87,13 @@ export default function HistoriaClinica() {
 
     fetchAll()
   }, [id])
+
+  function handleConsultaCreada(nuevaConsulta) {
+    setConsultas((prev) =>
+      [nuevaConsulta, ...prev].sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+    )
+    setShowModal(false)
+  }
 
   if (loading) {
     return <p className="p-10 text-center text-slate-400 text-sm">Cargando historia clínica...</p>
@@ -148,7 +157,15 @@ export default function HistoriaClinica() {
         </section>
 
         <section className="bg-white border border-slate-200 rounded-xl p-6">
-          <h2 className="text-sm font-semibold text-slate-800 mb-4">Consultas</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-sm font-semibold text-slate-800">Consultas</h2>
+            <button
+              onClick={() => setShowModal(true)}
+              className="bg-slate-800 text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-slate-700"
+            >
+              + Nueva consulta
+            </button>
+          </div>
           {consultas.length === 0 ? (
             <p className="text-sm text-slate-400">No hay consultas registradas.</p>
           ) : (
@@ -160,6 +177,14 @@ export default function HistoriaClinica() {
           )}
         </section>
       </main>
+
+      {showModal && (
+        <NuevaConsultaModal
+          pacienteId={id}
+          onClose={() => setShowModal(false)}
+          onCreated={handleConsultaCreada}
+        />
+      )}
     </div>
   )
 }
