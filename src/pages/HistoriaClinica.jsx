@@ -3,16 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import NuevaConsultaModal from '@/components/NuevaConsultaModal'
 import DocumentosConsulta from '@/components/DocumentosConsulta'
-
-const TIPOS_ANTECEDENTE = {
-  alergia: 'Alergia',
-  patologico: 'Patológico',
-  quirurgico: 'Quirúrgico',
-  familiar: 'Familiar / hereditario',
-  habito: 'Hábito',
-  vacuna: 'Vacuna',
-  medicacion_cronica: 'Medicación crónica',
-}
+import AntecedenteFormModal from '@/components/AntecedenteFormModal'
+import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
 
 const CAMPOS_CONSULTA = [
   ['motivo', 'Motivo'],
@@ -54,6 +46,7 @@ export default function HistoriaClinica() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showAntecedenteModal, setShowAntecedenteModal] = useState(false)
 
   useEffect(() => {
     async function fetchAll() {
@@ -100,6 +93,11 @@ export default function HistoriaClinica() {
 
     fetchAll()
   }, [id])
+
+  function handleAntecedenteCreado(nuevoAntecedente) {
+    setAntecedentes((prev) => [...prev, nuevoAntecedente])
+    setShowAntecedenteModal(false)
+  }
 
   function handleConsultaCreada(nuevaConsulta) {
     setConsultas((prev) =>
@@ -152,7 +150,15 @@ export default function HistoriaClinica() {
         </section>
 
         <section className="bg-white border border-slate-200 rounded-xl p-6">
-          <h2 className="text-sm font-semibold text-slate-800 mb-4">Antecedentes</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-sm font-semibold text-slate-800">Antecedentes</h2>
+            <button
+              onClick={() => setShowAntecedenteModal(true)}
+              className="bg-slate-800 text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-slate-700"
+            >
+              + Agregar antecedente
+            </button>
+          </div>
           {antecedentes.length === 0 ? (
             <p className="text-sm text-slate-400">No hay antecedentes registrados.</p>
           ) : (
@@ -201,6 +207,14 @@ export default function HistoriaClinica() {
           pacienteId={id}
           onClose={() => setShowModal(false)}
           onCreated={handleConsultaCreada}
+        />
+      )}
+
+      {showAntecedenteModal && (
+        <AntecedenteFormModal
+          pacienteId={id}
+          onClose={() => setShowAntecedenteModal(false)}
+          onCreated={handleAntecedenteCreado}
         />
       )}
     </div>
