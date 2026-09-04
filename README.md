@@ -50,15 +50,20 @@ diferencia de formato.
 
 **Historia clínica.** Cada paciente tiene su ficha completa: datos personales, antecedentes
 (alergias, patológicos, quirúrgicos, hábitos, vacunas, medicación crónica), y el historial de
-consultas. Cada consulta arranca eligiendo quién la atiende de una lista corta — sin pedir
-usuario y contraseña de nuevo. Esa decisión no es solo comodidad: la sesión del navegador
-queda abierta por horas en una computadora compartida entre 3 personas, así que quién está
-logueado y quién está atendiendo físicamente no son necesariamente la misma persona. Separar
-esas dos cosas explícitamente es lo que hace que el registro de "quién atendió" sea confiable
-para trazabilidad médico-legal, en vez de asumirlo de la sesión activa. Los signos vitales
-viven como columnas directas de la consulta (no en una tabla aparte) porque en la práctica
-nunca existen sueltos — siempre están atados a una consulta puntual, y modelarlos así evita
-un join innecesario para el caso de uso que realmente importa: leer la ficha de un paciente.
+consultas, todos editables y con borrado. Si hay una alergia cargada, aparece un cartel visible
+apenas se abre la ficha — no hace falta revisar todo el historial para enterarse. Cada consulta
+arranca eligiendo quién la atiende de una lista corta — sin pedir usuario y contraseña de
+nuevo. Esa decisión no es solo comodidad: la sesión del navegador queda abierta por horas en
+una computadora compartida entre 3 personas, así que quién está logueado y quién está
+atendiendo físicamente no son necesariamente la misma persona. Separar esas dos cosas
+explícitamente es lo que hace que el registro de "quién atendió" sea confiable para
+trazabilidad médico-legal, en vez de asumirlo de la sesión activa. Los signos vitales viven
+como columnas directas de la consulta (no en una tabla aparte) porque en la práctica nunca
+existen sueltos — siempre están atados a una consulta puntual, y modelarlos así evita un join
+innecesario para el caso de uso que realmente importa: leer la ficha de un paciente. Un
+listado aparte cruza todas las historias clínicas y muestra los próximos controles
+pendientes, tomando el de la consulta más reciente de cada paciente (no cualquier consulta
+vieja que ya haya sido superada por una visita posterior).
 
 **Documentos adjuntos.** Estudios, análisis o fichas escaneadas se suben a un bucket privado
 de Supabase Storage y se acceden con URLs firmadas de vencimiento corto — nunca queda un
@@ -75,6 +80,18 @@ guardar genera las 4 filas con sus tipos reales — el atajo vive en el frontend
 orina completa, urocultivo, coagulograma) tiene sus propios campos con las unidades correctas
 confirmadas con un bioquímico, y el historial los agrupa por tipo y fecha.
 
+**Medicamentos y stock.** El stock no es un número que se edita — es siempre el resultado de
+sumar y restar movimientos (entradas por reposición, salidas por administración a un
+paciente), calculado por dos vistas de la base. Ningún formulario tiene un campo de "stock
+actual": si algo saliera mal, el número siempre se puede reconstruir desde el historial de
+movimientos, que es justamente lo que se necesita para poder auditar qué pasó con un
+medicamento. Al registrar una salida, el sistema sugiere automáticamente de qué lote
+descontar aplicando FEFO (el que vence primero entre los que tienen stock) en vez de dejarlo
+a criterio de quien carga los datos, y exige un paciente asociado — reforzado también por una
+restricción en la base, no solo en el formulario. Dos alertas corren en paralelo: stock por
+debajo del mínimo definido para un medicamento, y lotes a 30 días o menos de vencer aunque el
+medicamento todavía tenga stock en otro lote.
+
 ## Modelo de datos y cumplimiento normativo
 
 El modelo de paciente incluye el contacto de un familiar o referencia — no es un campo de
@@ -90,9 +107,10 @@ de leer.
 
 ## Qué sigue
 
-- [ ] Alerta visible en la ficha del paciente cuando tiene una alergia cargada
-- [ ] Edición y borrado de consultas y antecedentes ya cargados (hoy solo admiten alta)
-- [ ] Listado de "próximos controles" a partir del campo que ya existe en cada consulta
+- [ ] Corregir el borrado de consultas y antecedentes: hoy es físico (`DELETE`), y la
+      normativa que sigue el proyecto exige retención de 10 años y borrado lógico, no físico
+- [ ] Edición de un medicamento ya cargado (hoy solo admite alta)
+- [ ] Historial de movimientos de stock por medicamento (hoy se ve el resultado, no el detalle)
 - [ ] PWA, para poder "instalar" la app en las computadoras del consultorio
 - [ ] Automatizar el ping periódico que evite la pausa por inactividad del plan gratuito
 - [ ] Backup automático de la base (el plan gratuito no lo incluye)
@@ -132,7 +150,7 @@ src/
 ├── assets/        # Logo institucional
 ├── components/    # Modales, formularios y controles reutilizables
 ├── lib/           # Contextos (auth, tema) y utilidades (dni, laboratorio, antecedentes)
-├── pages/         # Login, listado de Pacientes, ficha de Historia Clínica
+├── pages/         # Login, Pacientes, Historia Clínica, Próximos controles, Medicamentos
 ├── App.jsx        # Rutas
 └── index.css      # Tokens de diseño y clases de componentes compartidas
 ```
