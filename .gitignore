@@ -26,5 +26,6 @@ CLAUDE.md
 ers-historia-clinica.md
 design-system.md
 spec-laboratorio.md
+requerimientos-funcionales-no-funcionales.md
 # Variables de entorno con credenciales — nunca se sube
 .env
