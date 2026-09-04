@@ -99,11 +99,11 @@ export default function NuevaConsultaModal({ pacienteId, onClose, onCreated }) {
     <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
-          <div className="px-6 py-4 border-b border-slate-200">
+          <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
             <h2 className="text-lg font-semibold text-slate-800">Nueva consulta</h2>
           </div>
 
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-6">
             <div className="space-y-2">
               <label className="text-sm text-slate-600">
                 ¿Quién atiende? <span className="text-red-500">*</span>
@@ -115,9 +115,9 @@ export default function NuevaConsultaModal({ pacienteId, onClose, onCreated }) {
                     type="button"
                     onClick={() => setProfesionalId(p.id)}
                     className={
-                      'rounded-lg px-4 py-2 text-sm font-medium border ' +
+                      'rounded-lg px-4 py-2 text-sm font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1 ' +
                       (profesionalId === p.id
-                        ? 'bg-slate-800 text-white border-slate-800'
+                        ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
                         : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50')
                     }
                   >
@@ -278,21 +278,13 @@ export default function NuevaConsultaModal({ pacienteId, onClose, onCreated }) {
             </div>
           </div>
 
-          {error && <p className="px-6 text-sm text-red-600 -mt-2 pb-2">{error}</p>}
+          {error && <p className="px-4 sm:px-6 text-sm text-red-600 -mt-2 pb-2">{error}</p>}
 
-          <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-sm text-slate-500 hover:text-slate-800 px-4 py-2"
-            >
+          <div className="px-4 sm:px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="btn-secondary">
               Cancelar
             </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-slate-800 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50"
-            >
+            <button type="submit" disabled={loading} className="btn-primary">
               {loading ? 'Guardando...' : 'Guardar consulta'}
             </button>
           </div>

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabaseClient'
 import NuevaConsultaModal from '@/components/NuevaConsultaModal'
 import DocumentosConsulta from '@/components/DocumentosConsulta'
 import AntecedenteFormModal from '@/components/AntecedenteFormModal'
+import PacienteFormModal from '@/components/PacienteFormModal'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
 
 const CAMPOS_CONSULTA = [
@@ -47,6 +48,7 @@ export default function HistoriaClinica() {
   const [error, setError] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [showAntecedenteModal, setShowAntecedenteModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
 
   useEffect(() => {
     async function fetchAll() {
@@ -94,6 +96,11 @@ export default function HistoriaClinica() {
     fetchAll()
   }, [id])
 
+  function handlePacienteGuardado(pacienteActualizado) {
+    setPaciente(pacienteActualizado)
+    setShowEditModal(false)
+  }
+
   function handleAntecedenteCreado(nuevoAntecedente) {
     setAntecedentes((prev) => [...prev, nuevoAntecedente])
     setShowAntecedenteModal(false)
@@ -133,9 +140,17 @@ export default function HistoriaClinica() {
         <p className="text-sm text-slate-500">DNI {paciente.dni}</p>
       </header>
 
-      <main className="p-6 space-y-6 max-w-4xl mx-auto">
-        <section className="bg-white border border-slate-200 rounded-xl p-6">
-          <h2 className="text-sm font-semibold text-slate-800 mb-4">Datos del paciente</h2>
+      <main className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto">
+        <section className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+            <h2 className="text-sm font-semibold text-slate-800">Datos del paciente</h2>
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="btn-secondary px-3 py-1.5"
+            >
+              Editar
+            </button>
+          </div>
           <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
             <Dato label="Fecha de nacimiento" value={formatFecha(paciente.fecha_nacimiento)} />
             <Dato label="Sexo / género" value={paciente.sexo} />
@@ -149,12 +164,12 @@ export default function HistoriaClinica() {
           </dl>
         </section>
 
-        <section className="bg-white border border-slate-200 rounded-xl p-6">
-          <div className="flex justify-between items-center mb-4">
+        <section className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <h2 className="text-sm font-semibold text-slate-800">Antecedentes</h2>
             <button
               onClick={() => setShowAntecedenteModal(true)}
-              className="bg-slate-800 text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-slate-700"
+              className="btn-primary px-3 py-1.5"
             >
               + Agregar antecedente
             </button>
@@ -175,12 +190,12 @@ export default function HistoriaClinica() {
           )}
         </section>
 
-        <section className="bg-white border border-slate-200 rounded-xl p-6">
-          <div className="flex justify-between items-center mb-4">
+        <section className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <h2 className="text-sm font-semibold text-slate-800">Consultas</h2>
             <button
               onClick={() => setShowModal(true)}
-              className="bg-slate-800 text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-slate-700"
+              className="btn-primary px-3 py-1.5"
             >
               + Nueva consulta
             </button>
@@ -215,6 +230,14 @@ export default function HistoriaClinica() {
           pacienteId={id}
           onClose={() => setShowAntecedenteModal(false)}
           onCreated={handleAntecedenteCreado}
+        />
+      )}
+
+      {showEditModal && (
+        <PacienteFormModal
+          paciente={paciente}
+          onClose={() => setShowEditModal(false)}
+          onSaved={handlePacienteGuardado}
         />
       )}
     </div>
