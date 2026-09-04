@@ -5,7 +5,9 @@ import NuevaConsultaModal from '@/components/NuevaConsultaModal'
 import DocumentosConsulta from '@/components/DocumentosConsulta'
 import AntecedenteFormModal from '@/components/AntecedenteFormModal'
 import PacienteFormModal from '@/components/PacienteFormModal'
+import LaboratorioFormModal from '@/components/LaboratorioFormModal'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
+import { TIPOS_EXAMEN } from '@/lib/laboratorio'
 import logo from '@/assets/Logo-Circulo_FondoTransparente.png'
 
 const CAMPOS_CONSULTA = [
@@ -46,18 +48,20 @@ export default function HistoriaClinica() {
   const [antecedentes, setAntecedentes] = useState([])
   const [consultas, setConsultas] = useState([])
   const [documentos, setDocumentos] = useState([])
+  const [resultadosLab, setResultadosLab] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [showAntecedenteModal, setShowAntecedenteModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showLabModal, setShowLabModal] = useState(false)
 
   useEffect(() => {
     async function fetchAll() {
       setLoading(true)
       setError('')
 
-      const [pacienteRes, antecedentesRes, consultasRes] = await Promise.all([
+      const [pacienteRes, antecedentesRes, consultasRes, labRes] = await Promise.all([
         supabase.from('pacientes').select('*').eq('id', id).single(),
         supabase
           .from('antecedentes')
@@ -69,11 +73,17 @@ export default function HistoriaClinica() {
           .select('*, profesionales(nombre)')
           .eq('paciente_id', id)
           .order('fecha', { ascending: false }),
+        supabase
+          .from('resultados_laboratorio')
+          .select('*')
+          .eq('paciente_id', id)
+          .order('fecha', { ascending: false }),
       ])
 
       setLoading(false)
 
-      const primerError = pacienteRes.error || antecedentesRes.error || consultasRes.error
+      const primerError =
+        pacienteRes.error || antecedentesRes.error || consultasRes.error || labRes.error
       if (primerError) {
         setError(primerError.message)
         return
@@ -82,6 +92,7 @@ export default function HistoriaClinica() {
       setPaciente(pacienteRes.data)
       setAntecedentes(antecedentesRes.data)
       setConsultas(consultasRes.data)
+      setResultadosLab(labRes.data)
 
       const consultaIds = consultasRes.data.map((c) => c.id)
       if (consultaIds.length > 0) {
@@ -119,6 +130,13 @@ export default function HistoriaClinica() {
       [nuevaConsulta, ...prev].sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
     )
     setShowModal(false)
+  }
+
+  function handleResultadosCreados(nuevosResultados) {
+    setResultadosLab((prev) =>
+      [...prev, ...nuevosResultados].sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+    )
+    setShowLabModal(false)
   }
 
   if (loading) {
@@ -233,6 +251,40 @@ export default function HistoriaClinica() {
             </div>
           )}
         </section>
+
+        <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-text-primary">Laboratorio</h2>
+            <button onClick={() => setShowLabModal(true)} className="btn-primary px-3 py-1.5">
+              + Cargar resultados
+            </button>
+          </div>
+          {resultadosLab.length === 0 ? (
+            <p className="text-base text-text-secondary">No hay resultados de laboratorio cargados.</p>
+          ) : (
+            <div className="space-y-4">
+              {TIPOS_EXAMEN.filter(({ nombre }) =>
+                resultadosLab.some((r) => r.tipo_examen === nombre)
+              ).map(({ nombre }) => (
+                <div key={nombre}>
+                  <h3 className="text-base font-semibold text-text-primary mb-1">{nombre}</h3>
+                  <ul className="space-y-0.5">
+                    {resultadosLab
+                      .filter((r) => r.tipo_examen === nombre)
+                      .map((r) => (
+                        <li key={r.id} className="text-base text-text-primary flex gap-2">
+                          <span className="text-text-secondary shrink-0">
+                            {formatFecha(r.fecha)} —
+                          </span>
+                          <span>{r.resultado}</span>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </main>
 
       {showModal && (
@@ -256,6 +308,14 @@ export default function HistoriaClinica() {
           paciente={paciente}
           onClose={() => setShowEditModal(false)}
           onSaved={handlePacienteGuardado}
+        />
+      )}
+
+      {showLabModal && (
+        <LaboratorioFormModal
+          pacienteId={id}
+          onClose={() => setShowLabModal(false)}
+          onCreated={handleResultadosCreados}
         />
       )}
     </div>

@@ -25,6 +25,6 @@ dist-ssr
 CLAUDE.md   
 ers-historia-clinica.md
 design-system.md
-
+spec-laboratorio.md
 # Variables de entorno con credenciales — nunca se sube
 .env
