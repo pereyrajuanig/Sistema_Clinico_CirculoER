@@ -16,8 +16,13 @@ const initialForm = {
   estado_civil: '',
 }
 
-export default function PacienteFormModal({ onClose, onCreated }) {
-  const [form, setForm] = useState(initialForm)
+export default function PacienteFormModal({ paciente, onClose, onSaved }) {
+  const esEdicion = Boolean(paciente)
+  const [form, setForm] = useState(() =>
+    esEdicion
+      ? Object.fromEntries(Object.keys(initialForm).map((key) => [key, paciente[key] ?? '']))
+      : initialForm
+  )
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -35,7 +40,11 @@ export default function PacienteFormModal({ onClose, onCreated }) {
       Object.entries(form).map(([key, value]) => [key, value === '' ? null : value])
     )
 
-    const { data, error } = await supabase.from('pacientes').insert(payload).select().single()
+    const query = esEdicion
+      ? supabase.from('pacientes').update(payload).eq('id', paciente.id)
+      : supabase.from('pacientes').insert(payload)
+
+    const { data, error } = await query.select().single()
 
     setLoading(false)
 
@@ -44,18 +53,20 @@ export default function PacienteFormModal({ onClose, onCreated }) {
       return
     }
 
-    onCreated(data)
+    onSaved(data)
   }
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
-          <div className="px-6 py-4 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-800">Nuevo paciente</h2>
+          <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
+            <h2 className="text-lg font-semibold text-slate-800">
+              {esEdicion ? 'Editar paciente' : 'Nuevo paciente'}
+            </h2>
           </div>
 
-          <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Nombre" required>
               <input
                 required
@@ -150,22 +161,14 @@ export default function PacienteFormModal({ onClose, onCreated }) {
             </Field>
           </div>
 
-          {error && <p className="px-6 text-sm text-red-600 -mt-2 pb-2">{error}</p>}
+          {error && <p className="px-4 sm:px-6 text-sm text-red-600 -mt-2 pb-2">{error}</p>}
 
-          <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-sm text-slate-500 hover:text-slate-800 px-4 py-2"
-            >
+          <div className="px-4 sm:px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="btn-secondary">
               Cancelar
             </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-slate-800 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50"
-            >
-              {loading ? 'Guardando...' : 'Guardar paciente'}
+            <button type="submit" disabled={loading} className="btn-primary">
+              {loading ? 'Guardando...' : esEdicion ? 'Guardar cambios' : 'Guardar paciente'}
             </button>
           </div>
         </form>

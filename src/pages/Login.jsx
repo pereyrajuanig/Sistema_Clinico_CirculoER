@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
+import logo from '@/assets/Logo-Circulo_FondoTransparente.png'
 
 export default function Login() {
   const { login, session } = useAuth()
@@ -24,11 +25,17 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-white shadow-sm rounded-xl p-8 w-full max-w-sm space-y-4 border border-slate-200"
+        className="bg-white shadow-sm rounded-xl p-6 sm:p-8 w-full max-w-sm space-y-4 border border-slate-200"
       >
+        <img
+          src={logo}
+          alt="Círculo de Retirados y Pensionados de la Policía de Entre Ríos"
+          className="h-32 sm:h-55 mx-auto"
+        />
+
         <h1 className="text-xl font-semibold text-slate-800 text-center">
           Historia Clínica — Círculo Policía
         </h1>
@@ -40,7 +47,7 @@ export default function Login() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="input"
           />
         </div>
 
@@ -51,7 +58,7 @@ export default function Login() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="input"
           />
         </div>
 
@@ -60,7 +67,7 @@ export default function Login() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-slate-800 text-white rounded-lg py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50"
+          className="btn-primary w-full py-2.5"
         >
           {loading ? 'Ingresando...' : 'Ingresar'}
         </button>
