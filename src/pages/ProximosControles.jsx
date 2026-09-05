@@ -74,7 +74,7 @@ export default function ProximosControles() {
       </header>
 
       <main className="p-4 sm:p-6 space-y-4 max-w-4xl mx-auto">
-        {error && <p className="text-base text-alert">{error}</p>}
+        {error && <p className="text-base text-text-primary">{error}</p>}
 
         <div className="bg-surface border border-border rounded-lg overflow-hidden">
           {loading ? (
@@ -104,7 +104,7 @@ export default function ProximosControles() {
                     className={
                       'text-sm font-semibold rounded-md px-2 py-1 ' +
                       (estaVencido(c.proximo_control)
-                        ? 'bg-alert/10 text-alert border border-alert'
+                        ? 'bg-alert/10 text-text-primary border border-alert'
                         : 'bg-background text-text-primary border border-border')
                     }
                   >

@@ -219,7 +219,7 @@ export default function HistoriaClinica() {
   if (error) {
     return (
       <div className="p-10 text-center space-y-3">
-        <p className="text-base text-alert">{error}</p>
+        <p className="text-base text-text-primary">{error}</p>
         <Link to="/" className="text-base text-text-secondary hover:text-text-primary underline">
           Volver a pacientes
         </Link>
@@ -259,8 +259,8 @@ export default function HistoriaClinica() {
           <div className="bg-alert/10 border border-alert rounded-lg p-4 flex gap-3 items-start">
             <IconoAlerta />
             <div>
-              <p className="font-semibold text-alert">Alergias registradas</p>
-              <ul className="text-alert text-base list-disc list-inside">
+              <p className="font-semibold text-text-primary">Alergias registradas</p>
+              <ul className="text-text-primary text-base list-disc list-inside">
                 {alergias.map((a) => (
                   <li key={a.id}>{a.descripcion}</li>
                 ))}
@@ -272,10 +272,7 @@ export default function HistoriaClinica() {
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-text-primary">Datos del paciente</h2>
-            <button
-              onClick={() => setShowEditModal(true)}
-              className="bg-primary text-accent-marino rounded-lg px-3 py-1.5 text-base font-semibold transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-            >
+            <button onClick={() => setShowEditModal(true)} className="btn-secondary px-3 py-1.5">
               Editar
             </button>
           </div>
@@ -334,7 +331,7 @@ export default function HistoriaClinica() {
                 setEditingAntecedente(null)
                 setShowAntecedenteModal(true)
               }}
-              className="bg-primary text-accent-marino rounded-lg px-3 py-1.5 text-base font-semibold transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+              className="btn-secondary px-3 py-1.5"
             >
               + Agregar antecedente
             </button>
@@ -346,7 +343,7 @@ export default function HistoriaClinica() {
               {antecedentes.map((a) => (
                 <li key={a.id} className="text-base flex items-start justify-between gap-2">
                   <div className="flex gap-2">
-                    <span className="shrink-0 bg-border/50 text-text-secondary rounded-md px-2 py-0.5 text-sm font-medium">
+                    <span className="shrink-0 bg-border/50 text-text-primary rounded-md px-2 py-0.5 text-sm font-medium">
                       {TIPOS_ANTECEDENTE[a.tipo] || a.tipo}
                     </span>
                     <span className="text-text-primary">{a.descripcion}</span>
@@ -363,7 +360,7 @@ export default function HistoriaClinica() {
                     </button>
                     <button
                       onClick={() => handleEliminarAntecedente(a.id)}
-                      className="text-sm text-alert hover:underline"
+                      className="text-sm text-text-primary underline"
                     >
                       Eliminar
                     </button>
@@ -377,10 +374,7 @@ export default function HistoriaClinica() {
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-text-primary">Laboratorio</h2>
-            <button
-              onClick={() => setShowLabModal(true)}
-              className="bg-primary text-accent-marino rounded-lg px-3 py-1.5 text-base font-semibold transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-            >
+            <button onClick={() => setShowLabModal(true)} className="btn-secondary px-3 py-1.5">
               + Cargar resultados
             </button>
           </div>
@@ -480,7 +474,7 @@ function ConsultaCard({ consulta: c, documentos, onDocumentoSubido, onEditar, on
           <button onClick={onEditar} className="text-sm text-text-secondary hover:text-text-primary underline">
             Editar
           </button>
-          <button onClick={onEliminar} className="text-sm text-alert hover:underline">
+          <button onClick={onEliminar} className="text-sm text-text-primary underline">
             Eliminar
           </button>
         </div>

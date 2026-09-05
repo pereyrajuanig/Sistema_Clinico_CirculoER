@@ -102,7 +102,7 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
         </div>
 
         <div className="p-4 sm:p-6 space-y-3">
-          {error && <p className="text-base text-alert">{error}</p>}
+          {error && <p className="text-base text-text-primary">{error}</p>}
 
           {loading ? (
             <p className="text-base text-text-secondary">Cargando...</p>
@@ -140,7 +140,7 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
                         </button>
                         <button
                           onClick={() => handleEliminarLote(l.lote_id)}
-                          className="text-sm text-alert hover:underline"
+                          className="text-sm text-text-primary underline"
                         >
                           Eliminar
                         </button>

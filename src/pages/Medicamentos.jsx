@@ -143,14 +143,14 @@ export default function Medicamentos() {
       </header>
 
       <main className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto">
-        {error && <p className="text-base text-alert">{error}</p>}
+        {error && <p className="text-base text-text-primary">{error}</p>}
 
         {(medicamentosBajoMinimo.length > 0 || lotesPorVencer.length > 0) && (
           <div className="bg-alert/10 border border-alert rounded-lg p-4 space-y-3">
             {medicamentosBajoMinimo.length > 0 && (
               <div>
-                <p className="font-semibold text-alert">Stock por debajo del mínimo</p>
-                <ul className="text-alert text-base list-disc list-inside">
+                <p className="font-semibold text-text-primary">Stock por debajo del mínimo</p>
+                <ul className="text-text-primary text-base list-disc list-inside">
                   {medicamentosBajoMinimo.map((m) => (
                     <li key={m.id}>
                       {identificarMedicamento(m)}: {stockPorMedicamento[m.id] || 0} (mínimo {m.stock_minimo})
@@ -162,8 +162,8 @@ export default function Medicamentos() {
 
             {lotesPorVencer.length > 0 && (
               <div>
-                <p className="font-semibold text-alert">Lotes a 30 días o menos de vencer</p>
-                <ul className="text-alert text-base list-disc list-inside">
+                <p className="font-semibold text-text-primary">Lotes a 30 días o menos de vencer</p>
+                <ul className="text-text-primary text-base list-disc list-inside">
                   {lotesPorVencer.map((l) => (
                     <li key={l.lote_id}>
                       {nombreMedicamento(l.medicamento_id)}
@@ -229,11 +229,11 @@ export default function Medicamentos() {
                         </td>
                         <td className="px-4 py-3 text-text-primary">{formatearPresentacion(m) || '—'}</td>
                         <td className="px-4 py-3">
-                          <span className={bajoMinimo ? 'text-alert font-semibold' : 'text-text-primary'}>
+                          <span className={bajoMinimo ? 'text-text-primary font-semibold' : 'text-text-primary'}>
                             {stock}
                           </span>
                           {bajoMinimo && (
-                            <span className="ml-2 text-sm text-alert">(bajo el mínimo)</span>
+                            <span className="ml-2 text-sm text-text-primary">(bajo el mínimo)</span>
                           )}
                         </td>
                         <td className="px-4 py-3">
@@ -255,7 +255,7 @@ export default function Medicamentos() {
                             </button>
                             <button
                               onClick={() => handleToggleActivo(m)}
-                              className={inactivo ? 'text-sm text-text-secondary hover:text-text-primary underline' : 'text-sm text-alert hover:underline'}
+                              className={inactivo ? 'text-sm text-text-secondary hover:text-text-primary underline' : 'text-sm text-text-primary underline'}
                             >
                               {inactivo ? 'Reactivar' : 'Dar de baja'}
                             </button>

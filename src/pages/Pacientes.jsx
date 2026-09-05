@@ -111,7 +111,7 @@ export default function Pacientes() {
           <ThemeToggle />
           <button
             onClick={logout}
-            className="bg-alert text-white rounded-lg px-3 py-1.5 text-base font-semibold transition-colors hover:brightness-90 focus:outline-none focus:ring-2 focus:ring-alert focus:ring-offset-1"
+            className="bg-alert/10 text-text-primary border border-alert rounded-lg px-3 py-1.5 text-base font-semibold transition-colors hover:bg-alert/20 focus:outline-none focus:ring-2 focus:ring-alert focus:ring-offset-1"
           >
             Cerrar sesión
           </button>
@@ -132,7 +132,7 @@ export default function Pacientes() {
           </button>
         </div>
 
-        {error && <p className="text-base text-alert">{error}</p>}
+        {error && <p className="text-base text-text-primary">{error}</p>}
 
         <div className="bg-surface border border-border rounded-lg overflow-hidden">
           {loading ? (

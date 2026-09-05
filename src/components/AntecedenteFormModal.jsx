@@ -43,7 +43,7 @@ export default function AntecedenteFormModal({ pacienteId, antecedente, onClose,
           <div className="p-4 sm:p-6 space-y-4">
             <div className="space-y-1">
               <label className="text-sm text-text-secondary">
-                Tipo <span className="text-alert">*</span>
+                Tipo <span className="text-text-primary">*</span>
               </label>
               <select
                 required
@@ -64,7 +64,7 @@ export default function AntecedenteFormModal({ pacienteId, antecedente, onClose,
 
             <div className="space-y-1">
               <label className="text-sm text-text-secondary">
-                Descripción <span className="text-alert">*</span>
+                Descripción <span className="text-text-primary">*</span>
               </label>
               <textarea
                 required
@@ -76,7 +76,7 @@ export default function AntecedenteFormModal({ pacienteId, antecedente, onClose,
             </div>
           </div>
 
-          {error && <p className="px-4 sm:px-6 text-base text-alert -mt-2 pb-2">{error}</p>}
+          {error && <p className="px-4 sm:px-6 text-base text-text-primary -mt-2 pb-2">{error}</p>}
 
           <div className="px-4 sm:px-6 py-4 border-t border-border flex justify-end gap-3">
             <button type="button" onClick={onClose} className="btn-secondary">

@@ -177,7 +177,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
           <div className="p-4 sm:p-6 space-y-4">
             <div className="space-y-2">
               <label className="text-sm text-text-secondary">
-                ¿Quién administra? <span className="text-alert">*</span>
+                ¿Quién administra? <span className="text-text-primary">*</span>
               </label>
               <div className="flex flex-wrap gap-2">
                 {profesionales.map((p) => (
@@ -201,7 +201,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
 
             <div className="space-y-1">
               <label className="text-sm text-text-secondary">
-                Medicamento <span className="text-alert">*</span>
+                Medicamento <span className="text-text-primary">*</span>
               </label>
               <select
                 required
@@ -230,7 +230,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
                 </p>
               )}
               {medicamentoId && !buscandoLote && !loteSugerido && (
-                <p className="text-sm text-alert font-semibold">
+                <p className="text-sm text-text-primary font-semibold">
                   No hay stock disponible en ningún lote de este medicamento.
                 </p>
               )}
@@ -242,7 +242,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
                   className={
                     'text-sm ' +
                     (estaProximoAVencer(loteSugerido.fecha_vencimiento)
-                      ? 'text-alert font-semibold'
+                      ? 'text-text-primary font-semibold'
                       : 'text-text-secondary')
                   }
                 >
@@ -256,7 +256,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
 
             <div className="space-y-1">
               <label className="text-sm text-text-secondary">
-                DNI del paciente <span className="text-alert">*</span>
+                DNI del paciente <span className="text-text-primary">*</span>
               </label>
               <input
                 required
@@ -268,7 +268,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
               {buscandoPaciente && (
                 <p className="text-sm text-text-secondary">Buscando paciente...</p>
               )}
-              {!buscandoPaciente && dniError && <p className="text-sm text-alert">{dniError}</p>}
+              {!buscandoPaciente && dniError && <p className="text-sm text-text-primary">{dniError}</p>}
               {!buscandoPaciente && pacienteEncontrado && (
                 <p className="text-sm text-text-secondary">
                   Paciente: <span className="text-text-primary font-medium">
@@ -300,7 +300,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
 
             <div className="space-y-1">
               <label className="text-sm text-text-secondary">
-                Cantidad <span className="text-alert">*</span>
+                Cantidad <span className="text-text-primary">*</span>
               </label>
               <input
                 type="number"
@@ -323,7 +323,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
             </div>
           </div>
 
-          {error && <p className="px-4 sm:px-6 text-base text-alert -mt-2 pb-2">{error}</p>}
+          {error && <p className="px-4 sm:px-6 text-base text-text-primary -mt-2 pb-2">{error}</p>}
 
           <div className="px-4 sm:px-6 py-4 border-t border-border flex justify-end gap-3">
             <button type="button" onClick={onClose} className="btn-secondary">

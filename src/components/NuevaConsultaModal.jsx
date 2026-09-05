@@ -121,7 +121,7 @@ export default function NuevaConsultaModal({ pacienteId, consulta, onClose, onSa
           <div className="p-4 sm:p-6 space-y-6">
             <div className="space-y-2">
               <label className="text-sm text-text-secondary">
-                ¿Quién atiende? <span className="text-alert">*</span>
+                ¿Quién atiende? <span className="text-text-primary">*</span>
               </label>
               <div className="flex flex-wrap gap-2">
                 {profesionales.map((p) => (
@@ -294,7 +294,7 @@ export default function NuevaConsultaModal({ pacienteId, consulta, onClose, onSa
             </div>
           </div>
 
-          {error && <p className="px-4 sm:px-6 text-base text-alert -mt-2 pb-2">{error}</p>}
+          {error && <p className="px-4 sm:px-6 text-base text-text-primary -mt-2 pb-2">{error}</p>}
 
           <div className="px-4 sm:px-6 py-4 border-t border-border flex justify-end gap-3">
             <button type="button" onClick={onClose} className="btn-secondary">

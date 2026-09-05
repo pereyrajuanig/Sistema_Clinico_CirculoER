@@ -73,7 +73,7 @@ export default function EntradaStockModal({ medicamentos, medicamentoIdInicial, 
           <div className="p-4 sm:p-6 space-y-4">
             <div className="space-y-1">
               <label className="text-sm text-text-secondary">
-                Medicamento <span className="text-alert">*</span>
+                Medicamento <span className="text-text-primary">*</span>
               </label>
               <select
                 required
@@ -106,7 +106,7 @@ export default function EntradaStockModal({ medicamentos, medicamentoIdInicial, 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-sm text-text-secondary">
-                  Fecha de vencimiento <span className="text-alert">*</span>
+                  Fecha de vencimiento <span className="text-text-primary">*</span>
                 </label>
                 <input
                   type="date"
@@ -119,7 +119,7 @@ export default function EntradaStockModal({ medicamentos, medicamentoIdInicial, 
 
               <div className="space-y-1">
                 <label className="text-sm text-text-secondary">
-                  Cantidad que ingresa <span className="text-alert">*</span>
+                  Cantidad que ingresa <span className="text-text-primary">*</span>
                 </label>
                 <input
                   type="number"
@@ -133,7 +133,7 @@ export default function EntradaStockModal({ medicamentos, medicamentoIdInicial, 
             </div>
           </div>
 
-          {error && <p className="px-4 sm:px-6 text-base text-alert -mt-2 pb-2">{error}</p>}
+          {error && <p className="px-4 sm:px-6 text-base text-text-primary -mt-2 pb-2">{error}</p>}
 
           <div className="px-4 sm:px-6 py-4 border-t border-border flex justify-end gap-3">
             <button type="button" onClick={onClose} className="btn-secondary">

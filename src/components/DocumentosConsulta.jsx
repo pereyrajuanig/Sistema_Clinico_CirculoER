@@ -61,7 +61,7 @@ export default function DocumentosConsulta({ consultaId, documentos, onUploaded 
         </label>
       </div>
 
-      {error && <p className="text-sm text-alert">{error}</p>}
+      {error && <p className="text-sm text-text-primary">{error}</p>}
 
       {documentos.length === 0 ? (
         <p className="text-sm text-text-secondary">Sin documentos adjuntos.</p>
