@@ -87,10 +87,20 @@ actual": si algo saliera mal, el número siempre se puede reconstruir desde el h
 movimientos, que es justamente lo que se necesita para poder auditar qué pasó con un
 medicamento. Al registrar una salida, el sistema sugiere automáticamente de qué lote
 descontar aplicando FEFO (el que vence primero entre los que tienen stock) en vez de dejarlo
-a criterio de quien carga los datos, y exige un paciente asociado — reforzado también por una
+a criterio de quien carga los datos, busca al paciente por DNI en vez de un desplegable con
+todos los pacientes (no escala), y exige un paciente asociado — reforzado también por una
 restricción en la base, no solo en el formulario. Dos alertas corren en paralelo: stock por
 debajo del mínimo definido para un medicamento, y lotes a 30 días o menos de vencer aunque el
 medicamento todavía tenga stock en otro lote.
+
+El CRUD de este módulo no es parejo entre tablas, a propósito: cada una tiene un nivel de
+mutabilidad distinto según lo que representa. Un **medicamento** se puede editar libremente,
+y "eliminar" es en realidad una baja lógica (deja de ofrecerse para nuevas entradas de stock,
+pero sigue visible en el listado y en el historial — nada de datos huérfanos). Un **lote**
+solo se puede editar o borrar mientras no tenga ningún movimiento de stock asociado — en el
+momento en que se usó una sola vez, queda congelado. Un **movimiento de stock** no se edita ni
+se borra nunca, bajo ningún caso: es un libro contable, y un error se corrige con un
+movimiento nuevo que compensa al anterior, no reescribiendo la historia.
 
 ## Modelo de datos y cumplimiento normativo
 
@@ -109,8 +119,9 @@ de leer.
 
 - [ ] Corregir el borrado de consultas y antecedentes: hoy es físico (`DELETE`), y la
       normativa que sigue el proyecto exige retención de 10 años y borrado lógico, no físico
-- [ ] Edición de un medicamento ya cargado (hoy solo admite alta)
-- [ ] Historial de movimientos de stock por medicamento (hoy se ve el resultado, no el detalle)
+- [ ] Historial/listado de movimientos de stock por medicamento (hoy se ve el resultado, no
+      el detalle de entradas/salidas) — paso previo para poder agregar un botón de "corregir
+      este movimiento" que pre-complete el movimiento compensatorio
 - [ ] PWA, para poder "instalar" la app en las computadoras del consultorio
 - [ ] Automatizar el ping periódico que evite la pausa por inactividad del plan gratuito
 - [ ] Backup automático de la base (el plan gratuito no lo incluye)
