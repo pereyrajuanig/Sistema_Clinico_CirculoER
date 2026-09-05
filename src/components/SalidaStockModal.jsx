@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { limpiarDni, formatearDni } from '@/lib/dni'
 
 function formatFecha(value) {
   if (!value) return ''
   return new Date(value + 'T00:00:00').toLocaleDateString('es-AR', { dateStyle: 'medium' })
+}
+
+function estaProximoAVencer(fechaVencimiento) {
+  const limite = new Date()
+  limite.setDate(limite.getDate() + 30)
+  return fechaVencimiento <= limite.toISOString().slice(0, 10)
 }
 
 export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }) {
@@ -12,14 +19,18 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
   const [medicamentoId, setMedicamentoId] = useState('')
   const [loteSugerido, setLoteSugerido] = useState(null)
   const [buscandoLote, setBuscandoLote] = useState(false)
-  const [pacientes, setPacientes] = useState([])
-  const [pacienteId, setPacienteId] = useState('')
+  const [dniBusqueda, setDniBusqueda] = useState('')
+  const [pacienteEncontrado, setPacienteEncontrado] = useState(null)
+  const [buscandoPaciente, setBuscandoPaciente] = useState(false)
+  const [dniError, setDniError] = useState('')
   const [consultas, setConsultas] = useState([])
   const [consultaId, setConsultaId] = useState('')
   const [cantidad, setCantidad] = useState('')
   const [motivo, setMotivo] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const medicamentoSeleccionado = medicamentos.find((m) => m.id === medicamentoId)
 
   useEffect(() => {
     supabase
@@ -29,15 +40,6 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
       .then(({ data, error }) => {
         if (error) setError(error.message)
         else setProfesionales(data)
-      })
-
-    supabase
-      .from('pacientes')
-      .select('id, nombre, apellido')
-      .order('apellido')
-      .then(({ data, error }) => {
-        if (error) setError(error.message)
-        else setPacientes(data)
       })
   }, [])
 
@@ -67,8 +69,42 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
       })
   }, [medicamentoId])
 
+  // Busca el paciente por DNI en vez de cargar el listado completo — no escala tener
+  // miles de pacientes en un <select>
   useEffect(() => {
-    if (!pacienteId) {
+    const dni = limpiarDni(dniBusqueda)
+    setPacienteEncontrado(null)
+    setDniError('')
+
+    if (dni.length < 7) return
+
+    setBuscandoPaciente(true)
+
+    const timeoutId = setTimeout(() => {
+      supabase
+        .from('pacientes')
+        .select('id, nombre, apellido, dni')
+        .eq('dni', dni)
+        .maybeSingle()
+        .then(({ data, error }) => {
+          setBuscandoPaciente(false)
+          if (error) {
+            setDniError(error.message)
+            return
+          }
+          if (!data) {
+            setDniError('No se encontró ningún paciente con ese DNI.')
+            return
+          }
+          setPacienteEncontrado(data)
+        })
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [dniBusqueda])
+
+  useEffect(() => {
+    if (!pacienteEncontrado) {
       setConsultas([])
       setConsultaId('')
       return
@@ -77,13 +113,13 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
     supabase
       .from('consultas')
       .select('id, fecha, motivo')
-      .eq('paciente_id', pacienteId)
+      .eq('paciente_id', pacienteEncontrado.id)
       .order('fecha', { ascending: false })
       .then(({ data, error }) => {
         if (error) setError(error.message)
         else setConsultas(data)
       })
-  }, [pacienteId])
+  }, [pacienteEncontrado])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -93,8 +129,8 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
       setError('Elegí quién administra antes de guardar.')
       return
     }
-    if (!pacienteId) {
-      setError('Elegí a qué paciente se le administra.')
+    if (!pacienteEncontrado) {
+      setError('Buscá y confirmá el paciente por DNI antes de guardar.')
       return
     }
     if (!loteSugerido) {
@@ -111,7 +147,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
     const { error } = await supabase.from('movimientos_stock').insert({
       lote_id: loteSugerido.lote_id,
       usuario_id: profesionalId,
-      paciente_id: pacienteId,
+      paciente_id: pacienteEncontrado.id,
       consulta_id: consultaId || null,
       tipo: 'salida',
       cantidad: Number(cantidad),
@@ -182,39 +218,67 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
                   </option>
                 ))}
               </select>
-              {medicamentoId && (
+              {medicamentoSeleccionado && (
                 <p className="text-sm text-text-secondary">
-                  {buscandoLote
-                    ? 'Buscando lote disponible...'
-                    : loteSugerido
-                      ? `Se va a descontar del lote ${loteSugerido.numero_lote || '(sin número)'} — vence ${formatFecha(loteSugerido.fecha_vencimiento)} — ${loteSugerido.stock_actual} disponibles.`
-                      : 'No hay stock disponible en ningún lote de este medicamento.'}
+                  {[
+                    medicamentoSeleccionado.presentacion,
+                    medicamentoSeleccionado.concentracion,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'Sin presentación ni concentración cargadas.'}
+                </p>
+              )}
+              {medicamentoId && !buscandoLote && !loteSugerido && (
+                <p className="text-sm text-alert font-semibold">
+                  No hay stock disponible en ningún lote de este medicamento.
+                </p>
+              )}
+              {medicamentoId && buscandoLote && (
+                <p className="text-sm text-text-secondary">Buscando lote disponible...</p>
+              )}
+              {medicamentoId && !buscandoLote && loteSugerido && (
+                <p
+                  className={
+                    'text-sm ' +
+                    (estaProximoAVencer(loteSugerido.fecha_vencimiento)
+                      ? 'text-alert font-semibold'
+                      : 'text-text-secondary')
+                  }
+                >
+                  Se va a descontar del lote {loteSugerido.numero_lote || '(sin número)'} — vence{' '}
+                  {formatFecha(loteSugerido.fecha_vencimiento)} — {loteSugerido.stock_actual}{' '}
+                  disponibles.
+                  {estaProximoAVencer(loteSugerido.fecha_vencimiento) && ' Está próximo a vencer.'}
                 </p>
               )}
             </div>
 
             <div className="space-y-1">
               <label className="text-sm text-text-secondary">
-                Paciente <span className="text-alert">*</span>
+                DNI del paciente <span className="text-alert">*</span>
               </label>
-              <select
+              <input
                 required
-                value={pacienteId}
-                onChange={(e) => setPacienteId(e.target.value)}
+                value={dniBusqueda}
+                onChange={(e) => setDniBusqueda(e.target.value)}
+                placeholder="Ej: 12345678"
                 className="input"
-              >
-                <option value="" disabled>
-                  Elegir paciente...
-                </option>
-                {pacientes.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.apellido}, {p.nombre}
-                  </option>
-                ))}
-              </select>
+              />
+              {buscandoPaciente && (
+                <p className="text-sm text-text-secondary">Buscando paciente...</p>
+              )}
+              {!buscandoPaciente && dniError && <p className="text-sm text-alert">{dniError}</p>}
+              {!buscandoPaciente && pacienteEncontrado && (
+                <p className="text-sm text-text-secondary">
+                  Paciente: <span className="text-text-primary font-medium">
+                    {pacienteEncontrado.apellido}, {pacienteEncontrado.nombre}
+                  </span>{' '}
+                  (DNI {formatearDni(pacienteEncontrado.dni)})
+                </p>
+              )}
             </div>
 
-            {pacienteId && consultas.length > 0 && (
+            {pacienteEncontrado && consultas.length > 0 && (
               <div className="space-y-1">
                 <label className="text-sm text-text-secondary">Consulta relacionada</label>
                 <select
