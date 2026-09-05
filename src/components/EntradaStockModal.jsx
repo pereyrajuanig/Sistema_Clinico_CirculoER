@@ -6,9 +6,9 @@ function hoyISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
-export default function EntradaStockModal({ medicamentos, onClose, onRegistrado }) {
+export default function EntradaStockModal({ medicamentos, medicamentoIdInicial, onClose, onRegistrado }) {
   const { session } = useAuth()
-  const [medicamentoId, setMedicamentoId] = useState('')
+  const [medicamentoId, setMedicamentoId] = useState(medicamentoIdInicial || '')
   const [numeroLote, setNumeroLote] = useState('')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
   const [cantidad, setCantidad] = useState('')

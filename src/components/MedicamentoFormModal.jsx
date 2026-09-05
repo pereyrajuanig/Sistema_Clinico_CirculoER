@@ -5,12 +5,18 @@ const initialForm = {
   nombre: '',
   presentacion: '',
   concentracion: '',
-  unidad_medida: '',
   stock_minimo: '',
 }
 
-export default function MedicamentoFormModal({ onClose, onSaved }) {
-  const [form, setForm] = useState(initialForm)
+export default function MedicamentoFormModal({ medicamento, onClose, onSaved }) {
+  const esEdicion = Boolean(medicamento)
+  const [form, setForm] = useState(() =>
+    esEdicion
+      ? Object.fromEntries(
+          Object.keys(initialForm).map((key) => [key, medicamento[key] ?? ''])
+        )
+      : initialForm
+  )
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -27,15 +33,14 @@ export default function MedicamentoFormModal({ onClose, onSaved }) {
       nombre: form.nombre,
       presentacion: form.presentacion || null,
       concentracion: form.concentracion || null,
-      unidad_medida: form.unidad_medida || null,
       stock_minimo: form.stock_minimo === '' ? null : Number(form.stock_minimo),
     }
 
-    const { data, error } = await supabase
-      .from('medicamentos')
-      .insert(payload)
-      .select()
-      .single()
+    const query = esEdicion
+      ? supabase.from('medicamentos').update(payload).eq('id', medicamento.id)
+      : supabase.from('medicamentos').insert(payload)
+
+    const { data, error } = await query.select().single()
 
     setLoading(false)
 
@@ -52,7 +57,9 @@ export default function MedicamentoFormModal({ onClose, onSaved }) {
       <div className="bg-surface rounded-lg border border-border shadow-sm w-full max-w-md">
         <form onSubmit={handleSubmit}>
           <div className="px-4 sm:px-6 py-4 border-b border-border">
-            <h2 className="text-lg font-semibold text-text-primary">Nuevo medicamento</h2>
+            <h2 className="text-lg font-semibold text-text-primary">
+              {esEdicion ? 'Editar medicamento' : 'Nuevo medicamento'}
+            </h2>
           </div>
 
           <div className="p-4 sm:p-6 space-y-4">
@@ -74,25 +81,14 @@ export default function MedicamentoFormModal({ onClose, onSaved }) {
               />
             </Field>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Concentración">
-                <input
-                  value={form.concentracion}
-                  onChange={handleChange('concentracion')}
-                  placeholder="Ej: 500 mg"
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Unidad de medida">
-                <input
-                  value={form.unidad_medida}
-                  onChange={handleChange('unidad_medida')}
-                  placeholder="Ej: comprimido, ampolla"
-                  className="input"
-                />
-              </Field>
-            </div>
+            <Field label="Concentración">
+              <input
+                value={form.concentracion}
+                onChange={handleChange('concentracion')}
+                placeholder="Ej: 500 mg"
+                className="input"
+              />
+            </Field>
 
             <Field label="Stock mínimo">
               <input
@@ -113,7 +109,7 @@ export default function MedicamentoFormModal({ onClose, onSaved }) {
               Cancelar
             </button>
             <button type="submit" disabled={loading} className="btn-primary">
-              {loading ? 'Guardando...' : 'Guardar medicamento'}
+              {loading ? 'Guardando...' : esEdicion ? 'Guardar cambios' : 'Guardar medicamento'}
             </button>
           </div>
         </form>
