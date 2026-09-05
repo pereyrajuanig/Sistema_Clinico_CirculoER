@@ -9,7 +9,7 @@ function formatFecha(value) {
 
 export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre, onClose, onCambio }) {
   const [lotes, setLotes] = useState([])
-  const [loteIdsConMovimientos, setLoteIdsConMovimientos] = useState(new Set())
+  const [loteIdsConSalidas, setLoteIdsConSalidas] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [editingLote, setEditingLote] = useState(null)
@@ -33,20 +33,26 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
 
       const loteIds = stockLotes.map((l) => l.lote_id)
 
-      const { data: movimientos, error: movimientosError } =
+      // El movimiento de tipo 'entrada' que crea el lote no cuenta como "uso" — todo lote
+      // lo tiene siempre. Lo que bloquea editar/borrar es que ya se haya sacado algo (salida).
+      const { data: salidas, error: salidasError } =
         loteIds.length > 0
-          ? await supabase.from('movimientos_stock').select('lote_id').in('lote_id', loteIds)
+          ? await supabase
+              .from('movimientos_stock')
+              .select('lote_id')
+              .eq('tipo', 'salida')
+              .in('lote_id', loteIds)
           : { data: [], error: null }
 
       setLoading(false)
 
-      if (movimientosError) {
-        setError(movimientosError.message)
+      if (salidasError) {
+        setError(salidasError.message)
         return
       }
 
       setLotes(stockLotes)
-      setLoteIdsConMovimientos(new Set(movimientos.map((m) => m.lote_id)))
+      setLoteIdsConSalidas(new Set(salidas.map((m) => m.lote_id)))
     }
 
     fetchLotes()
@@ -69,7 +75,13 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
   }
 
   async function handleEliminarLote(loteId) {
-    if (!window.confirm('¿Eliminar este lote? Esta acción no se puede deshacer.')) return
+    if (
+      !window.confirm(
+        '¿Eliminar este lote? Se borra también su movimiento de entrada. Esta acción no se puede deshacer.'
+      )
+    ) {
+      return
+    }
 
     const { error } = await supabase.from('lotes').delete().eq('id', loteId)
 
@@ -99,7 +111,7 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
           ) : (
             <ul className="space-y-2">
               {lotes.map((l) => {
-                const tieneMovimientos = loteIdsConMovimientos.has(l.lote_id)
+                const tieneSalidas = loteIdsConSalidas.has(l.lote_id)
 
                 return (
                   <li
@@ -114,9 +126,9 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
                         Vence {formatFecha(l.fecha_vencimiento)} — stock actual: {l.stock_actual}
                       </p>
                     </div>
-                    {tieneMovimientos ? (
+                    {tieneSalidas ? (
                       <p className="text-sm text-text-secondary shrink-0">
-                        Ya tiene movimientos
+                        Ya tiene salidas registradas
                       </p>
                     ) : (
                       <div className="flex gap-3 shrink-0">
