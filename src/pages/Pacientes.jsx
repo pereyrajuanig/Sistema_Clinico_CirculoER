@@ -96,13 +96,17 @@ export default function Pacientes() {
         <div className="flex items-center gap-3">
           <img src={logo} alt="" className="h-20 w-20 object-contain" />
           <h1 className="text-4xl font-bold text-text-primary">Pacientes</h1>
+          <div className="h-10 w-px bg-border mx-1" />
+          <Link
+            to="/medicamentos"
+            className="bg-primary text-accent-marino border border-accent-marino rounded-lg px-3 py-1.5 text-base font-semibold transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+          >
+            Medicamentos
+          </Link>
         </div>
         <div className="flex items-center gap-2">
           <Link to="/proximos-controles" className="btn-secondary border border-border px-3 py-1.5">
             Próximos controles
-          </Link>
-          <Link to="/medicamentos" className="btn-secondary border border-border px-3 py-1.5">
-            Medicamentos
           </Link>
           <ThemeToggle />
           <button
