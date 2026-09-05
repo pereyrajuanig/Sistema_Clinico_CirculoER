@@ -102,7 +102,11 @@ solo se puede editar o borrar mientras no se le haya sacado stock todavía (no a
 real es "sin salidas") — en el momento en que se usó una sola vez, queda congelado. Un
 **movimiento de stock** no se edita ni
 se borra nunca, bajo ningún caso: es un libro contable, y un error se corrige con un
-movimiento nuevo que compensa al anterior, no reescribiendo la historia.
+movimiento nuevo que compensa al anterior, no reescribiendo la historia. El historial
+completo, de todos los medicamentos juntos, vive en su propia pantalla de solo lectura,
+con saldo acumulado calculado por separado para cada medicamento (mezclar el de dos
+medicamentos distintos no tendría sentido) y filtros por medicamento, tipo y fecha —
+coherente con esa misma regla de inmutabilidad.
 
 ## Modelo de datos y cumplimiento normativo
 
@@ -121,9 +125,8 @@ de leer.
 
 - [ ] Corregir el borrado de consultas y antecedentes: hoy es físico (`DELETE`), y la
       normativa que sigue el proyecto exige retención de 10 años y borrado lógico, no físico
-- [ ] Historial/listado de movimientos de stock por medicamento (hoy se ve el resultado, no
-      el detalle de entradas/salidas) — paso previo para poder agregar un botón de "corregir
-      este movimiento" que pre-complete el movimiento compensatorio
+- [ ] Botón "corregir este movimiento" en el historial de stock, que pre-complete el
+      movimiento compensatorio en vez de armarlo a mano
 - [ ] PWA, para poder "instalar" la app en las computadoras del consultorio
 - [ ] Automatizar el ping periódico que evite la pausa por inactividad del plan gratuito
 - [ ] Backup automático de la base (el plan gratuito no lo incluye)

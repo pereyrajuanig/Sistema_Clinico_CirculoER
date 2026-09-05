@@ -105,7 +105,7 @@ export default function Pacientes() {
           </Link>
         </div>
         <div className="flex items-center gap-2">
-          <Link to="/proximos-controles" className="btn-secondary border border-border px-3 py-1.5">
+          <Link to="/proximos-controles" className="btn-secondary px-3 py-1.5">
             Próximos controles
           </Link>
           <ThemeToggle />

@@ -7,6 +7,7 @@ import Pacientes from '@/pages/Pacientes'
 import HistoriaClinica from '@/pages/HistoriaClinica'
 import ProximosControles from '@/pages/ProximosControles'
 import Medicamentos from '@/pages/Medicamentos'
+import HistorialMovimientos from '@/pages/HistorialMovimientos'
 
 export default function App() {
   return (
@@ -44,6 +45,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Medicamentos />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/medicamentos/historial"
+              element={
+                <ProtectedRoute>
+                  <HistorialMovimientos />
                 </ProtectedRoute>
               }
             />

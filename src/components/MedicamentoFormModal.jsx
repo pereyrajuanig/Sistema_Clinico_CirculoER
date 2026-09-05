@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { PRESENTACIONES, mensajeErrorMedicamento } from '@/lib/medicamentos'
 
 const initialForm = {
   nombre: '',
   presentacion: '',
+  presentacion_detalle: '',
   concentracion: '',
   stock_minimo: '',
 }
@@ -29,9 +31,12 @@ export default function MedicamentoFormModal({ medicamento, onClose, onSaved }) 
     setError('')
     setLoading(true)
 
+    const esOtra = form.presentacion === 'Otra'
+
     const payload = {
       nombre: form.nombre,
       presentacion: form.presentacion || null,
+      presentacion_detalle: esOtra ? form.presentacion_detalle : null,
       concentracion: form.concentracion || null,
       stock_minimo: form.stock_minimo === '' ? null : Number(form.stock_minimo),
     }
@@ -45,7 +50,7 @@ export default function MedicamentoFormModal({ medicamento, onClose, onSaved }) 
     setLoading(false)
 
     if (error) {
-      setError(error.message)
+      setError(mensajeErrorMedicamento(error))
       return
     }
 
@@ -73,13 +78,27 @@ export default function MedicamentoFormModal({ medicamento, onClose, onSaved }) 
             </Field>
 
             <Field label="Presentación">
-              <input
-                value={form.presentacion}
-                onChange={handleChange('presentacion')}
-                placeholder="Ej: comprimidos, ampollas, jarabe"
-                className="input"
-              />
+              <select value={form.presentacion} onChange={handleChange('presentacion')} className="input">
+                <option value="">Sin especificar</option>
+                {PRESENTACIONES.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
             </Field>
+
+            {form.presentacion === 'Otra' && (
+              <Field label="Especificar presentación" required>
+                <input
+                  required
+                  value={form.presentacion_detalle}
+                  onChange={handleChange('presentacion_detalle')}
+                  placeholder="Ej: Óvulos"
+                  className="input"
+                />
+              </Field>
+            )}
 
             <Field label="Concentración">
               <input
