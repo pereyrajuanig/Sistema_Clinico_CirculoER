@@ -163,7 +163,7 @@ export default function PacienteFormModal({ paciente, onClose, onSaved }) {
             </Field>
           </div>
 
-          {error && <p className="px-4 sm:px-6 text-base text-alert -mt-2 pb-2">{error}</p>}
+          {error && <p className="px-4 sm:px-6 text-base text-text-primary -mt-2 pb-2">{error}</p>}
 
           <div className="px-4 sm:px-6 py-4 border-t border-border flex justify-end gap-3">
             <button type="button" onClick={onClose} className="btn-secondary">
@@ -184,7 +184,7 @@ function Field({ label, required, children }) {
     <div className="space-y-1">
       <label className="text-sm text-text-secondary">
         {label}
-        {required && <span className="text-alert"> *</span>}
+        {required && <span className="text-text-primary"> *</span>}
       </label>
       {children}
     </div>

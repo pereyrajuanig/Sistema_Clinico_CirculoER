@@ -66,7 +66,7 @@ export default function Login() {
           />
         </div>
 
-        {error && <p className="text-sm text-alert">{error}</p>}
+        {error && <p className="text-sm text-text-primary">{error}</p>}
 
         <button type="submit" disabled={loading} className="btn-primary w-full">
           {loading ? 'Ingresando...' : 'Ingresar'}

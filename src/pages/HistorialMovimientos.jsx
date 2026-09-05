@@ -108,7 +108,7 @@ export default function HistorialMovimientos() {
       </header>
 
       <main className="p-4 sm:p-6 space-y-4 max-w-6xl mx-auto">
-        {error && <p className="text-base text-alert">{error}</p>}
+        {error && <p className="text-base text-text-primary">{error}</p>}
 
         <div className="bg-surface border border-border rounded-lg p-4 flex flex-wrap gap-4 items-end">
           <div className="space-y-1">
@@ -210,7 +210,7 @@ export default function HistorialMovimientos() {
                         <span
                           className={
                             m.tipo === 'entrada'
-                              ? 'text-success font-semibold'
+                              ? 'text-text-primary font-semibold'
                               : 'text-text-primary'
                           }
                         >

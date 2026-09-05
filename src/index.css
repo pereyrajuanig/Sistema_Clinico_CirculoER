@@ -15,6 +15,13 @@
   --color-success: #9bc2a6;
   --color-border: #e8e1d3;
 
+  /* Texto sobre fondo `primary`: NO se redefine en modo oscuro a propósito.
+     `primary` es un celeste pastel claro en ambos temas, así que el texto que va
+     encima necesita quedarse siempre oscuro — a diferencia de text-primary, que
+     se invierte según el tema para contrastar contra el FONDO DE PÁGINA, no
+     contra este botón. Ver CLAUDE.md, sección de contraste. */
+  --color-on-primary: #33363a;
+
   --font-sans: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -47,16 +54,16 @@
   }
 
   .btn-primary {
-    @apply bg-accent-marino text-white rounded-lg px-4 py-2.5 text-base font-semibold transition-colors
-      hover:bg-accent-marino-hover active:bg-accent-marino-hover
-      disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-accent-marino
-      focus:outline-none focus:ring-2 focus:ring-accent-marino focus:ring-offset-1;
+    @apply bg-primary text-on-primary rounded-lg px-4 py-2.5 text-base font-semibold transition-colors
+      hover:bg-primary-hover active:bg-primary-hover
+      disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary
+      focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1;
     min-height: 44px;
   }
 
   .btn-secondary {
-    @apply border border-border text-text-secondary rounded-lg px-4 py-2.5 text-base font-semibold
-      transition-colors hover:text-text-primary hover:bg-border/50
+    @apply border border-border bg-border/70 text-text-primary rounded-lg px-4 py-2.5 text-base
+      font-semibold transition-colors hover:bg-border
       focus:outline-none focus:ring-2 focus:ring-border;
     min-height: 44px;
   }
