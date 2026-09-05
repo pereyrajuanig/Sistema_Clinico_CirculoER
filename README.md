@@ -97,8 +97,10 @@ El CRUD de este módulo no es parejo entre tablas, a propósito: cada una tiene 
 mutabilidad distinto según lo que representa. Un **medicamento** se puede editar libremente,
 y "eliminar" es en realidad una baja lógica (deja de ofrecerse para nuevas entradas de stock,
 pero sigue visible en el listado y en el historial — nada de datos huérfanos). Un **lote**
-solo se puede editar o borrar mientras no tenga ningún movimiento de stock asociado — en el
-momento en que se usó una sola vez, queda congelado. Un **movimiento de stock** no se edita ni
+solo se puede editar o borrar mientras no se le haya sacado stock todavía (no alcanza con
+"sin movimientos": crearlo ya genera su propio movimiento de entrada, así que la condición
+real es "sin salidas") — en el momento en que se usó una sola vez, queda congelado. Un
+**movimiento de stock** no se edita ni
 se borra nunca, bajo ningún caso: es un libro contable, y un error se corrige con un
 movimiento nuevo que compensa al anterior, no reescribiendo la historia.
 
