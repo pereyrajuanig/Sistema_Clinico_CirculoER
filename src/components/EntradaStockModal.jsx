@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/lib/AuthContext'
+import { formatearPresentacion, identificarMedicamento } from '@/lib/medicamentos'
 
 function hoyISO() {
   return new Date().toISOString().slice(0, 10)
@@ -85,8 +86,8 @@ export default function EntradaStockModal({ medicamentos, medicamentoIdInicial, 
                 </option>
                 {medicamentos.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.nombre}
-                    {m.presentacion ? ` (${m.presentacion})` : ''}
+                    {identificarMedicamento(m)}
+                    {formatearPresentacion(m) ? ` (${formatearPresentacion(m)})` : ''}
                   </option>
                 ))}
               </select>

@@ -67,7 +67,7 @@ export default function ProximosControles() {
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Link to="/" className="btn-secondary border border-border px-3 py-1.5">
+          <Link to="/" className="btn-secondary px-3 py-1.5">
             ← Volver a pacientes
           </Link>
         </div>

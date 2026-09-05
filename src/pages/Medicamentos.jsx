@@ -6,6 +6,7 @@ import EntradaStockModal from '@/components/EntradaStockModal'
 import SalidaStockModal from '@/components/SalidaStockModal'
 import LotesMedicamentoModal from '@/components/LotesMedicamentoModal'
 import ThemeToggle from '@/components/ThemeToggle'
+import { formatearPresentacion, identificarMedicamento } from '@/lib/medicamentos'
 import logo from '@/assets/Logo-Circulo_FondoTransparente.png'
 
 function formatFecha(value) {
@@ -76,7 +77,7 @@ export default function Medicamentos() {
   const medicamentosActivos = medicamentos.filter((m) => m.activo !== false)
 
   function nombreMedicamento(medicamentoId) {
-    return medicamentos.find((m) => m.id === medicamentoId)?.nombre || 'Medicamento'
+    return identificarMedicamento(medicamentos.find((m) => m.id === medicamentoId)) || 'Medicamento'
   }
 
   function handleMedicamentoGuardado(guardado) {
@@ -95,7 +96,7 @@ export default function Medicamentos() {
   async function handleToggleActivo(medicamento) {
     const activar = medicamento.activo === false
 
-    if (!activar && !window.confirm(`¿Dar de baja "${medicamento.nombre}"? No va a poder elegirse para nuevas entradas de stock, pero sigue visible en el listado y en el historial.`)) {
+    if (!activar && !window.confirm(`¿Dar de baja "${identificarMedicamento(medicamento)}"? No va a poder elegirse para nuevas entradas de stock, pero sigue visible en el listado y en el historial.`)) {
       return
     }
 
@@ -125,10 +126,17 @@ export default function Medicamentos() {
         <div className="flex items-center gap-3">
           <img src={logo} alt="" className="h-20 w-20 object-contain" />
           <h1 className="text-4xl font-bold text-text-primary">Medicamentos</h1>
+          <div className="h-10 w-px bg-border mx-1" />
+          <Link
+            to="/medicamentos/historial"
+            className="bg-primary text-accent-marino border border-accent-marino rounded-lg px-3 py-1.5 text-base font-semibold transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+          >
+            Historial de movimientos
+          </Link>
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Link to="/" className="btn-secondary border border-border px-3 py-1.5">
+          <Link to="/" className="btn-secondary px-3 py-1.5">
             ← Volver a pacientes
           </Link>
         </div>
@@ -145,7 +153,7 @@ export default function Medicamentos() {
                 <ul className="text-alert text-base list-disc list-inside">
                   {medicamentosBajoMinimo.map((m) => (
                     <li key={m.id}>
-                      {m.nombre}: {stockPorMedicamento[m.id] || 0} (mínimo {m.stock_minimo})
+                      {identificarMedicamento(m)}: {stockPorMedicamento[m.id] || 0} (mínimo {m.stock_minimo})
                     </li>
                   ))}
                 </ul>
@@ -179,10 +187,10 @@ export default function Medicamentos() {
           >
             + Nuevo medicamento
           </button>
-          <button onClick={() => setShowEntradaModal(true)} className="btn-secondary border border-border">
+          <button onClick={() => setShowEntradaModal(true)} className="btn-secondary">
             + Registrar entrada
           </button>
-          <button onClick={() => setShowSalidaModal(true)} className="btn-secondary border border-border">
+          <button onClick={() => setShowSalidaModal(true)} className="btn-secondary">
             + Registrar salida
           </button>
         </div>
@@ -214,12 +222,12 @@ export default function Medicamentos() {
                     return (
                       <tr key={m.id} className="border-b border-border last:border-0">
                         <td className="px-4 py-3 text-text-primary">
-                          {m.nombre}
+                          {identificarMedicamento(m)}
                           {inactivo && (
                             <span className="ml-2 text-sm text-text-secondary">(dado de baja)</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-text-primary">{m.presentacion || '—'}</td>
+                        <td className="px-4 py-3 text-text-primary">{formatearPresentacion(m) || '—'}</td>
                         <td className="px-4 py-3">
                           <span className={bajoMinimo ? 'text-alert font-semibold' : 'text-text-primary'}>
                             {stock}
@@ -277,7 +285,7 @@ export default function Medicamentos() {
       {medicamentoParaLotes && (
         <LotesMedicamentoModal
           medicamentoId={medicamentoParaLotes.id}
-          medicamentoNombre={medicamentoParaLotes.nombre}
+          medicamentoNombre={identificarMedicamento(medicamentoParaLotes)}
           onClose={() => setMedicamentoParaLotes(null)}
           onCambio={fetchTodo}
         />
@@ -310,7 +318,7 @@ export default function Medicamentos() {
         <div className="fixed inset-0 bg-text-primary/40 flex items-center justify-center p-4 z-50">
           <div className="bg-surface rounded-lg border border-border shadow-sm w-full max-w-sm p-6 text-center space-y-4">
             <p className="text-text-primary text-lg font-semibold">
-              Medicamento cargado: {medicamentoCreado.nombre}
+              Medicamento cargado: {identificarMedicamento(medicamentoCreado)}
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => setMedicamentoCreado(null)} className="btn-secondary">

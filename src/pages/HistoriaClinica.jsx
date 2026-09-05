@@ -246,7 +246,7 @@ export default function HistoriaClinica() {
             <ThemeToggle />
             <Link
               to="/"
-              className="btn-secondary inline-flex items-center gap-1.5 border border-border px-3 py-1.5"
+              className="btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5"
             >
               ← Volver a pacientes
             </Link>
@@ -334,7 +334,7 @@ export default function HistoriaClinica() {
                 setEditingAntecedente(null)
                 setShowAntecedenteModal(true)
               }}
-              className="btn-primary px-3 py-1.5"
+              className="bg-primary text-accent-marino rounded-lg px-3 py-1.5 text-base font-semibold transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             >
               + Agregar antecedente
             </button>
@@ -377,7 +377,10 @@ export default function HistoriaClinica() {
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-text-primary">Laboratorio</h2>
-            <button onClick={() => setShowLabModal(true)} className="btn-primary px-3 py-1.5">
+            <button
+              onClick={() => setShowLabModal(true)}
+              className="bg-primary text-accent-marino rounded-lg px-3 py-1.5 text-base font-semibold transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+            >
               + Cargar resultados
             </button>
           </div>

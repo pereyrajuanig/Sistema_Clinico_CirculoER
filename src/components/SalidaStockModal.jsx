@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { limpiarDni, formatearDni } from '@/lib/dni'
+import { formatearPresentacion, identificarMedicamento } from '@/lib/medicamentos'
 
 function formatFecha(value) {
   if (!value) return ''
@@ -213,15 +214,15 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
                 </option>
                 {medicamentos.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.nombre}
-                    {m.presentacion ? ` (${m.presentacion})` : ''}
+                    {identificarMedicamento(m)}
+                    {formatearPresentacion(m) ? ` (${formatearPresentacion(m)})` : ''}
                   </option>
                 ))}
               </select>
               {medicamentoSeleccionado && (
                 <p className="text-sm text-text-secondary">
                   {[
-                    medicamentoSeleccionado.presentacion,
+                    formatearPresentacion(medicamentoSeleccionado),
                     medicamentoSeleccionado.concentracion,
                   ]
                     .filter(Boolean)
