@@ -1,6 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { useAuth } from '@/lib/AuthContext'
 import { GRUPOS_CARGA, OPCIONES_CRUCES, OPCIONES_CONTIENE } from '@/lib/laboratorio'
 
 function hoyISO() {
@@ -29,7 +28,8 @@ function combinarSimple(examen, valor) {
 }
 
 export default function LaboratorioFormModal({ pacienteId, onClose, onCreated }) {
-  const { session } = useAuth()
+  const [profesionales, setProfesionales] = useState([])
+  const [profesionalId, setProfesionalId] = useState(null)
   const [fecha, setFecha] = useState(hoyISO())
   const [tipoSeleccionado, setTipoSeleccionado] = useState('')
   const [valores, setValores] = useState({})
@@ -38,6 +38,18 @@ export default function LaboratorioFormModal({ pacienteId, onClose, onCreated })
 
   const examen = GRUPOS_CARGA.find((t) => t.nombre === tipoSeleccionado)
   const valor = valores[tipoSeleccionado]
+
+  useEffect(() => {
+    supabase
+      .from('profesionales')
+      .select('id, nombre')
+      .eq('activo', true)
+      .order('nombre')
+      .then(({ data, error }) => {
+        if (error) setError(error.message)
+        else setProfesionales(data)
+      })
+  }, [])
 
   function handleSimpleChange(e) {
     setValores((prev) => ({ ...prev, [tipoSeleccionado]: e.target.value }))
@@ -55,6 +67,10 @@ export default function LaboratorioFormModal({ pacienteId, onClose, onCreated })
     e.preventDefault()
     setError('')
 
+    if (!profesionalId) {
+      setError('Elegí quién carga el resultado.')
+      return
+    }
     if (!examen) {
       setError('Elegí un examen antes de guardar.')
       return
@@ -69,7 +85,7 @@ export default function LaboratorioFormModal({ pacienteId, onClose, onCreated })
           if (!resultado) return null
           return {
             paciente_id: pacienteId,
-            usuario_id: session.user.id,
+            usuario_id: profesionalId,
             tipo_examen: c.nombre,
             resultado,
             fecha,
@@ -110,7 +126,7 @@ export default function LaboratorioFormModal({ pacienteId, onClose, onCreated })
       .from('resultados_laboratorio')
       .insert({
         paciente_id: pacienteId,
-        usuario_id: session.user.id,
+        usuario_id: profesionalId,
         tipo_examen: examen.nombre,
         resultado,
         fecha,
@@ -137,6 +153,30 @@ export default function LaboratorioFormModal({ pacienteId, onClose, onCreated })
           </div>
 
           <div className="p-4 sm:p-6 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm text-text-secondary">
+                ¿Quién carga el resultado? <span className="text-text-primary">*</span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {profesionales.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setProfesionalId(p.id)}
+                    className={
+                      'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
+                      (profesionalId === p.id
+                        ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
+                        : 'bg-surface text-text-primary border-border hover:bg-background')
+                    }
+                    style={{ minHeight: '44px' }}
+                  >
+                    {p.nombre}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-sm text-text-secondary">

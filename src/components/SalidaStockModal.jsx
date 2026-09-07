@@ -37,6 +37,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
     supabase
       .from('profesionales')
       .select('id, nombre')
+      .eq('activo', true)
       .order('nombre')
       .then(({ data, error }) => {
         if (error) setError(error.message)

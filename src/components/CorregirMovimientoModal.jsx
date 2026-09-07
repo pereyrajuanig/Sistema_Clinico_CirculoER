@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { useAuth } from '@/lib/AuthContext'
 import { identificarMedicamento } from '@/lib/medicamentos'
 import { limpiarDni, formatearDni } from '@/lib/dni'
 
@@ -13,7 +12,6 @@ function formatFechaHora(value) {
 // original (es un libro contable). Una entrada se compensa con una salida y viceversa, siempre
 // sobre el mismo lote — no tiene sentido "corregir" creando un lote nuevo.
 export default function CorregirMovimientoModal({ movimiento, onClose, onRegistrado }) {
-  const { session } = useAuth()
   const tipoCompensatorio = movimiento.tipo === 'entrada' ? 'salida' : 'entrada'
   const medicamentoNombre = identificarMedicamento(movimiento.lotes?.medicamentos)
 
@@ -24,8 +22,10 @@ export default function CorregirMovimientoModal({ movimiento, onClose, onRegistr
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Lo de acá para abajo solo se usa cuando la compensación es una salida — igual que
-  // cualquier salida, la base exige profesional y paciente (RF-24)
+  // "¿Quién registra la corrección?" hace falta siempre (tanto si la compensación es
+  // entrada como salida) — el login ahora es una cuenta compartida, no se puede inferir de
+  // la sesión. Lo de DNI/paciente en cambio solo aplica cuando la compensación es una
+  // salida, igual que cualquier salida (la base exige profesional y paciente, RF-24)
   const [profesionales, setProfesionales] = useState([])
   const [profesionalId, setProfesionalId] = useState(null)
   const [stockLote, setStockLote] = useState(null)
@@ -35,16 +35,19 @@ export default function CorregirMovimientoModal({ movimiento, onClose, onRegistr
   const [dniError, setDniError] = useState('')
 
   useEffect(() => {
-    if (tipoCompensatorio !== 'salida') return
-
     supabase
       .from('profesionales')
       .select('id, nombre')
+      .eq('activo', true)
       .order('nombre')
       .then(({ data, error }) => {
         if (error) setError(error.message)
         else setProfesionales(data)
       })
+  }, [])
+
+  useEffect(() => {
+    if (tipoCompensatorio !== 'salida') return
 
     supabase
       .from('stock_por_lote')
@@ -101,11 +104,12 @@ export default function CorregirMovimientoModal({ movimiento, onClose, onRegistr
       return
     }
 
+    if (!profesionalId) {
+      setError('Elegí quién registra la corrección.')
+      return
+    }
+
     if (tipoCompensatorio === 'salida') {
-      if (!profesionalId) {
-        setError('Elegí quién registra la corrección.')
-        return
-      }
       if (!pacienteEncontrado) {
         setError('Buscá y confirmá el paciente por DNI antes de guardar.')
         return
@@ -122,7 +126,7 @@ export default function CorregirMovimientoModal({ movimiento, onClose, onRegistr
       tipoCompensatorio === 'entrada'
         ? {
             lote_id: movimiento.lote_id,
-            usuario_id: session.user.id,
+            usuario_id: profesionalId,
             tipo: 'entrada',
             cantidad: cantidadNum,
             fecha: new Date().toISOString(),
@@ -176,31 +180,29 @@ export default function CorregirMovimientoModal({ movimiento, onClose, onRegistr
               </p>
             </div>
 
-            {tipoCompensatorio === 'salida' && (
-              <div className="space-y-2">
-                <label className="text-sm text-text-secondary">
-                  ¿Quién registra la corrección? <span className="text-alert">*</span>
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {profesionales.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setProfesionalId(p.id)}
-                      className={
-                        'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
-                        (profesionalId === p.id
-                          ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
-                          : 'bg-surface text-text-primary border-border hover:bg-background')
-                      }
-                      style={{ minHeight: '44px' }}
-                    >
-                      {p.nombre}
-                    </button>
-                  ))}
-                </div>
+            <div className="space-y-2">
+              <label className="text-sm text-text-secondary">
+                ¿Quién registra la corrección? <span className="text-alert">*</span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {profesionales.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setProfesionalId(p.id)}
+                    className={
+                      'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
+                      (profesionalId === p.id
+                        ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
+                        : 'bg-surface text-text-primary border-border hover:bg-background')
+                    }
+                    style={{ minHeight: '44px' }}
+                  >
+                    {p.nombre}
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
 
             {tipoCompensatorio === 'salida' && (
               <div className="space-y-1">
