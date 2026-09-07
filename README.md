@@ -25,6 +25,17 @@ personas desde 2 computadoras fijas, no hace falta más que eso. Tailwind v4 per
 un sistema de tokens de color (`src/index.css`) que se reutiliza en modo claro y oscuro sin
 duplicar clases por componente.
 
+**PWA, con un límite deliberado.** La app se puede "instalar" en las computadoras del
+consultorio — ícono propio, ventana sin barra de navegador, como una aplicación de
+escritorio — pero eso es lo único que hace la PWA acá. No agrega soporte offline: es una
+decisión de diseño explícita, no un olvido, porque el consultorio tiene internet estable y
+porque cachear una respuesta de Supabase significaría poder mostrarle a alguien datos
+clínicos desactualizados sin que se note (una alergia que ya no está cargada, o una que sí
+y no aparece). El service worker generado precachea únicamente los archivos estáticos del
+propio build; a propósito no tiene ninguna regla de cache para el dominio de Supabase, así
+que sin conexión la app abre pero no hace nada — que es el comportamiento correcto para
+datos que siempre tienen que ser los reales.
+
 **Tipografía: Atkinson Hyperlegible.** Esta es la decisión que más se nota si la buscás: no es
 la fuente "linda", es la que diseñó el Braille Institute específicamente para maximizar la
 legibilidad en personas con baja visión. Una parte real de los usuarios de este sistema son
@@ -168,7 +179,6 @@ de leer.
 
 ## Qué sigue
 
-- [ ] PWA, para poder "instalar" la app en las computadoras del consultorio
 - [ ] Backup automático de la base (el plan gratuito no lo incluye)
 - [ ] Tests automatizados de los flujos críticos — hoy todo se prueba a mano
 - [ ] Subir el margen de `accent-marino` como texto sobre `primary` (botón "Editar" y accesos
