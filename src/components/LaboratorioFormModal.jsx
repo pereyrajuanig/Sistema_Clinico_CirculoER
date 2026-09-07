@@ -1,30 +1,15 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { GRUPOS_CARGA, OPCIONES_CRUCES, OPCIONES_CONTIENE } from '@/lib/laboratorio'
+import {
+  GRUPOS_CARGA,
+  OPCIONES_CRUCES,
+  OPCIONES_CONTIENE,
+  combinarCampos,
+  combinarSimple,
+} from '@/lib/laboratorio'
 
 function hoyISO() {
   return new Date().toISOString().slice(0, 10)
-}
-
-// Combina los valores de los campos cargados en un solo texto para guardar en `resultado`,
-// agregando la unidad de cada campo que la tenga definida
-function combinarCampos(campos, valores) {
-  return campos
-    .map((c) => {
-      const valor = valores[c.nombre]
-      if (!valor || !valor.trim()) return null
-      const unidad = c.unidad ? ` ${c.unidad}` : ''
-      return `${c.nombre}: ${valor.trim()}${unidad}`
-    })
-    .filter(Boolean)
-    .join(' · ')
-}
-
-// Igual que arriba, pero para exámenes de un solo valor (sin sub-campos)
-function combinarSimple(examen, valor) {
-  const texto = (valor || '').trim()
-  if (!texto) return ''
-  return examen.unidad ? `${texto} ${examen.unidad}` : texto
 }
 
 export default function LaboratorioFormModal({ pacienteId, onClose, onCreated }) {
