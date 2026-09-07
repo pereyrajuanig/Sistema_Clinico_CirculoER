@@ -32,6 +32,7 @@ export default function ProximosControles() {
       const { data, error } = await supabase
         .from('consultas')
         .select('paciente_id, fecha, proximo_control, pacientes(nombre, apellido, telefono, dni)')
+        .is('eliminado_en', null)
         .order('fecha', { ascending: false })
 
       setLoading(false)

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
+import { useAuth } from '@/lib/AuthContext'
 import NuevaConsultaModal from '@/components/NuevaConsultaModal'
 import DocumentosConsulta from '@/components/DocumentosConsulta'
 import AntecedenteFormModal from '@/components/AntecedenteFormModal'
@@ -46,6 +47,7 @@ function signosVitales(c) {
 export default function HistoriaClinica() {
   const { id } = useParams()
   const location = useLocation()
+  const { session } = useAuth()
   const [paciente, setPaciente] = useState(null)
   const [antecedentes, setAntecedentes] = useState([])
   const [consultas, setConsultas] = useState([])
@@ -71,11 +73,13 @@ export default function HistoriaClinica() {
           .from('antecedentes')
           .select('*')
           .eq('paciente_id', id)
+          .is('eliminado_en', null)
           .order('created_at'),
         supabase
           .from('consultas')
-          .select('*, profesionales(nombre)')
+          .select('*, profesionales!profesional_id(nombre)')
           .eq('paciente_id', id)
+          .is('eliminado_en', null)
           .order('fecha', { ascending: false }),
         supabase
           .from('resultados_laboratorio')
@@ -136,9 +140,18 @@ export default function HistoriaClinica() {
   }
 
   async function handleEliminarAntecedente(antecedenteId) {
-    if (!window.confirm('¿Eliminar este antecedente? Esta acción no se puede deshacer.')) return
+    if (
+      !window.confirm(
+        '¿Eliminar este antecedente? Deja de verse en la ficha del paciente. El registro se conserva internamente por la normativa de historia clínica (10 años) — no se puede deshacer desde la aplicación.'
+      )
+    ) {
+      return
+    }
 
-    const { error } = await supabase.from('antecedentes').delete().eq('id', antecedenteId)
+    const { error } = await supabase
+      .from('antecedentes')
+      .update({ eliminado_en: new Date().toISOString(), eliminado_por: session.user.id })
+      .eq('id', antecedenteId)
 
     if (error) {
       setError(error.message)
@@ -163,36 +176,16 @@ export default function HistoriaClinica() {
   async function handleEliminarConsulta(consultaId) {
     if (
       !window.confirm(
-        '¿Eliminar esta consulta? Se van a borrar también sus documentos adjuntos. Esta acción no se puede deshacer.'
+        '¿Eliminar esta consulta? Deja de verse en la ficha, junto con sus documentos adjuntos. Los registros se conservan internamente por la normativa de historia clínica (10 años) — no se puede deshacer desde la aplicación.'
       )
     ) {
       return
     }
 
-    const documentosDeConsulta = documentos.filter((d) => d.consulta_id === consultaId)
-
-    if (documentosDeConsulta.length > 0) {
-      const { error: storageError } = await supabase.storage
-        .from('documentos')
-        .remove(documentosDeConsulta.map((d) => d.url))
-
-      if (storageError) {
-        setError(storageError.message)
-        return
-      }
-
-      const { error: documentosError } = await supabase
-        .from('documentos')
-        .delete()
-        .eq('consulta_id', consultaId)
-
-      if (documentosError) {
-        setError(documentosError.message)
-        return
-      }
-    }
-
-    const { error } = await supabase.from('consultas').delete().eq('id', consultaId)
+    const { error } = await supabase
+      .from('consultas')
+      .update({ eliminado_en: new Date().toISOString(), eliminado_por: session.user.id })
+      .eq('id', consultaId)
 
     if (error) {
       setError(error.message)

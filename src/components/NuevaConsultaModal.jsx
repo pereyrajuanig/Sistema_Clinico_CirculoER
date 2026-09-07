@@ -96,7 +96,7 @@ export default function NuevaConsultaModal({ pacienteId, consulta, onClose, onSa
           ...camposClinicos,
         })
 
-    const { data, error } = await query.select('*, profesionales(nombre)').single()
+    const { data, error } = await query.select('*, profesionales!profesional_id(nombre)').single()
 
     setLoading(false)
 

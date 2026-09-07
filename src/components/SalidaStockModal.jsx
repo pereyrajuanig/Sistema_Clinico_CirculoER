@@ -115,6 +115,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
       .from('consultas')
       .select('id, fecha, motivo')
       .eq('paciente_id', pacienteEncontrado.id)
+      .is('eliminado_en', null)
       .order('fecha', { ascending: false })
       .then(({ data, error }) => {
         if (error) setError(error.message)
