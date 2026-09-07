@@ -15,10 +15,13 @@ que el frontend se porte bien — Row Level Security lo resuelve a nivel de base
 que aunque una consulta se arme mal en el cliente, Postgres igual va a exigir una sesión
 autenticada antes de devolver una fila. El plan gratuito de Supabase fue una decisión
 pragmática, no ideal: es una entidad sin presupuesto de software, y sus límites quedan
-documentados como deuda técnica conocida, no ignorados. Uno de esos límites — el proyecto se
-pausa a los 7 días sin actividad en la API — ya tiene mitigación: un workflow de GitHub
-Actions (`.github/workflows/ping-supabase.yml`) pega contra la API cada 3 días, sin tocar
-ninguna tabla ni depender de una sesión. El otro (no hay backups automáticos) sigue abierto.
+documentados como deuda técnica conocida, no ignorados — y mitigados con GitHub Actions en
+vez de ignorados. El proyecto se pausa a los 7 días sin actividad en la API: un workflow
+(`.github/workflows/ping-supabase.yml`) pega contra la base cada 3 días, sin tocar ninguna
+tabla real ni depender de una sesión. Tampoco incluye backups automáticos: otro workflow
+(`.github/workflows/backup-db.yml`) corre `pg_dump` todos los domingos y sube el resultado a
+un repositorio separado dedicado a backups — separado a propósito, para no mezclar código
+fuente con volcados de datos de salud reales en la misma historia de git.
 
 **Frontend: React 19 + Vite + Tailwind v4.** Sin exceso de dependencias — esto lo usan 3
 personas desde 2 computadoras fijas, no hace falta más que eso. Tailwind v4 permitió definir
@@ -69,7 +72,7 @@ bien".
 tiene sentido que cualquiera pueda crear una cuenta. Los 3 profesionales se dan de alta
 manualmente desde el dashboard de Supabase, un trigger en la base los conecta con su fila en
 `profesionales`, y la sesión queda persistente por computadora (no hace falta volver a
-loguearse en cada uso) con expiración automática a los 45 minutos de inactividad.
+loguearse en cada uso) con expiración automática a los 25 minutos de inactividad.
 
 **Pacientes.** Alta y edición con el modelo de datos completo, listado ordenable, y búsqueda
 por nombre, apellido o DNI que funciona sea cual sea el formato con el que se escriba el
@@ -179,7 +182,6 @@ de leer.
 
 ## Qué sigue
 
-- [ ] Backup automático de la base (el plan gratuito no lo incluye)
 - [ ] Tests automatizados de los flujos críticos — hoy todo se prueba a mano
 - [ ] Subir el margen de `accent-marino` como texto sobre `primary` (botón "Editar" y accesos
       de header como "Medicamentos"/"Historial de movimientos"): da ~4.6:1, pasa el piso de

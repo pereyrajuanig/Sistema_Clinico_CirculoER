@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabaseClient'
 
 const AuthContext = createContext(null)
 
-const TIMEOUT_INACTIVIDAD_MS = 45 * 60 * 1000
+const TIMEOUT_INACTIVIDAD_MS = 25 * 60 * 1000
 const EVENTOS_ACTIVIDAD = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart']
 
 export function AuthProvider(props) {
