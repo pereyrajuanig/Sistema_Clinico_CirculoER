@@ -127,3 +127,27 @@ export const GRUPOS_CARGA = [
 
 export const OPCIONES_CRUCES = CRUCES
 export const OPCIONES_CONTIENE = CONTIENE
+
+// Combina los valores de los campos cargados en un solo texto para guardar en `resultado`,
+// agregando la unidad de cada campo que la tenga definida. Descarta los campos vacíos —
+// no hace falta cargar todos los valores de un examen multi-campo (ej. hemograma) para
+// guardar los que sí se cargaron.
+export function combinarCampos(campos, valores) {
+  return campos
+    .map((c) => {
+      const valor = valores[c.nombre]
+      if (!valor || !valor.trim()) return null
+      const unidad = c.unidad ? ` ${c.unidad}` : ''
+      return `${c.nombre}: ${valor.trim()}${unidad}`
+    })
+    .filter(Boolean)
+    .join(' · ')
+}
+
+// Igual que combinarCampos, pero para exámenes de un solo valor (sin sub-campos) — o para
+// cada campo suelto del atajo "Perfil lipídico" al separarlo en filas reales.
+export function combinarSimple(examen, valor) {
+  const texto = (valor || '').trim()
+  if (!texto) return ''
+  return examen.unidad ? `${texto} ${examen.unidad}` : texto
+}

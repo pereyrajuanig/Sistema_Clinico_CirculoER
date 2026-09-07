@@ -122,7 +122,11 @@ En vez de migrar el esquema para eso, el formulario agrupa la carga visualmente 
 guardar genera las 4 filas con sus tipos reales — el atajo vive en el frontend
 (`src/lib/laboratorio.js`), no en la base. Cada examen multi-valor (hemograma, hepatograma,
 orina completa, urocultivo, coagulograma) tiene sus propios campos con las unidades correctas
-confirmadas con un bioquímico, y el historial los agrupa por tipo y fecha.
+confirmadas con un bioquímico, y el historial los agrupa por tipo y fecha. Este atajo del
+perfil lipídico es, justamente, el primer lugar donde metí tests automatizados (`pnpm
+test`, con Vitest): si el día de mañana se renombra un campo de la lista de exámenes sin
+actualizar el atajo, un test lo detecta ahí — antes solo se hubiera visto como un
+`CHECK constraint` rechazando la fila en producción.
 
 **Medicamentos y stock.** El stock no es un número que se edita — es siempre el resultado de
 sumar y restar movimientos (entradas por reposición, salidas por administración a un
@@ -188,7 +192,9 @@ de leer.
 
 ## Qué sigue
 
-- [ ] Tests automatizados de los flujos críticos — hoy todo se prueba a mano
+- [ ] Tests de componentes (`@testing-library/react` + mocks de `supabase-js`) para los dos
+      flujos que se usan todos los días: alta de paciente y nueva consulta. Hoy los tests
+      automatizados cubren solo lógica pura (`src/lib`), el resto se sigue probando a mano
 - [ ] Subir el margen de `accent-marino` como texto sobre `primary` (botón "Editar" y accesos
       de header como "Medicamentos"/"Historial de movimientos"): da ~4.6:1, pasa el piso de
       WCAG AA pero con poco margen — no es urgente, pero conviene revisarlo si esa paleta
@@ -211,6 +217,7 @@ pnpm dev
 | `pnpm build` | Build de producción |
 | `pnpm preview` | Previsualizar el build |
 | `pnpm lint` | Linter (oxlint) |
+| `pnpm test` | Tests automatizados (Vitest) |
 
 Variables de entorno (`.env`, ver `.env.example`):
 

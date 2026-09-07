@@ -49,4 +49,10 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
     },
   },
+  test: {
+    // Solo lógica pura por ahora (src/lib) — no hay entorno DOM ni mocks de Supabase, así
+    // que no alcanza para testear componentes. Ver CLAUDE.md, sección de tests.
+    environment: 'node',
+    include: ['src/**/*.test.js'],
+  },
 })

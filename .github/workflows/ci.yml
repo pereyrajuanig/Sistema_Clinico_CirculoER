@@ -1,0 +1,26 @@
+name: CI
+
+# Corre en cada push/PR: si alguien rompe una regla de negocio testeada (ej. el atajo de
+# "Perfil lipídico" en el historial de laboratorio) o el build, se nota acá, no en el
+# consultorio.
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
