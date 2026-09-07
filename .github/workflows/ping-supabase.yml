@@ -1,10 +1,14 @@
 name: Ping Supabase
 
 # El plan gratuito de Supabase pausa el proyecto después de 7 días sin actividad en la API.
-# Este workflow pega contra la raíz de la API REST cada 3 días para que nunca llegue a
-# cumplirse ese plazo. No toca ninguna tabla ni depende de RLS — un GET a /rest/v1/ con la
-# anon key alcanza. El gateway de Supabase exige los headers apikey Y Authorization: Bearer
-# juntos (solo apikey da 401) — mismo par que manda automáticamente el cliente supabase-js.
+# Este workflow pega contra la tabla "pacientes" cada 3 días para que nunca llegue a
+# cumplirse ese plazo. El gateway de Supabase exige los headers apikey Y Authorization:
+# Bearer juntos (solo apikey da 401) — mismo par que manda automáticamente supabase-js.
+# OJO: NO pegarle a la raíz /rest/v1/ — Supabase bloquea ese endpoint con la anon key
+# (expone el esquema completo, requiere service_role) y devuelve 401 aunque los headers
+# estén bien. Por eso se apunta a una tabla real con select=id&limit=1: como RLS exige
+# sesión autenticada y esto pega sin loguearse, siempre devuelve 200 con una lista vacía
+# — cuenta como actividad, sin exponer ningún dato real ni necesitar la service_role key.
 on:
   schedule:
     - cron: '0 12 */3 * *'
@@ -29,7 +33,7 @@ jobs:
           respuesta=$(curl -s -w '\n%{http_code}' \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/")
+            "${{ secrets.SUPABASE_URL }}/rest/v1/pacientes?select=id&limit=1")
           codigo=$(echo "$respuesta" | tail -n1)
           cuerpo=$(echo "$respuesta" | sed '$d')
           echo "Respuesta HTTP: $codigo"
