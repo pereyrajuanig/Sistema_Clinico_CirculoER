@@ -2,8 +2,9 @@ name: Ping Supabase
 
 # El plan gratuito de Supabase pausa el proyecto después de 7 días sin actividad en la API.
 # Este workflow pega contra la raíz de la API REST cada 3 días para que nunca llegue a
-# cumplirse ese plazo. No toca ninguna tabla ni necesita sesión — un GET a /rest/v1/ ya
-# cuenta como actividad y no depende de RLS ni de credenciales de usuario.
+# cumplirse ese plazo. No toca ninguna tabla ni depende de RLS — un GET a /rest/v1/ con la
+# anon key alcanza. El gateway de Supabase exige los headers apikey Y Authorization: Bearer
+# juntos (solo apikey da 401) — mismo par que manda automáticamente el cliente supabase-js.
 on:
   schedule:
     - cron: '0 12 */3 * *'
@@ -15,10 +16,14 @@ jobs:
     steps:
       - name: Pegarle a la API REST de Supabase
         run: |
-          codigo=$(curl -s -o /dev/null -w '%{http_code}' \
+          respuesta=$(curl -s -w '\n%{http_code}' \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
             "${{ secrets.SUPABASE_URL }}/rest/v1/")
+          codigo=$(echo "$respuesta" | tail -n1)
+          cuerpo=$(echo "$respuesta" | sed '$d')
           echo "Respuesta HTTP: $codigo"
+          echo "Cuerpo: $cuerpo"
           if [[ "$codigo" != 2* ]]; then
             echo "No respondió 2xx — revisar los secrets SUPABASE_URL/SUPABASE_ANON_KEY o si el proyecto está pausado." >&2
             exit 1
