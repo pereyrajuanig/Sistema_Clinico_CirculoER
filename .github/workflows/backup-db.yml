@@ -1,0 +1,54 @@
+name: Backup de la base (Supabase)
+
+# El plan gratuito de Supabase no incluye backups automáticos. Este workflow corre pg_dump
+# semanalmente contra la base (vía SUPABASE_DB_URL, Session pooler) y sube el resultado al
+# repositorio separado pereyrajuanig/hc-circulo-backups — a propósito NO a este repo, para
+# no mezclar código fuente con volcados de datos de salud reales.
+on:
+  schedule:
+    - cron: '0 5 * * 0' # todos los domingos 05:00 UTC (02:00 en Argentina)
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar postgresql-client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+
+      - name: Generar el dump con pg_dump
+        env:
+          PGURL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          fecha=$(date -u +%F)
+          echo "FECHA=$fecha" >> "$GITHUB_ENV"
+
+          if ! pg_dump "$PGURL" --no-owner --no-privileges -f "backup-${fecha}.sql"; then
+            echo "pg_dump falló — revisar el secret SUPABASE_DB_URL (usuario/contraseña," >&2
+            echo "host del Session pooler) o si el proyecto de Supabase está pausado." >&2
+            exit 1
+          fi
+
+      - name: Subir el backup al repositorio pereyrajuanig/hc-circulo-backups
+        env:
+          GH_TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/pereyrajuanig/hc-circulo-backups.git" backups-repo
+
+          mkdir -p backups-repo/backups
+          cp "backup-${FECHA}.sql" "backups-repo/backups/backup-${FECHA}.sql"
+
+          cd backups-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "backups/backup-${FECHA}.sql"
+
+          if git diff --cached --quiet; then
+            echo "Ya había un backup subido para $FECHA y es idéntico — no se hace commit."
+          else
+            git commit -m "Backup del $FECHA"
+            git push
+          fi
