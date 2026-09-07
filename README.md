@@ -14,9 +14,11 @@ Con datos de salud de por medio, no quería que el control de acceso dependiera 
 que el frontend se porte bien — Row Level Security lo resuelve a nivel de base de datos, así
 que aunque una consulta se arme mal en el cliente, Postgres igual va a exigir una sesión
 autenticada antes de devolver una fila. El plan gratuito de Supabase fue una decisión
-pragmática, no ideal: es una entidad sin presupuesto de software, y el trade-off (el proyecto
-se pausa por inactividad, no hay backups automáticos) está documentado como deuda técnica
-conocida, no ignorado.
+pragmática, no ideal: es una entidad sin presupuesto de software, y sus límites quedan
+documentados como deuda técnica conocida, no ignorados. Uno de esos límites — el proyecto se
+pausa a los 7 días sin actividad en la API — ya tiene mitigación: un workflow de GitHub
+Actions (`.github/workflows/ping-supabase.yml`) pega contra la API cada 3 días, sin tocar
+ninguna tabla ni depender de una sesión. El otro (no hay backups automáticos) sigue abierto.
 
 **Frontend: React 19 + Vite + Tailwind v4.** Sin exceso de dependencias — esto lo usan 3
 personas desde 2 computadoras fijas, no hace falta más que eso. Tailwind v4 permitió definir
@@ -66,7 +68,13 @@ diferencia de formato.
 
 **Historia clínica.** Cada paciente tiene su ficha completa: datos personales, antecedentes
 (alergias, patológicos, quirúrgicos, hábitos, vacunas, medicación crónica), y el historial de
-consultas, todos editables y con borrado. Si hay una alergia cargada, aparece un cartel visible
+consultas, todos editables y con borrado — un borrado **lógico**, no físico: "eliminar" un
+antecedente o una consulta lo oculta de la ficha, pero el registro sigue existiendo en la
+base con quién y cuándo lo borró. No es una decisión de diseño arbitraria: la normativa que
+sigue el proyecto exige conservar la historia clínica 10 años, y un `DELETE` real la
+destruiría antes de tiempo. Los documentos adjuntos de una consulta borrada tampoco se tocan
+por la misma razón — un estudio escaneado es historia clínica igual que el texto. Si hay una
+alergia cargada, aparece un cartel visible
 apenas se abre la ficha — no hace falta revisar todo el historial para enterarse. Cada consulta
 arranca eligiendo quién la atiende de una lista corta — sin pedir usuario y contraseña de
 nuevo. Esa decisión no es solo comodidad: la sesión del navegador queda abierta por horas en
@@ -128,13 +136,22 @@ real es "sin salidas") — en el momento en que se usó una sola vez, queda cong
 **movimiento de stock** no se edita ni
 se borra nunca, bajo ningún caso: es un libro contable, y un error se corrige con un
 movimiento nuevo que compensa al anterior, no reescribiendo la historia. El historial
-completo, de todos los medicamentos juntos, vive en su propia pantalla de solo lectura,
-con saldo acumulado calculado por separado para cada medicamento (mezclar el de dos
-medicamentos distintos no tendría sentido), tipo de movimiento diferenciado con un badge de
-borde y fondo suave (verde para entrada, coral para salida, texto siempre en un tono neutro
-por la misma regla de contraste), y filtros por medicamento, tipo, rango de fechas y texto
-libre por DNI del paciente o nombre de quien registró — coherente con esa misma regla de
-inmutabilidad.
+completo, de todos los medicamentos juntos, vive en su propia pantalla, con saldo acumulado
+calculado por separado para cada medicamento (mezclar el de dos medicamentos distintos no
+tendría sentido), tipo de movimiento diferenciado con un badge de borde y fondo suave (verde
+para entrada, coral para salida, texto siempre en un tono neutro por la misma regla de
+contraste), y filtros por medicamento, tipo, rango de fechas y texto libre por DNI del
+paciente o nombre de quien registró. Cada fila tiene un botón "Corregir este movimiento" que
+pre-completa la compensación (mismo lote, cantidad y tipo invertido) en vez de armarla a
+mano — nunca toca la fila original, coherente con esa misma regla de inmutabilidad.
+
+Este botón sacó a la luz una tensión real del modelo: toda salida exige un paciente asociado
+(por trazabilidad médico-legal), así que corregir una *entrada* cargada de más — que necesita
+una salida compensatoria — obliga a elegir un paciente aunque la corrección no sea una
+administración real a nadie. No lo terminé "resolviendo" ocultándolo: el caso que sí queda
+prolijo, sin este problema, es el que da como ejemplo la normativa interna (compensar una
+*salida* de más con una entrada simple), y quedó documentado como una limitación conocida del
+esquema en vez de una funcionalidad rota.
 
 ## Modelo de datos y cumplimiento normativo
 
@@ -151,14 +168,13 @@ de leer.
 
 ## Qué sigue
 
-- [ ] Corregir el borrado de consultas y antecedentes: hoy es físico (`DELETE`), y la
-      normativa que sigue el proyecto exige retención de 10 años y borrado lógico, no físico
-- [ ] Botón "corregir este movimiento" en el historial de stock, que pre-complete el
-      movimiento compensatorio en vez de armarlo a mano
 - [ ] PWA, para poder "instalar" la app en las computadoras del consultorio
-- [ ] Automatizar el ping periódico que evite la pausa por inactividad del plan gratuito
 - [ ] Backup automático de la base (el plan gratuito no lo incluye)
 - [ ] Tests automatizados de los flujos críticos — hoy todo se prueba a mano
+- [ ] Subir el margen de `accent-marino` como texto sobre `primary` (botón "Editar" y accesos
+      de header como "Medicamentos"/"Historial de movimientos"): da ~4.6:1, pasa el piso de
+      WCAG AA pero con poco margen — no es urgente, pero conviene revisarlo si esa paleta
+      cambia
 
 ## Instalación
 

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { limpiarDni } from '@/lib/dni'
 import { identificarMedicamento } from '@/lib/medicamentos'
+import CorregirMovimientoModal from '@/components/CorregirMovimientoModal'
 import ThemeToggle from '@/components/ThemeToggle'
 import logo from '@/assets/Logo-Circulo_FondoTransparente.png'
 
@@ -40,36 +41,37 @@ export default function HistorialMovimientos() {
   const [filtroDesde, setFiltroDesde] = useState('')
   const [filtroHasta, setFiltroHasta] = useState('')
   const [busqueda, setBusqueda] = useState('')
+  const [movimientoACorregir, setMovimientoACorregir] = useState(null)
 
-  useEffect(() => {
-    async function fetchTodo() {
-      setLoading(true)
-      setError('')
+  async function fetchTodo() {
+    setLoading(true)
+    setError('')
 
-      const [medRes, movRes] = await Promise.all([
-        supabase.from('medicamentos').select('id, nombre, concentracion').order('nombre'),
-        // Orden ascendente para poder calcular el saldo acumulado antes de mostrarlo
-        // del más reciente al más viejo
-        supabase
-          .from('movimientos_stock')
-          .select(
-            'id, tipo, cantidad, fecha, motivo, lotes!inner(numero_lote, fecha_vencimiento, medicamento_id, medicamentos(nombre, concentracion)), profesionales(nombre), pacientes(id, nombre, apellido, dni), consultas(id, fecha)'
-          )
-          .order('fecha', { ascending: true }),
-      ])
+    const [medRes, movRes] = await Promise.all([
+      supabase.from('medicamentos').select('id, nombre, concentracion').order('nombre'),
+      // Orden ascendente para poder calcular el saldo acumulado antes de mostrarlo
+      // del más reciente al más viejo
+      supabase
+        .from('movimientos_stock')
+        .select(
+          'id, lote_id, tipo, cantidad, fecha, motivo, lotes!inner(numero_lote, fecha_vencimiento, medicamento_id, medicamentos(nombre, concentracion)), profesionales(nombre), pacientes(id, nombre, apellido, dni), consultas(id, fecha)'
+        )
+        .order('fecha', { ascending: true }),
+    ])
 
-      setLoading(false)
+    setLoading(false)
 
-      const primerError = medRes.error || movRes.error
-      if (primerError) {
-        setError(primerError.message)
-        return
-      }
-
-      setMedicamentos(medRes.data)
-      setMovimientos(conSaldoPorMedicamento(movRes.data))
+    const primerError = medRes.error || movRes.error
+    if (primerError) {
+      setError(primerError.message)
+      return
     }
 
+    setMedicamentos(medRes.data)
+    setMovimientos(conSaldoPorMedicamento(movRes.data))
+  }
+
+  useEffect(() => {
     fetchTodo()
   }, [])
 
@@ -107,7 +109,7 @@ export default function HistorialMovimientos() {
         </div>
       </header>
 
-      <main className="p-4 sm:p-6 space-y-4 max-w-6xl mx-auto">
+      <main className="p-4 sm:p-6 space-y-4">
         {error && <p className="text-base text-text-primary">{error}</p>}
 
         <div className="bg-surface border border-border rounded-lg p-4 flex flex-wrap gap-4 items-end">
@@ -195,6 +197,7 @@ export default function HistorialMovimientos() {
                     <th className="px-4 py-3 font-medium">Paciente</th>
                     <th className="px-4 py-3 font-medium">Consulta</th>
                     <th className="px-4 py-3 font-medium">Motivo</th>
+                    <th className="px-4 py-3 font-medium">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -246,6 +249,14 @@ export default function HistorialMovimientos() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-text-primary">{m.motivo || '—'}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => setMovimientoACorregir(m)}
+                          className="text-sm text-text-secondary hover:text-text-primary underline whitespace-nowrap"
+                        >
+                          Corregir este movimiento
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -254,6 +265,17 @@ export default function HistorialMovimientos() {
           )}
         </div>
       </main>
+
+      {movimientoACorregir && (
+        <CorregirMovimientoModal
+          movimiento={movimientoACorregir}
+          onClose={() => setMovimientoACorregir(null)}
+          onRegistrado={() => {
+            setMovimientoACorregir(null)
+            fetchTodo()
+          }}
+        />
+      )}
     </div>
   )
 }
