@@ -111,17 +111,17 @@ export default function HistorialMovimientos() {
         {error && <p className="text-base text-text-primary">{error}</p>}
 
         <div className="bg-surface border border-border rounded-lg p-4 flex flex-wrap gap-4 items-end">
-          <div className="space-y-1">
+          <div className="space-y-1 w-full sm:w-auto sm:max-w-50">
             <label className="text-sm text-text-secondary">Buscar (DNI o quién registró)</label>
             <input
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Ej: 12345678 o Juan Pereyra"
-              className="input sm:max-w-xs"
+              className="input"
             />
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1 w-full sm:w-auto sm:max-w-45">
             <label className="text-sm text-text-secondary">Medicamento</label>
             <select
               value={filtroMedicamento}
@@ -137,7 +137,7 @@ export default function HistorialMovimientos() {
             </select>
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1 w-full sm:w-auto sm:max-w-32.5">
             <label className="text-sm text-text-secondary">Tipo</label>
             <select
               value={filtroTipo}
@@ -150,23 +150,23 @@ export default function HistorialMovimientos() {
             </select>
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1 w-full sm:w-auto">
             <label className="text-sm text-text-secondary">Desde</label>
             <input
               type="date"
               value={filtroDesde}
               onChange={(e) => setFiltroDesde(e.target.value)}
-              className="input"
+              className="input sm:w-40"
             />
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1 w-full sm:w-auto">
             <label className="text-sm text-text-secondary">Hasta</label>
             <input
               type="date"
               value={filtroHasta}
               onChange={(e) => setFiltroHasta(e.target.value)}
-              className="input"
+              className="input sm:w-40"
             />
           </div>
         </div>
@@ -209,9 +209,10 @@ export default function HistorialMovimientos() {
                       <td className="px-4 py-3">
                         <span
                           className={
-                            m.tipo === 'entrada'
-                              ? 'text-text-primary font-semibold'
-                              : 'text-text-primary'
+                            'text-sm font-semibold rounded-md px-2 py-1 border ' +
+                            (m.tipo === 'entrada'
+                              ? 'bg-success/10 border-success text-text-primary'
+                              : 'bg-alert/10 border-alert text-text-primary')
                           }
                         >
                           {m.tipo === 'entrada' ? 'Entrada' : 'Salida'}

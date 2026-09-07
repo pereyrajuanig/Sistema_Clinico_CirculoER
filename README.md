@@ -29,10 +29,26 @@ legibilidad en personas con baja visión. Una parte real de los usuarios de este
 personas grandes, algunas no del todo cómodas con la tecnología — priorizar legibilidad sobre
 estética no fue una frase de manual, fue la respuesta a un problema concreto. En la misma
 línea: texto nunca menor a 16px, objetivo táctil mínimo de 44px en botones y campos, y un
-selector de modo claro/oscuro con persistencia y detección de la preferencia del sistema. El
-sistema de color pasó por una revisión real de contraste — la primera versión de los botones
-primarios daba ~1.9:1 (texto blanco sobre celeste pastel), muy por debajo del mínimo de
-accesibilidad, y se corrigió antes de darla por buena.
+selector de modo claro/oscuro con persistencia y detección de la preferencia del sistema.
+
+El sistema de color pasó por una auditoría real de contraste (WCAG AA, 4.5:1 para texto
+normal), calculada por luminancia relativa y no a ojo — varios pasteles de la paleta fallaban
+como color de texto directo: blanco sobre el celeste `primary` daba ~1.9:1, el coral de alerta
+como letra ~2.7:1, el verde de confirmación ~2:1. La regla que quedó es simple: los colores de
+acento son para fondo, borde o ícono, nunca para texto — el texto siempre va en un tono neutro
+oscuro. Un caso encontrado en el camino fue más sutil: el botón primario usa un celeste pastel
+que se mantiene *claro* en modo oscuro (no se invierte como el fondo de página), así que el
+texto no podía usar el mismo token que sí se invierte por tema — hacía eso, el texto del botón
+principal desaparecía al cambiar a modo oscuro (contraste ~1.3:1). La solución fue un token de
+texto fijo, que no cambia con el tema, reservado para textos que van sobre un fondo de color
+fijo en vez del fondo de la página.
+
+Otra media vuelta de tuerca fue el efecto secundario de un cambio anterior: al agregarle fondo
+sólido a los botones secundarios para que se leyeran como clickeables (antes eran invisibles
+hasta pasarles el mouse — un problema real para usuarios grandes poco familiarizados con la
+tecnología, no solo estético), el texto gris que tenían encima bajó de contraste sin que nadie
+lo notara a simple vista. Se detectó igual, calculando el número en vez de asumir que "se veía
+bien".
 
 ## Qué funciona hoy
 
@@ -93,6 +109,15 @@ restricción en la base, no solo en el formulario. Dos alertas corren en paralel
 debajo del mínimo definido para un medicamento, y lotes a 30 días o menos de vencer aunque el
 medicamento todavía tenga stock en otro lote.
 
+El nombre de un medicamento solo no alcanza para identificarlo sin ambigüedad — puede haber
+"Paracetamol 500mg" y "Paracetamol 1g" en el mismo catálogo — así que en cualquier lugar que
+lo muestre (listado, selectores de entrada/salida, historial, alertas) se arma el identificador
+combinando nombre y concentración, nunca el nombre a secas. La presentación (comprimidos,
+jarabe, ampolla...) pasó de texto libre a un selector con opciones fijas para evitar variantes
+de tipeo del mismo valor ("comprimido" vs. "Comprimidos"), con una opción "Otra" que exige
+completar el detalle real — reforzado por una restricción en la base, igual que el resto de
+las reglas que importan.
+
 El CRUD de este módulo no es parejo entre tablas, a propósito: cada una tiene un nivel de
 mutabilidad distinto según lo que representa. Un **medicamento** se puede editar libremente,
 y "eliminar" es en realidad una baja lógica (deja de ofrecerse para nuevas entradas de stock,
@@ -105,8 +130,11 @@ se borra nunca, bajo ningún caso: es un libro contable, y un error se corrige c
 movimiento nuevo que compensa al anterior, no reescribiendo la historia. El historial
 completo, de todos los medicamentos juntos, vive en su propia pantalla de solo lectura,
 con saldo acumulado calculado por separado para cada medicamento (mezclar el de dos
-medicamentos distintos no tendría sentido) y filtros por medicamento, tipo y fecha —
-coherente con esa misma regla de inmutabilidad.
+medicamentos distintos no tendría sentido), tipo de movimiento diferenciado con un badge de
+borde y fondo suave (verde para entrada, coral para salida, texto siempre en un tono neutro
+por la misma regla de contraste), y filtros por medicamento, tipo, rango de fechas y texto
+libre por DNI del paciente o nombre de quien registró — coherente con esa misma regla de
+inmutabilidad.
 
 ## Modelo de datos y cumplimiento normativo
 
