@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
-import { useAuth } from '@/lib/AuthContext'
 import NuevaConsultaModal from '@/components/NuevaConsultaModal'
 import DocumentosConsulta from '@/components/DocumentosConsulta'
 import AntecedenteFormModal from '@/components/AntecedenteFormModal'
 import PacienteFormModal from '@/components/PacienteFormModal'
 import LaboratorioFormModal from '@/components/LaboratorioFormModal'
+import ConfirmarConProfesionalModal from '@/components/ConfirmarConProfesionalModal'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
 import { TIPOS_EXAMEN } from '@/lib/laboratorio'
 import { formatearDni } from '@/lib/dni'
@@ -47,7 +47,6 @@ function signosVitales(c) {
 export default function HistoriaClinica() {
   const { id } = useParams()
   const location = useLocation()
-  const { session } = useAuth()
   const [paciente, setPaciente] = useState(null)
   const [antecedentes, setAntecedentes] = useState([])
   const [consultas, setConsultas] = useState([])
@@ -61,6 +60,8 @@ export default function HistoriaClinica() {
   const [showLabModal, setShowLabModal] = useState(false)
   const [editingConsulta, setEditingConsulta] = useState(null)
   const [editingAntecedente, setEditingAntecedente] = useState(null)
+  const [antecedenteAEliminar, setAntecedenteAEliminar] = useState(null)
+  const [consultaAEliminar, setConsultaAEliminar] = useState(null)
 
   useEffect(() => {
     async function fetchAll() {
@@ -139,18 +140,12 @@ export default function HistoriaClinica() {
     setEditingAntecedente(null)
   }
 
-  async function handleEliminarAntecedente(antecedenteId) {
-    if (
-      !window.confirm(
-        '¿Eliminar este antecedente? Deja de verse en la ficha del paciente. El registro se conserva internamente por la normativa de historia clínica (10 años) — no se puede deshacer desde la aplicación.'
-      )
-    ) {
-      return
-    }
+  async function confirmarEliminarAntecedente(profesionalId) {
+    const antecedenteId = antecedenteAEliminar
 
     const { error } = await supabase
       .from('antecedentes')
-      .update({ eliminado_en: new Date().toISOString(), eliminado_por: session.user.id })
+      .update({ eliminado_en: new Date().toISOString(), eliminado_por: profesionalId })
       .eq('id', antecedenteId)
 
     if (error) {
@@ -159,6 +154,7 @@ export default function HistoriaClinica() {
     }
 
     setAntecedentes((prev) => prev.filter((a) => a.id !== antecedenteId))
+    setAntecedenteAEliminar(null)
   }
 
   function handleConsultaGuardada(consultaGuardada) {
@@ -173,18 +169,12 @@ export default function HistoriaClinica() {
     setEditingConsulta(null)
   }
 
-  async function handleEliminarConsulta(consultaId) {
-    if (
-      !window.confirm(
-        '¿Eliminar esta consulta? Deja de verse en la ficha, junto con sus documentos adjuntos. Los registros se conservan internamente por la normativa de historia clínica (10 años) — no se puede deshacer desde la aplicación.'
-      )
-    ) {
-      return
-    }
+  async function confirmarEliminarConsulta(profesionalId) {
+    const consultaId = consultaAEliminar
 
     const { error } = await supabase
       .from('consultas')
-      .update({ eliminado_en: new Date().toISOString(), eliminado_por: session.user.id })
+      .update({ eliminado_en: new Date().toISOString(), eliminado_por: profesionalId })
       .eq('id', consultaId)
 
     if (error) {
@@ -194,6 +184,7 @@ export default function HistoriaClinica() {
 
     setConsultas((prev) => prev.filter((c) => c.id !== consultaId))
     setDocumentos((prev) => prev.filter((d) => d.consulta_id !== consultaId))
+    setConsultaAEliminar(null)
   }
 
   function handleResultadosCreados(nuevosResultados) {
@@ -309,7 +300,7 @@ export default function HistoriaClinica() {
                     setEditingConsulta(c)
                     setShowModal(true)
                   }}
-                  onEliminar={() => handleEliminarConsulta(c.id)}
+                  onEliminar={() => setConsultaAEliminar(c.id)}
                 />
               ))}
             </div>
@@ -352,7 +343,7 @@ export default function HistoriaClinica() {
                       Editar
                     </button>
                     <button
-                      onClick={() => handleEliminarAntecedente(a.id)}
+                      onClick={() => setAntecedenteAEliminar(a.id)}
                       className="text-sm text-text-primary underline"
                     >
                       Eliminar
@@ -436,6 +427,26 @@ export default function HistoriaClinica() {
           pacienteId={id}
           onClose={() => setShowLabModal(false)}
           onCreated={handleResultadosCreados}
+        />
+      )}
+
+      {antecedenteAEliminar && (
+        <ConfirmarConProfesionalModal
+          titulo="Eliminar antecedente"
+          mensaje="Deja de verse en la ficha del paciente. El registro se conserva internamente por la normativa de historia clínica (10 años) — no se puede deshacer desde la aplicación."
+          textoConfirmar="Eliminar"
+          onCancelar={() => setAntecedenteAEliminar(null)}
+          onConfirmar={confirmarEliminarAntecedente}
+        />
+      )}
+
+      {consultaAEliminar && (
+        <ConfirmarConProfesionalModal
+          titulo="Eliminar consulta"
+          mensaje="Deja de verse en la ficha, junto con sus documentos adjuntos. Los registros se conservan internamente por la normativa de historia clínica (10 años) — no se puede deshacer desde la aplicación."
+          textoConfirmar="Eliminar"
+          onCancelar={() => setConsultaAEliminar(null)}
+          onConfirmar={confirmarEliminarConsulta}
         />
       )}
     </div>

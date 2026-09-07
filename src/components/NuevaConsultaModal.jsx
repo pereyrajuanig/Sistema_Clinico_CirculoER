@@ -52,15 +52,40 @@ export default function NuevaConsultaModal({ pacienteId, consulta, onClose, onSa
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    supabase
-      .from('profesionales')
-      .select('id, nombre')
-      .order('nombre')
-      .then(({ data, error }) => {
-        if (error) setError(error.message)
-        else setProfesionales(data)
-      })
-  }, [])
+    async function cargarProfesionales() {
+      const { data, error } = await supabase
+        .from('profesionales')
+        .select('id, nombre, activo')
+        .eq('activo', true)
+        .order('nombre')
+
+      if (error) {
+        setError(error.message)
+        return
+      }
+
+      // Si se edita una consulta atendida por alguien ya dado de baja, lo agregamos igual
+      // a la lista (marcado) — no tiene sentido que la edición borre o falsee quién atendió
+      // realmente en su momento
+      const idOriginal = consulta?.profesional_id
+      if (idOriginal && !data.some((p) => p.id === idOriginal)) {
+        const { data: inactivo } = await supabase
+          .from('profesionales')
+          .select('id, nombre, activo')
+          .eq('id', idOriginal)
+          .maybeSingle()
+
+        if (inactivo) {
+          setProfesionales([...data, inactivo])
+          return
+        }
+      }
+
+      setProfesionales(data)
+    }
+
+    cargarProfesionales()
+  }, [consulta?.profesional_id])
 
   function handleChange(field) {
     return (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -138,6 +163,7 @@ export default function NuevaConsultaModal({ pacienteId, consulta, onClose, onSa
                     style={{ minHeight: '44px' }}
                   >
                     {p.nombre}
+                    {p.activo === false ? ' (dado de baja)' : ''}
                   </button>
                 ))}
               </div>

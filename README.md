@@ -69,10 +69,15 @@ bien".
 ## Qué funciona hoy
 
 **Autenticación.** Sin pantalla de registro público — en un sistema de datos de salud no
-tiene sentido que cualquiera pueda crear una cuenta. Los 3 profesionales se dan de alta
-manualmente desde el dashboard de Supabase, un trigger en la base los conecta con su fila en
-`profesionales`, y la sesión queda persistente por computadora (no hace falta volver a
-loguearse en cada uso) con expiración automática a los 25 minutos de inactividad.
+tiene sentido que cualquiera pueda crear una cuenta. El login es una única cuenta
+institucional del Círculo, compartida entre los 3 profesionales (no un login por persona),
+con la sesión persistente por computadora (no hace falta volver a loguearse en cada uso) y
+expiración automática a los 25 minutos de inactividad. La trazabilidad de "quién hizo qué"
+no depende de la sesión — cada acción atribuible a una persona (atender una consulta,
+administrar un medicamento, cargar un resultado, eliminar un registro) pide explícitamente
+elegir quién la hace de una lista corta, independiente del login. Esa separación es a
+propósito: con una cuenta compartida, quién está logueado y quién está haciendo la acción
+físicamente nunca son la misma pregunta.
 
 **Pacientes.** Alta y edición con el modelo de datos completo, listado ordenable, y búsqueda
 por nombre, apellido o DNI que funciona sea cual sea el formato con el que se escriba el
@@ -91,11 +96,12 @@ por la misma razón — un estudio escaneado es historia clínica igual que el t
 alergia cargada, aparece un cartel visible
 apenas se abre la ficha — no hace falta revisar todo el historial para enterarse. Cada consulta
 arranca eligiendo quién la atiende de una lista corta — sin pedir usuario y contraseña de
-nuevo. Esa decisión no es solo comodidad: la sesión del navegador queda abierta por horas en
-una computadora compartida entre 3 personas, así que quién está logueado y quién está
-atendiendo físicamente no son necesariamente la misma persona. Separar esas dos cosas
-explícitamente es lo que hace que el registro de "quién atendió" sea confiable para
-trazabilidad médico-legal, en vez de asumirlo de la sesión activa. Los signos vitales viven
+nuevo. Esa decisión dejó de ser solo comodidad cuando el login pasó a ser una cuenta
+compartida entre las 3 personas: la sesión ya no dice nada sobre quién está atendiendo
+físicamente, así que ese dato tiene que salir siempre de una elección explícita, nunca
+inferirse. Mismo criterio se aplica a cualquier otra acción atribuible a alguien en el
+sistema (administrar un medicamento, cargar un resultado, eliminar un registro) — todas
+piden explícitamente quién la hace antes de guardar. Los signos vitales viven
 como columnas directas de la consulta (no en una tabla aparte) porque en la práctica nunca
 existen sueltos — siempre están atados a una consulta puntual, y modelarlos así evita un join
 innecesario para el caso de uso que realmente importa: leer la ficha de un paciente. Un
@@ -229,9 +235,10 @@ src/
 
 Alias de import: `@/` apunta a `src/`.
 
-### Alta de usuarios
+### Login y alta de profesionales
 
-No hay registro público. Se crean desde el dashboard de Supabase: Authentication → Users →
-Add user. Un trigger crea automáticamente la fila en `profesionales`, tomando el email como
-nombre por defecto — hay que entrar a esa tabla y completar el nombre real de cada
-profesional a mano.
+No hay registro público, y no es un login por persona: las 3 personas usan la misma cuenta
+institucional del Círculo (un único usuario de Supabase Auth). Dar de alta o dar de baja a
+un profesional no crea ni borra nada en Auth — es una fila directo en la tabla
+`profesionales` (Supabase → Table Editor), con una columna `activo` para dar de baja a
+alguien sin perder el historial de lo que ya quedó atribuido a esa persona.
