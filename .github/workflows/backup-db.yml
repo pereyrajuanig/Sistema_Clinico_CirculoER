@@ -13,8 +13,18 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: Instalar postgresql-client
-        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      # El postgresql-client del repo estándar de Ubuntu suele ir bastante atrás del major
+      # de Postgres que corre Supabase (ej. Ubuntu trae 16.x, Supabase ya corre 17.x) —
+      # pg_dump se niega por seguridad a volcar un servidor más nuevo que él mismo
+      # ("aborting because of server version mismatch"). Se instala el cliente oficial de
+      # PGDG fijado a la 17 en vez de dejar que apt resuelva la versión. Si en el futuro
+      # Supabase pasa a Postgres 18, hay que subir el "17" de acá.
+      - name: Instalar postgresql-client 17 (PGDG, mismo major que el server de Supabase)
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install --yes postgresql-client-17
 
       - name: Verificar que los secrets no lleguen vacíos
         run: |
