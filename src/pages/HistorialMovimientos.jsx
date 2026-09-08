@@ -4,8 +4,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { limpiarDni } from '@/lib/dni'
 import { identificarMedicamento } from '@/lib/medicamentos'
 import CorregirMovimientoModal from '@/components/CorregirMovimientoModal'
-import ThemeToggle from '@/components/ThemeToggle'
-import logo from '@/assets/Logo-Circulo_FondoTransparente.png'
+import Header from '@/components/Header'
 
 function formatFechaHora(value) {
   if (!value) return ''
@@ -96,18 +95,10 @@ export default function HistorialMovimientos() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-surface border-b border-border px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="" className="h-20 w-20 object-contain" />
-          <h1 className="text-4xl font-bold text-text-primary">Historial de movimientos</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <Link to="/medicamentos" className="btn-secondary px-3 py-1.5">
-            ← Volver a medicamentos
-          </Link>
-        </div>
-      </header>
+      <Header
+        title="Historial de movimientos"
+        actions={[{ label: '← Volver a medicamentos', to: '/medicamentos', variant: 'secondary' }]}
+      />
 
       <main className="p-4 sm:p-6 space-y-4">
         {error && <p className="text-base text-text-primary">{error}</p>}

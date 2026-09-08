@@ -28,6 +28,18 @@ personas desde 2 computadoras fijas, no hace falta más que eso. Tailwind v4 per
 un sistema de tokens de color (`src/index.css`) que se reutiliza en modo claro y oscuro sin
 duplicar clases por componente.
 
+Aun así, la app es completamente responsive — no porque el uso principal lo exija (sigue
+siendo el consultorio, en dos computadoras fijas), sino porque se puede llegar a consultar
+una ficha desde afuera, y porque esto también es parte de un portfolio: no puede romperse
+en una demo desde el celular de quien lo está mirando. El header de cada pantalla es un
+buen ejemplo del porqué de un componente compartido en vez de estilos sueltos por
+pantalla: cada una tenía su propio `<header>` duplicado con los mismos botones puestos en
+fila sin forma de colapsar, y a ancho de celular se superponían entre sí. Se unificó en un
+solo `Header.jsx` que colapsa esos botones en un menú desplegable por debajo de 1024px de
+ancho (cualquier celular, cualquier tablet) — un límite verificado con capturas reales,
+no elegido a ojo, porque el header más cargado de las cinco pantallas no entra en una sola
+fila a un ancho menor.
+
 **PWA, con un límite deliberado.** La app se puede "instalar" en las computadoras del
 consultorio — ícono propio, ventana sin barra de navegador, como una aplicación de
 escritorio — pero eso es lo único que hace la PWA acá. No agrega soporte offline: es una

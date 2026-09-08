@@ -7,11 +7,10 @@ import AntecedenteFormModal from '@/components/AntecedenteFormModal'
 import PacienteFormModal from '@/components/PacienteFormModal'
 import LaboratorioFormModal from '@/components/LaboratorioFormModal'
 import ConfirmarConProfesionalModal from '@/components/ConfirmarConProfesionalModal'
+import Header from '@/components/Header'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
 import { TIPOS_EXAMEN } from '@/lib/laboratorio'
 import { formatearDni } from '@/lib/dni'
-import ThemeToggle from '@/components/ThemeToggle'
-import logo from '@/assets/Logo-Circulo_FondoTransparente.png'
 
 const CAMPOS_CONSULTA = [
   ['motivo', 'Motivo'],
@@ -215,28 +214,15 @@ export default function HistoriaClinica() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-surface border-b border-border px-6 py-4">
-        <div className="flex justify-between items-center gap-4">
-          <div className="flex items-center gap-3">
-            <img src={logo} alt="" className="h-20 w-20 object-contain" />
-            <div>
-              <h1 className="text-4xl font-bold text-text-primary">
-                {paciente.apellido}, {paciente.nombre}
-              </h1>
-              <p className="text-base font-medium text-text-primary">DNI {formatearDni(paciente.dni)}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <ThemeToggle />
-            <Link
-              to="/"
-              className="btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5"
-            >
-              ← Volver a pacientes
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Header
+        title={`${paciente.apellido}, ${paciente.nombre}`}
+        subtitle={
+          <p className="text-base font-medium text-text-primary truncate">
+            DNI {formatearDni(paciente.dni)}
+          </p>
+        }
+        actions={[{ label: '← Volver a pacientes', to: '/', variant: 'secondary' }]}
+      />
 
       <main className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto">
         {alergias.length > 0 && (
