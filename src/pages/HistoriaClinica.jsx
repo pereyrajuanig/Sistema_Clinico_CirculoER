@@ -20,7 +20,7 @@ const CAMPOS_CONSULTA = [
   ['diagnostico', 'Diagnóstico'],
   ['tratamiento', 'Tratamiento'],
   ['medicacion', 'Medicación'],
-  ['evolucion', 'Evolución'],
+  ['evolucion', 'Conclusión'],
   ['pronostico', 'Pronóstico'],
   ['observaciones', 'Observaciones'],
 ]

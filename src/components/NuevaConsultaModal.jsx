@@ -9,8 +9,6 @@ const initialForm = {
   tratamiento: '',
   medicacion: '',
   evolucion: '',
-  pronostico: '',
-  proximo_control: '',
   observaciones: '',
   presion_sistolica: '',
   presion_diastolica: '',
@@ -302,28 +300,12 @@ export default function NuevaConsultaModal({ pacienteId, consulta, onClose, onSa
                   rows={2}
                 />
               </Field>
-              <Field label="Evolución">
+              <Field label="Conclusión">
                 <textarea
                   value={form.evolucion}
                   onChange={handleChange('evolucion')}
                   className="input"
                   rows={2}
-                />
-              </Field>
-              <Field label="Pronóstico">
-                <textarea
-                  value={form.pronostico}
-                  onChange={handleChange('pronostico')}
-                  className="input"
-                  rows={2}
-                />
-              </Field>
-              <Field label="Próximo control">
-                <input
-                  type="date"
-                  value={form.proximo_control}
-                  onChange={handleChange('proximo_control')}
-                  className="input"
                 />
               </Field>
               <Field label="Observaciones">
