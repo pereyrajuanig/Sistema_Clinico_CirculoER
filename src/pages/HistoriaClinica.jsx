@@ -30,6 +30,21 @@ function formatFecha(value, opts) {
   return new Date(value).toLocaleDateString('es-AR', opts)
 }
 
+function calcularEdad(fechaNacimiento) {
+  if (!fechaNacimiento) return null
+
+  const nacimiento = new Date(fechaNacimiento + 'T00:00:00')
+  const hoy = new Date()
+  let edad = hoy.getFullYear() - nacimiento.getFullYear()
+
+  const noCumplioAun =
+    hoy.getMonth() < nacimiento.getMonth() ||
+    (hoy.getMonth() === nacimiento.getMonth() && hoy.getDate() < nacimiento.getDate())
+  if (noCumplioAun) edad--
+
+  return edad
+}
+
 function signosVitales(c) {
   const items = []
   if (c.presion_sistolica && c.presion_diastolica) {
@@ -281,6 +296,7 @@ export default function HistoriaClinica() {
   }
 
   const alergias = antecedentes.filter((a) => a.tipo === 'alergia')
+  const edad = calcularEdad(paciente.fecha_nacimiento)
 
   return (
     <div className="min-h-screen bg-background">
@@ -318,6 +334,7 @@ export default function HistoriaClinica() {
           </div>
           <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-base">
             <Dato label="Fecha de nacimiento" value={formatFecha(paciente.fecha_nacimiento)} />
+            <Dato label="Edad" value={edad != null ? `${edad} años` : null} />
             <Dato label="Sexo / género" value={paciente.sexo} />
             <Dato label="Teléfono" value={paciente.telefono} />
             <Dato label="Dirección" value={paciente.direccion} />
