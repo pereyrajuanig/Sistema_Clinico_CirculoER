@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/AuthContext'
 import { supabase } from '@/lib/supabaseClient'
 import PacienteFormModal from '@/components/PacienteFormModal'
 import { limpiarDni, formatearDni } from '@/lib/dni'
+import { calcularEdad } from '@/lib/pacientes'
 import Header from '@/components/Header'
 
 export default function Pacientes() {
@@ -126,24 +127,33 @@ export default function Pacientes() {
             <>
               {/* Pantallas chicas: lista de tarjetas, más fácil de tocar que una tabla */}
               <ul className="sm:hidden divide-y divide-border">
-                {pacientesOrdenados.map((p) => (
-                  <li key={p.id}>
-                    <button
-                      onClick={() => navigate(`/pacientes/${p.id}`)}
-                      className="w-full text-left px-4 py-3 hover:bg-background"
-                    >
-                      <p className="text-base text-text-primary">
-                        {p.apellido}, {p.nombre}
-                      </p>
-                      <p className="text-sm text-text-secondary mt-0.5">DNI {formatearDni(p.dni)}</p>
-                      {(p.telefono || p.obra_social) && (
-                        <p className="text-sm text-text-secondary mt-0.5">
-                          {[p.telefono, p.obra_social].filter(Boolean).join(' · ')}
+                {pacientesOrdenados.map((p) => {
+                  const edad = calcularEdad(p.fecha_nacimiento)
+                  const detalle = [p.telefono, edad != null ? `${edad} años` : null, p.sexo].filter(
+                    Boolean
+                  )
+
+                  return (
+                    <li key={p.id}>
+                      <button
+                        onClick={() => navigate(`/pacientes/${p.id}`)}
+                        className="w-full text-left px-4 py-3 hover:bg-background"
+                      >
+                        <p className="text-base text-text-primary">
+                          {p.apellido}, {p.nombre}
                         </p>
-                      )}
-                    </button>
-                  </li>
-                ))}
+                        <p className="text-sm text-text-secondary mt-0.5">
+                          DNI {formatearDni(p.dni)}
+                        </p>
+                        {detalle.length > 0 && (
+                          <p className="text-sm text-text-secondary mt-0.5">
+                            {detalle.join(' · ')}
+                          </p>
+                        )}
+                      </button>
+                    </li>
+                  )
+                })}
               </ul>
 
               {/* Pantallas medianas y grandes: tabla completa y ordenable */}
@@ -154,24 +164,32 @@ export default function Pacientes() {
                       <SortableTh field="apellido" label="Apellido y nombre" sort={sortField} direction={sortDirection} onSort={toggleSort} />
                       <SortableTh field="dni" label="DNI" sort={sortField} direction={sortDirection} onSort={toggleSort} />
                       <SortableTh field="telefono" label="Teléfono" sort={sortField} direction={sortDirection} onSort={toggleSort} />
-                      <SortableTh field="obra_social" label="Obra social" sort={sortField} direction={sortDirection} onSort={toggleSort} />
+                      <th className="px-4 py-3 font-medium">Edad</th>
+                      <SortableTh field="sexo" label="Sexo" sort={sortField} direction={sortDirection} onSort={toggleSort} />
                     </tr>
                   </thead>
                   <tbody>
-                    {pacientesOrdenados.map((p) => (
-                      <tr
-                        key={p.id}
-                        onClick={() => navigate(`/pacientes/${p.id}`)}
-                        className="border-b border-border last:border-0 hover:bg-background cursor-pointer"
-                      >
-                        <td className="px-4 py-3 text-text-primary">
-                          {p.apellido}, {p.nombre}
-                        </td>
-                        <td className="px-4 py-3 text-text-primary">{formatearDni(p.dni)}</td>
-                        <td className="px-4 py-3 text-text-primary">{p.telefono || '—'}</td>
-                        <td className="px-4 py-3 text-text-primary">{p.obra_social || '—'}</td>
-                      </tr>
-                    ))}
+                    {pacientesOrdenados.map((p) => {
+                      const edad = calcularEdad(p.fecha_nacimiento)
+
+                      return (
+                        <tr
+                          key={p.id}
+                          onClick={() => navigate(`/pacientes/${p.id}`)}
+                          className="border-b border-border last:border-0 hover:bg-background cursor-pointer"
+                        >
+                          <td className="px-4 py-3 text-text-primary">
+                            {p.apellido}, {p.nombre}
+                          </td>
+                          <td className="px-4 py-3 text-text-primary">{formatearDni(p.dni)}</td>
+                          <td className="px-4 py-3 text-text-primary">{p.telefono || '—'}</td>
+                          <td className="px-4 py-3 text-text-primary">
+                            {edad != null ? `${edad} años` : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-text-primary">{p.sexo || '—'}</td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
