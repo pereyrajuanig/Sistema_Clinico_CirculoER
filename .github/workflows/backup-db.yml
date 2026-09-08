@@ -25,6 +25,10 @@ jobs:
           sudo apt-get install --yes postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install --yes postgresql-client-17
+          echo "pg_dump del PATH:"
+          pg_dump --version
+          echo "pg_dump 17 instalado:"
+          /usr/lib/postgresql/17/bin/pg_dump --version
 
       - name: Verificar que los secrets no lleguen vacíos
         run: |
@@ -45,7 +49,10 @@ jobs:
           fecha=$(date -u +%F)
           echo "FECHA=$fecha" >> "$GITHUB_ENV"
 
-          if ! pg_dump "$PGURL" --no-owner --no-privileges -f "backup-${fecha}.sql"; then
+          # El runner de Ubuntu ya trae un pg_dump 16.x de fábrica, y ese symlink en el
+          # PATH gana aunque se instale la 17 al lado — se llama al binario versionado
+          # directo para no depender de qué gane el PATH.
+          if ! /usr/lib/postgresql/17/bin/pg_dump "$PGURL" --no-owner --no-privileges -f "backup-${fecha}.sql"; then
             echo "pg_dump falló — revisar el secret SUPABASE_DB_URL (usuario/contraseña," >&2
             echo "host del Session pooler) o si el proyecto de Supabase está pausado." >&2
             exit 1
