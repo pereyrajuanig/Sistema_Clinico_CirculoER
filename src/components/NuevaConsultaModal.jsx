@@ -9,7 +9,6 @@ const initialForm = {
   tratamiento: '',
   medicacion: '',
   evolucion: '',
-  observaciones: '',
   presion_sistolica: '',
   presion_diastolica: '',
   frecuencia_cardiaca: '',
@@ -304,14 +303,6 @@ export default function NuevaConsultaModal({ pacienteId, consulta, onClose, onSa
                 <textarea
                   value={form.evolucion}
                   onChange={handleChange('evolucion')}
-                  className="input"
-                  rows={2}
-                />
-              </Field>
-              <Field label="Observaciones">
-                <textarea
-                  value={form.observaciones}
-                  onChange={handleChange('observaciones')}
                   className="input"
                   rows={2}
                 />
