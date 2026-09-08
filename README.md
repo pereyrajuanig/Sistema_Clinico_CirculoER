@@ -116,10 +116,7 @@ sistema (administrar un medicamento, cargar un resultado, eliminar un registro) 
 piden explícitamente quién la hace antes de guardar. Los signos vitales viven
 como columnas directas de la consulta (no en una tabla aparte) porque en la práctica nunca
 existen sueltos — siempre están atados a una consulta puntual, y modelarlos así evita un join
-innecesario para el caso de uso que realmente importa: leer la ficha de un paciente. Un
-listado aparte cruza todas las historias clínicas y muestra los próximos controles
-pendientes, tomando el de la consulta más reciente de cada paciente (no cualquier consulta
-vieja que ya haya sido superada por una visita posterior).
+innecesario para el caso de uso que realmente importa: leer la ficha de un paciente.
 
 **Documentos adjuntos.** Estudios, análisis o fichas escaneadas se suben a un bucket privado
 de Supabase Storage y se acceden con URLs firmadas de vencimiento corto — nunca queda un
@@ -247,7 +244,7 @@ src/
 ├── assets/        # Logo institucional
 ├── components/    # Modales, formularios y controles reutilizables
 ├── lib/           # Contextos (auth, tema) y utilidades (dni, laboratorio, antecedentes)
-├── pages/         # Login, Pacientes, Historia Clínica, Próximos controles, Medicamentos
+├── pages/         # Login, Pacientes, Historia Clínica, Medicamentos, Historial de movimientos
 ├── App.jsx        # Rutas
 └── index.css      # Tokens de diseño y clases de componentes compartidas
 ```
