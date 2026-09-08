@@ -13,6 +13,7 @@ import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
 import { TIPOS_EXAMEN } from '@/lib/laboratorio'
 import { formatearDni } from '@/lib/dni'
 import { registrarAuditoria } from '@/lib/auditoria'
+import { calcularEdad, formatearMayuscula } from '@/lib/pacientes'
 
 const CAMPOS_CONSULTA = [
   ['motivo', 'Motivo'],
@@ -28,21 +29,6 @@ const CAMPOS_CONSULTA = [
 function formatFecha(value, opts) {
   if (!value) return null
   return new Date(value).toLocaleDateString('es-AR', opts)
-}
-
-function calcularEdad(fechaNacimiento) {
-  if (!fechaNacimiento) return null
-
-  const nacimiento = new Date(fechaNacimiento + 'T00:00:00')
-  const hoy = new Date()
-  let edad = hoy.getFullYear() - nacimiento.getFullYear()
-
-  const noCumplioAun =
-    hoy.getMonth() < nacimiento.getMonth() ||
-    (hoy.getMonth() === nacimiento.getMonth() && hoy.getDate() < nacimiento.getDate())
-  if (noCumplioAun) edad--
-
-  return edad
 }
 
 function signosVitales(c) {
@@ -335,12 +321,12 @@ export default function HistoriaClinica() {
           <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-base">
             <Dato label="Fecha de nacimiento" value={formatFecha(paciente.fecha_nacimiento)} />
             <Dato label="Edad" value={edad != null ? `${edad} años` : null} />
-            <Dato label="Sexo / género" value={paciente.sexo} />
+            <Dato label="Sexo" value={paciente.sexo} />
             <Dato label="Teléfono" value={paciente.telefono} />
             <Dato label="Dirección" value={paciente.direccion} />
             <Dato label="Contacto familiar" value={paciente.contacto_familiar} />
-            <Dato label="Obra social" value={paciente.obra_social} />
-            <Dato label="Grupo sanguíneo" value={paciente.grupo_sanguineo} />
+            <Dato label="Obra social" value={formatearMayuscula(paciente.obra_social)} />
+            <Dato label="Grupo sanguíneo" value={formatearMayuscula(paciente.grupo_sanguineo)} />
             <Dato label="Ocupación" value={paciente.ocupacion} />
             <Dato label="Estado civil" value={paciente.estado_civil} />
           </dl>

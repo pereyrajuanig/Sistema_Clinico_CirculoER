@@ -1,6 +1,19 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { limpiarDni } from '@/lib/dni'
+import { SEXOS, GRUPOS_SANGUINEOS, capitalizarPalabras } from '@/lib/pacientes'
+
+// Campos de texto libre que se normalizan al guardar (ver capitalizarPalabras) — nombre,
+// dirección, contacto de referencia, etc. Obra social queda afuera a propósito: se muestra
+// en mayúscula sostenida donde se lee, pero se guarda tal cual se tipeó.
+const CAMPOS_A_CAPITALIZAR = [
+  'nombre',
+  'apellido',
+  'direccion',
+  'contacto_familiar',
+  'ocupacion',
+  'estado_civil',
+]
 
 const initialForm = {
   nombre: '',
@@ -38,7 +51,11 @@ export default function PacienteFormModal({ paciente, onClose, onSaved }) {
 
     // Los campos opcionales vacíos se mandan como null en vez de string vacío
     const payload = Object.fromEntries(
-      Object.entries(form).map(([key, value]) => [key, value === '' ? null : value])
+      Object.entries(form).map(([key, value]) => {
+        if (value === '') return [key, null]
+        if (CAMPOS_A_CAPITALIZAR.includes(key)) return [key, capitalizarPalabras(value)]
+        return [key, value]
+      })
     )
     payload.dni = limpiarDni(form.dni)
 
@@ -105,8 +122,15 @@ export default function PacienteFormModal({ paciente, onClose, onSaved }) {
               />
             </Field>
 
-            <Field label="Sexo / género">
-              <input value={form.sexo} onChange={handleChange('sexo')} className="input" />
+            <Field label="Sexo">
+              <select value={form.sexo} onChange={handleChange('sexo')} className="input">
+                <option value="">Sin especificar</option>
+                {SEXOS.map((sexo) => (
+                  <option key={sexo} value={sexo}>
+                    {sexo}
+                  </option>
+                ))}
+              </select>
             </Field>
 
             <Field label="Teléfono">
@@ -139,11 +163,18 @@ export default function PacienteFormModal({ paciente, onClose, onSaved }) {
             </Field>
 
             <Field label="Grupo sanguíneo">
-              <input
+              <select
                 value={form.grupo_sanguineo}
                 onChange={handleChange('grupo_sanguineo')}
                 className="input"
-              />
+              >
+                <option value="">Sin especificar</option>
+                {GRUPOS_SANGUINEOS.map((grupo) => (
+                  <option key={grupo} value={grupo}>
+                    {grupo}
+                  </option>
+                ))}
+              </select>
             </Field>
 
             <Field label="Ocupación">
