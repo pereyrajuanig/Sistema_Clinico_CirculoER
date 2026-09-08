@@ -3,7 +3,7 @@
 // historial. Cada tipo define UNA de estas formas de carga:
 // - campos: varios valores relacionados (se combinan en un solo texto al guardar).
 //   Cada campo es { nombre, tipo?, grupo?, unidad? }:
-//     - tipo 'cruces'  -> selector No reactivo / + / ++ / +++ / ++++
+//     - tipo 'cruces'  -> selector No contiene / Contiene(+) / Contiene(++) / Contiene(+++) / Contiene(++++)
 //     - tipo 'binario' -> selector No contiene / Contiene
 //     - sin tipo       -> texto libre
 //     - grupo agrupa varios campos bajo un subtítulo en el formulario (opcional)

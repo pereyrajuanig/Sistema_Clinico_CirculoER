@@ -6,11 +6,13 @@ import DocumentosConsulta from '@/components/DocumentosConsulta'
 import AntecedenteFormModal from '@/components/AntecedenteFormModal'
 import PacienteFormModal from '@/components/PacienteFormModal'
 import LaboratorioFormModal from '@/components/LaboratorioFormModal'
+import EditarResultadoLaboratorioModal from '@/components/EditarResultadoLaboratorioModal'
 import ConfirmarConProfesionalModal from '@/components/ConfirmarConProfesionalModal'
 import Header from '@/components/Header'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
 import { TIPOS_EXAMEN } from '@/lib/laboratorio'
 import { formatearDni } from '@/lib/dni'
+import { registrarAuditoria } from '@/lib/auditoria'
 
 const CAMPOS_CONSULTA = [
   ['motivo', 'Motivo'],
@@ -59,8 +61,10 @@ export default function HistoriaClinica() {
   const [showLabModal, setShowLabModal] = useState(false)
   const [editingConsulta, setEditingConsulta] = useState(null)
   const [editingAntecedente, setEditingAntecedente] = useState(null)
+  const [editingResultado, setEditingResultado] = useState(null)
   const [antecedenteAEliminar, setAntecedenteAEliminar] = useState(null)
   const [consultaAEliminar, setConsultaAEliminar] = useState(null)
+  const [resultadoAEliminar, setResultadoAEliminar] = useState(null)
 
   useEffect(() => {
     async function fetchAll() {
@@ -85,6 +89,7 @@ export default function HistoriaClinica() {
           .from('resultados_laboratorio')
           .select('*')
           .eq('paciente_id', id)
+          .is('eliminado_en', null)
           .order('fecha', { ascending: false }),
       ])
 
@@ -140,19 +145,32 @@ export default function HistoriaClinica() {
   }
 
   async function confirmarEliminarAntecedente(profesionalId) {
-    const antecedenteId = antecedenteAEliminar
+    const antecedente = antecedenteAEliminar
+
+    const { error: auditoriaError } = await registrarAuditoria({
+      tabla: 'antecedentes',
+      registroId: antecedente.id,
+      accion: 'eliminar',
+      usuarioId: profesionalId,
+      valoresAnteriores: antecedente,
+    })
+
+    if (auditoriaError) {
+      setError(auditoriaError.message)
+      return
+    }
 
     const { error } = await supabase
       .from('antecedentes')
       .update({ eliminado_en: new Date().toISOString(), eliminado_por: profesionalId })
-      .eq('id', antecedenteId)
+      .eq('id', antecedente.id)
 
     if (error) {
       setError(error.message)
       return
     }
 
-    setAntecedentes((prev) => prev.filter((a) => a.id !== antecedenteId))
+    setAntecedentes((prev) => prev.filter((a) => a.id !== antecedente.id))
     setAntecedenteAEliminar(null)
   }
 
@@ -169,20 +187,33 @@ export default function HistoriaClinica() {
   }
 
   async function confirmarEliminarConsulta(profesionalId) {
-    const consultaId = consultaAEliminar
+    const consulta = consultaAEliminar
+
+    const { error: auditoriaError } = await registrarAuditoria({
+      tabla: 'consultas',
+      registroId: consulta.id,
+      accion: 'eliminar',
+      usuarioId: profesionalId,
+      valoresAnteriores: consulta,
+    })
+
+    if (auditoriaError) {
+      setError(auditoriaError.message)
+      return
+    }
 
     const { error } = await supabase
       .from('consultas')
       .update({ eliminado_en: new Date().toISOString(), eliminado_por: profesionalId })
-      .eq('id', consultaId)
+      .eq('id', consulta.id)
 
     if (error) {
       setError(error.message)
       return
     }
 
-    setConsultas((prev) => prev.filter((c) => c.id !== consultaId))
-    setDocumentos((prev) => prev.filter((d) => d.consulta_id !== consultaId))
+    setConsultas((prev) => prev.filter((c) => c.id !== consulta.id))
+    setDocumentos((prev) => prev.filter((d) => d.consulta_id !== consulta.id))
     setConsultaAEliminar(null)
   }
 
@@ -191,6 +222,45 @@ export default function HistoriaClinica() {
       [...prev, ...nuevosResultados].sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
     )
     setShowLabModal(false)
+  }
+
+  function handleResultadoActualizado(resultadoActualizado) {
+    setResultadosLab((prev) =>
+      prev
+        .map((r) => (r.id === resultadoActualizado.id ? resultadoActualizado : r))
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+    )
+    setEditingResultado(null)
+  }
+
+  async function confirmarEliminarResultado(profesionalId) {
+    const resultado = resultadoAEliminar
+
+    const { error: auditoriaError } = await registrarAuditoria({
+      tabla: 'resultados_laboratorio',
+      registroId: resultado.id,
+      accion: 'eliminar',
+      usuarioId: profesionalId,
+      valoresAnteriores: resultado,
+    })
+
+    if (auditoriaError) {
+      setError(auditoriaError.message)
+      return
+    }
+
+    const { error } = await supabase
+      .from('resultados_laboratorio')
+      .update({ eliminado_en: new Date().toISOString(), eliminado_por: profesionalId })
+      .eq('id', resultado.id)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    setResultadosLab((prev) => prev.filter((r) => r.id !== resultado.id))
+    setResultadoAEliminar(null)
   }
 
   if (loading) {
@@ -286,7 +356,7 @@ export default function HistoriaClinica() {
                     setEditingConsulta(c)
                     setShowModal(true)
                   }}
-                  onEliminar={() => setConsultaAEliminar(c.id)}
+                  onEliminar={() => setConsultaAEliminar(c)}
                 />
               ))}
             </div>
@@ -329,7 +399,7 @@ export default function HistoriaClinica() {
                       Editar
                     </button>
                     <button
-                      onClick={() => setAntecedenteAEliminar(a.id)}
+                      onClick={() => setAntecedenteAEliminar(a)}
                       className="text-sm text-text-primary underline"
                     >
                       Eliminar
@@ -361,11 +431,30 @@ export default function HistoriaClinica() {
                     {resultadosLab
                       .filter((r) => r.tipo_examen === nombre)
                       .map((r) => (
-                        <li key={r.id} className="text-base text-text-primary flex gap-2">
-                          <span className="text-text-secondary shrink-0">
-                            {formatFecha(r.fecha)} —
+                        <li
+                          key={r.id}
+                          className="text-base text-text-primary flex flex-wrap items-start justify-between gap-2"
+                        >
+                          <span className="flex gap-2">
+                            <span className="text-text-secondary shrink-0">
+                              {formatFecha(r.fecha)} —
+                            </span>
+                            <span>{r.resultado}</span>
                           </span>
-                          <span>{r.resultado}</span>
+                          <span className="flex gap-3 shrink-0">
+                            <button
+                              onClick={() => setEditingResultado(r)}
+                              className="text-sm text-text-secondary hover:text-text-primary underline"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => setResultadoAEliminar(r)}
+                              className="text-sm text-text-primary underline"
+                            >
+                              Eliminar
+                            </button>
+                          </span>
                         </li>
                       ))}
                   </ul>
@@ -416,6 +505,14 @@ export default function HistoriaClinica() {
         />
       )}
 
+      {editingResultado && (
+        <EditarResultadoLaboratorioModal
+          resultado={editingResultado}
+          onClose={() => setEditingResultado(null)}
+          onSaved={handleResultadoActualizado}
+        />
+      )}
+
       {antecedenteAEliminar && (
         <ConfirmarConProfesionalModal
           titulo="Eliminar antecedente"
@@ -433,6 +530,16 @@ export default function HistoriaClinica() {
           textoConfirmar="Eliminar"
           onCancelar={() => setConsultaAEliminar(null)}
           onConfirmar={confirmarEliminarConsulta}
+        />
+      )}
+
+      {resultadoAEliminar && (
+        <ConfirmarConProfesionalModal
+          titulo="Eliminar resultado de laboratorio"
+          mensaje="Deja de verse en la ficha del paciente. El registro se conserva internamente por la normativa de historia clínica (10 años) — no se puede deshacer desde la aplicación."
+          textoConfirmar="Eliminar"
+          onCancelar={() => setResultadoAEliminar(null)}
+          onConfirmar={confirmarEliminarResultado}
         />
       )}
     </div>

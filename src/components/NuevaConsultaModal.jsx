@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { registrarAuditoria } from '@/lib/auditoria'
 
 const initialForm = {
   motivo: '',
@@ -101,6 +102,22 @@ export default function NuevaConsultaModal({ pacienteId, consulta, onClose, onSa
     }
 
     setLoading(true)
+
+    if (esEdicion) {
+      const { error: auditoriaError } = await registrarAuditoria({
+        tabla: 'consultas',
+        registroId: consulta.id,
+        accion: 'editar',
+        usuarioId: profesionalId,
+        valoresAnteriores: consulta,
+      })
+
+      if (auditoriaError) {
+        setLoading(false)
+        setError(auditoriaError.message)
+        return
+      }
+    }
 
     const camposClinicos = Object.fromEntries(
       Object.entries(form).map(([key, value]) => [
