@@ -12,7 +12,7 @@
 // - unidad: un solo valor de texto libre, se agrega al guardar (ej. "98 mg/dL")
 // - placeholder: solo guía visual en el campo, NO se agrega al valor guardado (para casos
 //   como RIN, que no tiene una unidad real)
-const CRUCES = ['No reactivo', '+', '++', '+++', '++++']
+const CRUCES = ['No contiene', 'Contiene(+)', 'Contiene(++)', 'Contiene(+++)', 'Contiene(++++)']
 const CONTIENE = ['No contiene', 'Contiene']
 
 export const TIPOS_EXAMEN = [
