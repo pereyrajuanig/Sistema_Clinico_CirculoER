@@ -16,6 +16,17 @@ jobs:
       - name: Instalar postgresql-client
         run: sudo apt-get update && sudo apt-get install --yes postgresql-client
 
+      - name: Verificar que los secrets no lleguen vacíos
+        run: |
+          if [ -z "${{ secrets.SUPABASE_DB_URL }}" ] || [ -z "${{ secrets.BACKUP_REPO_TOKEN }}" ]; then
+            echo "SUPABASE_DB_URL o BACKUP_REPO_TOKEN llegan vacíos a este workflow." >&2
+            echo "Revisar en Settings -> Secrets and variables -> Actions -> Repository" >&2
+            echo "secrets (NO 'Environment secrets': si se cargaron ahí, este job" >&2
+            echo "necesitaría declarar 'environment:' para poder leerlos) que el nombre" >&2
+            echo "sea exactamente ese, sin typos, y que el valor no esté vacío." >&2
+            exit 1
+          fi
+
       - name: Generar el dump con pg_dump
         env:
           PGURL: ${{ secrets.SUPABASE_DB_URL }}
