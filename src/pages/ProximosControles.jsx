@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { formatearDni } from '@/lib/dni'
-import ThemeToggle from '@/components/ThemeToggle'
-import logo from '@/assets/Logo-Circulo_FondoTransparente.png'
+import Header from '@/components/Header'
 
 function formatFecha(value) {
   if (!value) return ''
@@ -61,18 +60,10 @@ export default function ProximosControles() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-surface border-b border-border px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="" className="h-20 w-20 object-contain" />
-          <h1 className="text-4xl font-bold text-text-primary">Próximos controles</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <Link to="/" className="btn-secondary px-3 py-1.5">
-            ← Volver a pacientes
-          </Link>
-        </div>
-      </header>
+      <Header
+        title="Próximos controles"
+        actions={[{ label: '← Volver a pacientes', to: '/', variant: 'secondary' }]}
+      />
 
       <main className="p-4 sm:p-6 space-y-4 max-w-4xl mx-auto">
         {error && <p className="text-base text-text-primary">{error}</p>}

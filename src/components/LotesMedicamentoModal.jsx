@@ -116,9 +116,9 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
                 return (
                   <li
                     key={l.lote_id}
-                    className="border border-border rounded-lg p-3 flex justify-between items-center gap-3"
+                    className="border border-border rounded-lg p-3 flex flex-wrap justify-between items-center gap-3"
                   >
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-base text-text-primary">
                         {l.numero_lote || 'Sin número de lote'}
                       </p>

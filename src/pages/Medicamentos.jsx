@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import MedicamentoFormModal from '@/components/MedicamentoFormModal'
 import EntradaStockModal from '@/components/EntradaStockModal'
 import SalidaStockModal from '@/components/SalidaStockModal'
 import LotesMedicamentoModal from '@/components/LotesMedicamentoModal'
-import ThemeToggle from '@/components/ThemeToggle'
+import Header from '@/components/Header'
 import { formatearPresentacion, identificarMedicamento } from '@/lib/medicamentos'
-import logo from '@/assets/Logo-Circulo_FondoTransparente.png'
 
 function formatFecha(value) {
   if (!value) return ''
@@ -122,25 +120,15 @@ export default function Medicamentos() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-surface border-b border-border px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="" className="h-20 w-20 object-contain" />
-          <h1 className="text-4xl font-bold text-text-primary">Medicamentos</h1>
-          <div className="h-10 w-px bg-border mx-1" />
-          <Link
-            to="/medicamentos/historial"
-            className="bg-primary text-accent-marino border border-accent-marino rounded-lg px-3 py-1.5 text-base font-semibold transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-          >
-            Historial de movimientos
-          </Link>
-        </div>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <Link to="/" className="btn-secondary px-3 py-1.5">
-            ← Volver a pacientes
-          </Link>
-        </div>
-      </header>
+      <Header
+        title="Medicamentos"
+        navLink={{
+          label: 'Historial de movimientos',
+          to: '/medicamentos/historial',
+          variant: 'accent',
+        }}
+        actions={[{ label: '← Volver a pacientes', to: '/', variant: 'secondary' }]}
+      />
 
       <main className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto">
         {error && <p className="text-base text-text-primary">{error}</p>}

@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import { supabase } from '@/lib/supabaseClient'
 import PacienteFormModal from '@/components/PacienteFormModal'
-import logo from '@/assets/Logo-Circulo_FondoTransparente.png'
 import { limpiarDni, formatearDni } from '@/lib/dni'
-import ThemeToggle from '@/components/ThemeToggle'
+import Header from '@/components/Header'
 
 export default function Pacientes() {
   const { logout } = useAuth()
@@ -92,31 +91,14 @@ export default function Pacientes() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-surface border-b border-border px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="" className="h-20 w-20 object-contain" />
-          <h1 className="text-4xl font-bold text-text-primary">Pacientes</h1>
-          <div className="h-10 w-px bg-border mx-1" />
-          <Link
-            to="/medicamentos"
-            className="bg-primary text-accent-marino border border-accent-marino rounded-lg px-3 py-1.5 text-base font-semibold transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-          >
-            Medicamentos
-          </Link>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link to="/proximos-controles" className="btn-secondary px-3 py-1.5">
-            Próximos controles
-          </Link>
-          <ThemeToggle />
-          <button
-            onClick={logout}
-            className="bg-alert/10 text-text-primary border border-alert rounded-lg px-3 py-1.5 text-base font-semibold transition-colors hover:bg-alert/20 focus:outline-none focus:ring-2 focus:ring-alert focus:ring-offset-1"
-          >
-            Cerrar sesión
-          </button>
-        </div>
-      </header>
+      <Header
+        title="Pacientes"
+        navLink={{ label: 'Medicamentos', to: '/medicamentos', variant: 'accent' }}
+        actions={[
+          { label: 'Próximos controles', to: '/proximos-controles', variant: 'secondary' },
+          { label: 'Cerrar sesión', onClick: logout, variant: 'alert' },
+        ]}
+      />
 
       <main className="p-4 sm:p-6 space-y-4">
         <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
