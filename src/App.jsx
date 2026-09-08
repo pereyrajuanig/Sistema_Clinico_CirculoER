@@ -5,7 +5,6 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import Login from '@/pages/Login'
 import Pacientes from '@/pages/Pacientes'
 import HistoriaClinica from '@/pages/HistoriaClinica'
-import ProximosControles from '@/pages/ProximosControles'
 import Medicamentos from '@/pages/Medicamentos'
 import HistorialMovimientos from '@/pages/HistorialMovimientos'
 
@@ -29,14 +28,6 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <HistoriaClinica />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/proximos-controles"
-              element={
-                <ProtectedRoute>
-                  <ProximosControles />
                 </ProtectedRoute>
               }
             />
