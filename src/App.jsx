@@ -6,6 +6,7 @@ import Login from '@/pages/Login'
 import Pacientes from '@/pages/Pacientes'
 import HistoriaClinica from '@/pages/HistoriaClinica'
 import Medicamentos from '@/pages/Medicamentos'
+import MedicamentosInactivos from '@/pages/MedicamentosInactivos'
 import HistorialMovimientos from '@/pages/HistorialMovimientos'
 
 export default function App() {
@@ -36,6 +37,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Medicamentos />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/medicamentos/inactivos"
+              element={
+                <ProtectedRoute>
+                  <MedicamentosInactivos />
                 </ProtectedRoute>
               }
             />
