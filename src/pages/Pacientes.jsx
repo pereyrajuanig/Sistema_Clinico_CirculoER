@@ -95,7 +95,10 @@ export default function Pacientes() {
       <Header
         title="Pacientes"
         navLink={{ label: 'Medicamentos', to: '/medicamentos', variant: 'accent' }}
-        actions={[{ label: 'Cerrar sesión', onClick: logout, variant: 'alert' }]}
+        actions={[
+          { label: 'Últimas consultas', to: '/consultas/recientes', variant: 'secondary' },
+          { label: 'Cerrar sesión', onClick: logout, variant: 'alert' },
+        ]}
       />
 
       <main className="p-4 sm:p-6 space-y-4">

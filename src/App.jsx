@@ -8,6 +8,7 @@ import HistoriaClinica from '@/pages/HistoriaClinica'
 import Medicamentos from '@/pages/Medicamentos'
 import MedicamentosInactivos from '@/pages/MedicamentosInactivos'
 import HistorialMovimientos from '@/pages/HistorialMovimientos'
+import UltimasConsultas from '@/pages/UltimasConsultas'
 
 export default function App() {
   return (
@@ -29,6 +30,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <HistoriaClinica />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/consultas/recientes"
+              element={
+                <ProtectedRoute>
+                  <UltimasConsultas />
                 </ProtectedRoute>
               }
             />
