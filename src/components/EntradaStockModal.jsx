@@ -7,8 +7,6 @@ import {
   mensajeErrorMedicamento,
 } from '@/lib/medicamentos'
 
-const NUEVO = '__nuevo__'
-
 const medicamentoNuevoInicial = {
   nombre: '',
   droga: '',
@@ -36,6 +34,7 @@ export default function EntradaStockModal({ medicamentos, onClose, onRegistrado 
   const [profesionales, setProfesionales] = useState([])
   const [profesionalId, setProfesionalId] = useState(null)
   const [medicamentoId, setMedicamentoId] = useState('')
+  const [agregandoNuevo, setAgregandoNuevo] = useState(false)
   const [medicamentoNuevo, setMedicamentoNuevo] = useState(medicamentoNuevoInicial)
   const [numeroLote, setNumeroLote] = useState('')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
@@ -43,7 +42,15 @@ export default function EntradaStockModal({ medicamentos, onClose, onRegistrado 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const esMedicamentoNuevo = medicamentoId === NUEVO
+  function mostrarAgregarNuevo() {
+    setAgregandoNuevo(true)
+    setMedicamentoId('')
+  }
+
+  function volverAExistente() {
+    setAgregandoNuevo(false)
+    setMedicamentoNuevo(medicamentoNuevoInicial)
+  }
 
   useEffect(() => {
     supabase
@@ -69,15 +76,15 @@ export default function EntradaStockModal({ medicamentos, onClose, onRegistrado 
       setError('Elegí quién registra la entrada.')
       return
     }
-    if (!medicamentoId) {
+    if (!agregandoNuevo && !medicamentoId) {
       setError('Elegí un medicamento.')
       return
     }
-    if (esMedicamentoNuevo && !medicamentoNuevo.nombre.trim()) {
+    if (agregandoNuevo && !medicamentoNuevo.nombre.trim()) {
       setError('Cargá la marca comercial del medicamento nuevo.')
       return
     }
-    if (esMedicamentoNuevo && medicamentoNuevo.presentacion === 'Otra' && !medicamentoNuevo.presentacion_detalle.trim()) {
+    if (agregandoNuevo && medicamentoNuevo.presentacion === 'Otra' && !medicamentoNuevo.presentacion_detalle.trim()) {
       setError('Tenés que especificar la presentación.')
       return
     }
@@ -86,7 +93,7 @@ export default function EntradaStockModal({ medicamentos, onClose, onRegistrado 
 
     let medicamentoIdFinal = medicamentoId
 
-    if (esMedicamentoNuevo) {
+    if (agregandoNuevo) {
       const esOtra = medicamentoNuevo.presentacion === 'Otra'
 
       const { data: nuevo, error: medicamentoError } = await supabase
@@ -179,30 +186,43 @@ export default function EntradaStockModal({ medicamentos, onClose, onRegistrado 
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-sm text-text-secondary">
-                Medicamento <span className="text-text-primary">*</span>
-              </label>
-              <select
-                required
-                value={medicamentoId}
-                onChange={(e) => setMedicamentoId(e.target.value)}
-                className="input"
-              >
-                <option value="" disabled>
-                  Elegir medicamento...
-                </option>
-                <option value={NUEVO}>+ Agregar medicamento nuevo</option>
-                {medicamentos.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {identificarMedicamento(m)}
-                    {formatearPresentacion(m) ? ` (${formatearPresentacion(m)})` : ''}
+            {!agregandoNuevo ? (
+              <div className="space-y-2">
+                <label className="text-sm text-text-secondary">
+                  Medicamento <span className="text-text-primary">*</span>
+                </label>
+                <select
+                  required
+                  value={medicamentoId}
+                  onChange={(e) => setMedicamentoId(e.target.value)}
+                  className="input"
+                >
+                  <option value="" disabled>
+                    Elegir medicamento...
                   </option>
-                ))}
-              </select>
-            </div>
+                  {medicamentos.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {identificarMedicamento(m)}
+                      {formatearPresentacion(m) ? ` (${formatearPresentacion(m)})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" onClick={mostrarAgregarNuevo} className="btn-secondary w-full">
+                  + Agregar medicamento nuevo
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm text-text-secondary">
+                  Medicamento <span className="text-text-primary">*</span>
+                </label>
+                <button type="button" onClick={volverAExistente} className="btn-secondary w-full">
+                  ‹ Elegir un medicamento existente
+                </button>
+              </div>
+            )}
 
-            {esMedicamentoNuevo && (
+            {agregandoNuevo && (
               <div className="space-y-4 border border-border rounded-lg p-3 bg-background">
                 <div className="space-y-1">
                   <label className="text-sm text-text-secondary">
