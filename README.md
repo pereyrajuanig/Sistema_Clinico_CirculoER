@@ -150,6 +150,16 @@ restricción en la base, no solo en el formulario. Dos alertas corren en paralel
 debajo del mínimo definido para un medicamento, y lotes a 30 días o menos de vencer aunque el
 medicamento todavía tenga stock en otro lote.
 
+Registrar una entrada de stock arrancó siendo dos pasos separados: dar de alta el
+medicamento en el catálogo y, recién después, cargar la entrada — con un popup de puente
+entre uno y otro. En la práctica generaba fricción real: quien recibe una caja física no
+siempre sabe de memoria si ese medicamento ya está cargado, y ese "¿lo creo primero o no?"
+era motivo suficiente para no completar la carga. El formulario de entrada ahora incluye la
+opción de dar de alta el medicamento ahí mismo, sin salir del modal ni perder lo ya
+completado — un solo submit hace las dos cosas. El alta de medicamento por separado sigue
+existiendo para gestión de catálogo pura (editar uno ya cargado, corregir una presentación),
+no se sacó nada, se sumó el atajo para el caso de uso real más común.
+
 El nombre de un medicamento solo no alcanza para identificarlo sin ambigüedad — puede haber
 "Paracetamol 500mg" y "Paracetamol 1g" en el mismo catálogo — así que en cualquier lugar que
 lo muestre (listado, selectores de entrada/salida, historial, alertas) se arma el identificador
