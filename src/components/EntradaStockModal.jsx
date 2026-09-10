@@ -11,6 +11,7 @@ const NUEVO = '__nuevo__'
 
 const medicamentoNuevoInicial = {
   nombre: '',
+  droga: '',
   presentacion: '',
   presentacion_detalle: '',
   concentracion: '',
@@ -21,17 +22,20 @@ function hoyISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
-// Unifica en un solo formulario lo que antes eran dos pasos separados ("+ Nuevo
-// medicamento" y después "+ Registrar entrada", con un popup intermedio para saltar de
-// uno a otro): acá se puede elegir un medicamento existente O cargar uno nuevo sin salir
-// de este modal — es el caso de uso real más común (llega una caja física, hay que
-// cargarla, y no siempre se sabe de memoria si ese medicamento ya está en el catálogo).
-// "+ Nuevo medicamento" sigue existiendo aparte para gestión de catálogo pura (editar uno
-// ya cargado, o precargar medicamentos antes de que llegue el stock) — esto no lo reemplaza.
-export default function EntradaStockModal({ medicamentos, medicamentoIdInicial, onClose, onRegistrado }) {
+// Es el único punto de entrada para cargar medicamentos ahora — "+ Nuevo medicamento" en
+// el toolbar de Medicamentos.jsx abre este modal, no uno separado para el catálogo. Acá se
+// puede elegir un medicamento existente O cargar uno nuevo sin salir del modal, en el mismo
+// submit que registra el lote y la cantidad — es el caso de uso real: llega una caja física,
+// hay que cargarla, y no siempre se sabe de memoria si ese medicamento ya está en el
+// catálogo. Antes esto eran dos botones y dos modales separados (con un popup de puente
+// entre uno y otro) y generaba fricción real — el personal terminaba sin completar la
+// segunda mitad. La edición de un medicamento ya cargado sigue siendo
+// `MedicamentoFormModal.jsx` (vía "Editar" en cada fila de la tabla), sin campos de stock —
+// eso no cambia acá.
+export default function EntradaStockModal({ medicamentos, onClose, onRegistrado }) {
   const [profesionales, setProfesionales] = useState([])
   const [profesionalId, setProfesionalId] = useState(null)
-  const [medicamentoId, setMedicamentoId] = useState(medicamentoIdInicial || '')
+  const [medicamentoId, setMedicamentoId] = useState('')
   const [medicamentoNuevo, setMedicamentoNuevo] = useState(medicamentoNuevoInicial)
   const [numeroLote, setNumeroLote] = useState('')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
@@ -70,7 +74,7 @@ export default function EntradaStockModal({ medicamentos, medicamentoIdInicial, 
       return
     }
     if (esMedicamentoNuevo && !medicamentoNuevo.nombre.trim()) {
-      setError('Cargá el nombre del medicamento nuevo.')
+      setError('Cargá la marca comercial del medicamento nuevo.')
       return
     }
     if (esMedicamentoNuevo && medicamentoNuevo.presentacion === 'Otra' && !medicamentoNuevo.presentacion_detalle.trim()) {
@@ -89,6 +93,7 @@ export default function EntradaStockModal({ medicamentos, medicamentoIdInicial, 
         .from('medicamentos')
         .insert({
           nombre: medicamentoNuevo.nombre.trim(),
+          droga: medicamentoNuevo.droga || null,
           presentacion: medicamentoNuevo.presentacion || null,
           presentacion_detalle: esOtra ? medicamentoNuevo.presentacion_detalle : null,
           concentracion: medicamentoNuevo.concentracion || null,
@@ -201,13 +206,24 @@ export default function EntradaStockModal({ medicamentos, medicamentoIdInicial, 
               <div className="space-y-4 border border-border rounded-lg p-3 bg-background">
                 <div className="space-y-1">
                   <label className="text-sm text-text-secondary">
-                    Nombre <span className="text-text-primary">*</span>
+                    Marca Comercial <span className="text-text-primary">*</span>
                   </label>
                   <input
                     required
                     value={medicamentoNuevo.nombre}
                     onChange={handleChangeNuevo('nombre')}
                     className="input"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm text-text-secondary">Droga</label>
+                  <textarea
+                    value={medicamentoNuevo.droga}
+                    onChange={handleChangeNuevo('droga')}
+                    placeholder="Ej: Ibuprofeno"
+                    className="input"
+                    rows={2}
                   />
                 </div>
 

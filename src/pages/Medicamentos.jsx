@@ -27,8 +27,6 @@ export default function Medicamentos() {
   const [showMedicamentoModal, setShowMedicamentoModal] = useState(false)
   const [showEntradaModal, setShowEntradaModal] = useState(false)
   const [showSalidaModal, setShowSalidaModal] = useState(false)
-  const [medicamentoCreado, setMedicamentoCreado] = useState(null)
-  const [medicamentoIdParaEntrada, setMedicamentoIdParaEntrada] = useState('')
   const [editingMedicamento, setEditingMedicamento] = useState(null)
   const [medicamentoParaLotes, setMedicamentoParaLotes] = useState(null)
 
@@ -79,16 +77,13 @@ export default function Medicamentos() {
   }
 
   function handleMedicamentoGuardado(guardado) {
-    setMedicamentos((prev) => {
-      const existe = prev.some((m) => m.id === guardado.id)
-      const siguiente = existe
-        ? prev.map((m) => (m.id === guardado.id ? guardado : m))
-        : [...prev, guardado]
-      return siguiente.sort((a, b) => a.nombre.localeCompare(b.nombre))
-    })
+    setMedicamentos((prev) =>
+      prev
+        .map((m) => (m.id === guardado.id ? guardado : m))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre))
+    )
     setShowMedicamentoModal(false)
     setEditingMedicamento(null)
-    if (!editingMedicamento) setMedicamentoCreado(guardado)
   }
 
   async function handleToggleActivo(medicamento) {
@@ -166,17 +161,8 @@ export default function Medicamentos() {
         )}
 
         <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => {
-              setEditingMedicamento(null)
-              setShowMedicamentoModal(true)
-            }}
-            className="btn-primary"
-          >
+          <button onClick={() => setShowEntradaModal(true)} className="btn-primary">
             + Nuevo medicamento
-          </button>
-          <button onClick={() => setShowEntradaModal(true)} className="btn-secondary">
-            + Registrar entrada
           </button>
           <button onClick={() => setShowSalidaModal(true)} className="btn-secondary">
             + Registrar salida
@@ -282,15 +268,8 @@ export default function Medicamentos() {
       {showEntradaModal && (
         <EntradaStockModal
           medicamentos={medicamentosActivos}
-          medicamentoIdInicial={medicamentoIdParaEntrada}
-          onClose={() => {
-            setShowEntradaModal(false)
-            setMedicamentoIdParaEntrada('')
-          }}
-          onRegistrado={() => {
-            setMedicamentoIdParaEntrada('')
-            handleMovimientoRegistrado(setShowEntradaModal)
-          }}
+          onClose={() => setShowEntradaModal(false)}
+          onRegistrado={() => handleMovimientoRegistrado(setShowEntradaModal)}
         />
       )}
 
@@ -300,31 +279,6 @@ export default function Medicamentos() {
           onClose={() => setShowSalidaModal(false)}
           onRegistrado={() => handleMovimientoRegistrado(setShowSalidaModal)}
         />
-      )}
-
-      {medicamentoCreado && (
-        <div className="fixed inset-0 bg-text-primary/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-surface rounded-lg border border-border shadow-sm w-full max-w-sm p-6 text-center space-y-4">
-            <p className="text-text-primary text-lg font-semibold">
-              Medicamento cargado: {identificarMedicamento(medicamentoCreado)}
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => setMedicamentoCreado(null)} className="btn-secondary">
-                Volver
-              </button>
-              <button
-                onClick={() => {
-                  setMedicamentoIdParaEntrada(medicamentoCreado.id)
-                  setMedicamentoCreado(null)
-                  setShowEntradaModal(true)
-                }}
-                className="btn-primary"
-              >
-                Registrar entrada
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   )
