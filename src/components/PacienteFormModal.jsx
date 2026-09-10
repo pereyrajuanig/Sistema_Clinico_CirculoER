@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { limpiarDni } from '@/lib/dni'
-import { SEXOS, GRUPOS_SANGUINEOS, capitalizarPalabras } from '@/lib/pacientes'
+import { SEXOS, GRUPOS_SANGUINEOS, capitalizarPalabras, limpiarTelefono } from '@/lib/pacientes'
 
 // Campos de texto libre que se normalizan al guardar (ver capitalizarPalabras) — nombre,
 // dirección, contacto de referencia, etc. Obra social queda afuera a propósito: se muestra
@@ -49,6 +49,11 @@ export default function PacienteFormModal({ paciente, onClose, onSaved }) {
   // contenido y guardar sin darse cuenta de que se mandó un DNI vacío o truncado
   function handleChangeDni(e) {
     setForm((prev) => ({ ...prev, dni: limpiarDni(e.target.value) }))
+  }
+
+  // Mismo criterio que el DNI: filtrar mientras se tipea, no recién al guardar
+  function handleChangeTelefono(e) {
+    setForm((prev) => ({ ...prev, telefono: limpiarTelefono(e.target.value) }))
   }
 
   async function handleSubmit(e) {
@@ -149,7 +154,12 @@ export default function PacienteFormModal({ paciente, onClose, onSaved }) {
             </Field>
 
             <Field label="Teléfono">
-              <input value={form.telefono} onChange={handleChange('telefono')} className="input" />
+              <input
+                inputMode="tel"
+                value={form.telefono}
+                onChange={handleChangeTelefono}
+                className="input"
+              />
             </Field>
 
             <Field label="Dirección">

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { capitalizarPalabras, formatearMayuscula, calcularEdad } from './pacientes'
+import { capitalizarPalabras, formatearMayuscula, limpiarTelefono, calcularEdad } from './pacientes'
 
 describe('capitalizarPalabras', () => {
   it('pone en mayúscula la primera letra de cada palabra y el resto en minúscula', () => {
@@ -31,6 +31,23 @@ describe('formatearMayuscula', () => {
   it('devuelve el valor tal cual si es vacío o null (no lo pisa con string vacío)', () => {
     expect(formatearMayuscula('')).toBe('')
     expect(formatearMayuscula(null)).toBe(null)
+  })
+})
+
+describe('limpiarTelefono', () => {
+  it('deja pasar dígitos y los símbolos habituales de formato', () => {
+    expect(limpiarTelefono('+54 9 343 412-3456')).toBe('+54 9 343 412-3456')
+    expect(limpiarTelefono('(0343) 412-3456')).toBe('(0343) 412-3456')
+  })
+
+  it('saca letras sueltas sin tocar el resto', () => {
+    expect(limpiarTelefono('343abc4123456xyz')).toBe('3434123456')
+  })
+
+  it('devuelve string vacío para null/undefined/vacío', () => {
+    expect(limpiarTelefono(null)).toBe('')
+    expect(limpiarTelefono(undefined)).toBe('')
+    expect(limpiarTelefono('')).toBe('')
   })
 })
 
