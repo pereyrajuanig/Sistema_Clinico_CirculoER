@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import MedicamentoFormModal from '@/components/MedicamentoFormModal'
 import EntradaStockModal from '@/components/EntradaStockModal'
@@ -29,6 +29,7 @@ export default function Medicamentos() {
   const [showSalidaModal, setShowSalidaModal] = useState(false)
   const [editingMedicamento, setEditingMedicamento] = useState(null)
   const [medicamentoParaLotes, setMedicamentoParaLotes] = useState(null)
+  const [busqueda, setBusqueda] = useState('')
 
   async function fetchTodo() {
     setLoading(true)
@@ -71,6 +72,17 @@ export default function Medicamentos() {
   )
 
   const medicamentosActivos = medicamentos.filter((m) => m.activo !== false)
+
+  // Busca por marca comercial (nombre) o droga — las alertas de arriba siguen mirando
+  // TODOS los medicamentos, esto solo filtra lo que se ve en la tabla
+  const medicamentosFiltrados = useMemo(() => {
+    const query = busqueda.trim().toLowerCase()
+    if (!query) return medicamentos
+
+    return medicamentos.filter(
+      (m) => m.nombre?.toLowerCase().includes(query) || m.droga?.toLowerCase().includes(query)
+    )
+  }, [medicamentos, busqueda])
 
   function nombreMedicamento(medicamentoId) {
     return identificarMedicamento(medicamentos.find((m) => m.id === medicamentoId)) || 'Medicamento'
@@ -160,21 +172,32 @@ export default function Medicamentos() {
           </div>
         )}
 
-        <div className="flex flex-wrap gap-3">
-          <button onClick={() => setShowEntradaModal(true)} className="btn-primary">
-            + Nuevo medicamento
-          </button>
-          <button onClick={() => setShowSalidaModal(true)} className="btn-secondary">
-            + Registrar salida
-          </button>
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+          <input
+            type="text"
+            placeholder="Buscar por marca comercial o droga..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            className="input sm:max-w-xs"
+          />
+          <div className="flex flex-wrap gap-3">
+            <button onClick={() => setShowEntradaModal(true)} className="btn-primary">
+              + Nuevo medicamento
+            </button>
+            <button onClick={() => setShowSalidaModal(true)} className="btn-secondary">
+              + Registrar salida
+            </button>
+          </div>
         </div>
 
         <div className="bg-surface border border-border rounded-lg overflow-hidden">
           {loading ? (
             <p className="p-10 text-center text-text-secondary text-base">Cargando...</p>
-          ) : medicamentos.length === 0 ? (
+          ) : medicamentosFiltrados.length === 0 ? (
             <p className="p-10 text-center text-text-secondary text-base">
-              Todavía no hay medicamentos cargados.
+              {medicamentos.length === 0
+                ? 'Todavía no hay medicamentos cargados.'
+                : 'No se encontraron medicamentos con esa búsqueda.'}
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -188,7 +211,7 @@ export default function Medicamentos() {
                   </tr>
                 </thead>
                 <tbody>
-                  {medicamentos.map((m) => {
+                  {medicamentosFiltrados.map((m) => {
                     const stock = stockPorMedicamento[m.id] || 0
                     const inactivo = m.activo === false
                     const bajoMinimo = !inactivo && m.stock_minimo != null && stock < m.stock_minimo
