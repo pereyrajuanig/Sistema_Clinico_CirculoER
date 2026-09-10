@@ -4,6 +4,7 @@ import { PRESENTACIONES, mensajeErrorMedicamento } from '@/lib/medicamentos'
 
 const initialForm = {
   nombre: '',
+  droga: '',
   presentacion: '',
   presentacion_detalle: '',
   concentracion: '',
@@ -35,6 +36,7 @@ export default function MedicamentoFormModal({ medicamento, onClose, onSaved }) 
 
     const payload = {
       nombre: form.nombre,
+      droga: form.droga || null,
       presentacion: form.presentacion || null,
       presentacion_detalle: esOtra ? form.presentacion_detalle : null,
       concentracion: form.concentracion || null,
@@ -68,12 +70,22 @@ export default function MedicamentoFormModal({ medicamento, onClose, onSaved }) 
           </div>
 
           <div className="p-4 sm:p-6 space-y-4">
-            <Field label="Nombre" required>
+            <Field label="Marca Comercial" required>
               <input
                 required
                 value={form.nombre}
                 onChange={handleChange('nombre')}
                 className="input"
+              />
+            </Field>
+
+            <Field label="Droga">
+              <textarea
+                value={form.droga}
+                onChange={handleChange('droga')}
+                placeholder="Ej: Ibuprofeno"
+                className="input"
+                rows={2}
               />
             </Field>
 
