@@ -205,6 +205,7 @@ export default function Medicamentos() {
                 <thead>
                   <tr className="border-b border-border text-left text-text-secondary">
                     <th className="px-4 py-3 font-medium">Nombre</th>
+                    <th className="px-4 py-3 font-medium">Droga</th>
                     <th className="px-4 py-3 font-medium">Presentación</th>
                     <th className="px-4 py-3 font-medium">Stock total</th>
                     <th className="px-4 py-3 font-medium">Acciones</th>
@@ -224,6 +225,7 @@ export default function Medicamentos() {
                             <span className="ml-2 text-sm text-text-secondary">(dado de baja)</span>
                           )}
                         </td>
+                        <td className="px-4 py-3 text-text-primary">{m.droga || '—'}</td>
                         <td className="px-4 py-3 text-text-primary">{formatearPresentacion(m) || '—'}</td>
                         <td className="px-4 py-3">
                           <span className={bajoMinimo ? 'text-text-primary font-semibold' : 'text-text-primary'}>
