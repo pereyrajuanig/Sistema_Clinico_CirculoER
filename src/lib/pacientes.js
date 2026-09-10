@@ -24,6 +24,14 @@ export function formatearMayuscula(valor) {
   return valor ? valor.toUpperCase() : valor
 }
 
+// Filtra el teléfono a dígitos y los símbolos habituales de formato (+, espacios, guiones,
+// paréntesis) — a diferencia de limpiarDni no lo deja en solo dígitos, porque acá sí importa
+// poder escribir "+54 9 343 412-3456" o "(0343) 412-3456", pero igual bloquea que se cuele
+// una letra suelta.
+export function limpiarTelefono(valor) {
+  return (valor || '').replace(/[^\d+\-() ]/g, '')
+}
+
 // Años cumplidos a la fecha de hoy — no es un campo de la base, se calcula donde hace falta
 export function calcularEdad(fechaNacimiento) {
   if (!fechaNacimiento) return null
