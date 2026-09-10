@@ -44,9 +44,22 @@ export default function PacienteFormModal({ paciente, onClose, onSaved }) {
     return (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
   }
 
+  // El DNI se filtra letra por letra a medida que se tipea (no solo al guardar) — si solo
+  // se limpiara en handleSubmit, alguien podía escribir puras letras, ver el campo con
+  // contenido y guardar sin darse cuenta de que se mandó un DNI vacío o truncado
+  function handleChangeDni(e) {
+    setForm((prev) => ({ ...prev, dni: limpiarDni(e.target.value) }))
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+
+    if (!limpiarDni(form.dni)) {
+      setError('El DNI tiene que tener al menos un dígito.')
+      return
+    }
+
     setLoading(true)
 
     // Los campos opcionales vacíos se mandan como null en vez de string vacío
@@ -107,8 +120,10 @@ export default function PacienteFormModal({ paciente, onClose, onSaved }) {
             <Field label="DNI" required>
               <input
                 required
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={form.dni}
-                onChange={handleChange('dni')}
+                onChange={handleChangeDni}
                 className="input"
               />
             </Field>
