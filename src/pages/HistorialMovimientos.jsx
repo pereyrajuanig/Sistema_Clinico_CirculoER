@@ -179,7 +179,8 @@ export default function HistorialMovimientos() {
                 <thead>
                   <tr className="border-b border-border text-left text-text-secondary">
                     <th className="px-4 py-3 font-medium">Fecha y hora</th>
-                    <th className="px-4 py-3 font-medium">Medicamento</th>
+                    <th className="px-4 py-3 font-medium">Marca Comercial</th>
+                    <th className="px-4 py-3 font-medium">Concentración</th>
                     <th className="px-4 py-3 font-medium">Tipo</th>
                     <th className="px-4 py-3 font-medium">Lote</th>
                     <th className="px-4 py-3 font-medium">Cantidad</th>
@@ -198,7 +199,10 @@ export default function HistorialMovimientos() {
                         {formatFechaHora(m.fecha)}
                       </td>
                       <td className="px-4 py-3 text-text-primary">
-                        {identificarMedicamento(m.lotes?.medicamentos) || '—'}
+                        {m.lotes?.medicamentos?.nombre || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-text-primary">
+                        {m.lotes?.medicamentos?.concentracion || '—'}
                       </td>
                       <td className="px-4 py-3">
                         <span
