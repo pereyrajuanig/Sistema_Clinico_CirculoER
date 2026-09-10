@@ -204,7 +204,8 @@ export default function Medicamentos() {
               <table className="w-full text-base">
                 <thead>
                   <tr className="border-b border-border text-left text-text-secondary">
-                    <th className="px-4 py-3 font-medium">Nombre</th>
+                    <th className="px-4 py-3 font-medium">Marca Comercial</th>
+                    <th className="px-4 py-3 font-medium">Concentración</th>
                     <th className="px-4 py-3 font-medium">Droga</th>
                     <th className="px-4 py-3 font-medium">Presentación</th>
                     <th className="px-4 py-3 font-medium">Stock total</th>
@@ -220,11 +221,12 @@ export default function Medicamentos() {
                     return (
                       <tr key={m.id} className="border-b border-border last:border-0">
                         <td className="px-4 py-3 text-text-primary">
-                          {identificarMedicamento(m)}
+                          {m.nombre}
                           {inactivo && (
                             <span className="ml-2 text-sm text-text-secondary">(dado de baja)</span>
                           )}
                         </td>
+                        <td className="px-4 py-3 text-text-primary">{m.concentracion || '—'}</td>
                         <td className="px-4 py-3 text-text-primary">{m.droga || '—'}</td>
                         <td className="px-4 py-3 text-text-primary">{formatearPresentacion(m) || '—'}</td>
                         <td className="px-4 py-3">
