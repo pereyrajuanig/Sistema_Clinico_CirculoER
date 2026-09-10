@@ -74,15 +74,17 @@ export default function Medicamentos() {
   const medicamentosActivos = medicamentos.filter((m) => m.activo !== false)
 
   // Busca por marca comercial (nombre) o droga — las alertas de arriba siguen mirando
-  // TODOS los medicamentos, esto solo filtra lo que se ve en la tabla
+  // TODOS los medicamentos, esto solo filtra lo que se ve en la tabla. La tabla principal
+  // solo muestra medicamentos activos — los dados de baja viven en /medicamentos/inactivos
+  // (ver MedicamentosInactivos.jsx) para no ensuciar el listado del día a día.
   const medicamentosFiltrados = useMemo(() => {
     const query = busqueda.trim().toLowerCase()
-    if (!query) return medicamentos
+    if (!query) return medicamentosActivos
 
-    return medicamentos.filter(
+    return medicamentosActivos.filter(
       (m) => m.nombre?.toLowerCase().includes(query) || m.droga?.toLowerCase().includes(query)
     )
-  }, [medicamentos, busqueda])
+  }, [medicamentosActivos, busqueda])
 
   function nombreMedicamento(medicamentoId) {
     return identificarMedicamento(medicamentos.find((m) => m.id === medicamentoId)) || 'Medicamento'
@@ -98,16 +100,14 @@ export default function Medicamentos() {
     setEditingMedicamento(null)
   }
 
-  async function handleToggleActivo(medicamento) {
-    const activar = medicamento.activo === false
-
-    if (!activar && !window.confirm(`¿Dar de baja "${identificarMedicamento(medicamento)}"? No va a poder elegirse para nuevas entradas de stock, pero sigue visible en el listado y en el historial.`)) {
+  async function handleDarDeBaja(medicamento) {
+    if (!window.confirm(`¿Dar de baja "${identificarMedicamento(medicamento)}"? No va a poder elegirse para nuevas entradas de stock y pasa a la lista de "Medicamentos dados de baja" — sigue existiendo en el historial y se puede reactivar en cualquier momento.`)) {
       return
     }
 
     const { data, error } = await supabase
       .from('medicamentos')
-      .update({ activo: activar })
+      .update({ activo: false })
       .eq('id', medicamento.id)
       .select()
       .single()
@@ -134,7 +134,10 @@ export default function Medicamentos() {
           to: '/medicamentos/historial',
           variant: 'accent',
         }}
-        actions={[{ label: '← Volver a pacientes', to: '/', variant: 'secondary' }]}
+        actions={[
+          { label: 'Medicamentos dados de baja', to: '/medicamentos/inactivos', variant: 'secondary' },
+          { label: '← Volver a pacientes', to: '/', variant: 'secondary' },
+        ]}
       />
 
       <main className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto">
@@ -195,7 +198,7 @@ export default function Medicamentos() {
             <p className="p-10 text-center text-text-secondary text-base">Cargando...</p>
           ) : medicamentosFiltrados.length === 0 ? (
             <p className="p-10 text-center text-text-secondary text-base">
-              {medicamentos.length === 0
+              {medicamentosActivos.length === 0
                 ? 'Todavía no hay medicamentos cargados.'
                 : 'No se encontraron medicamentos con esa búsqueda.'}
             </p>
@@ -215,17 +218,11 @@ export default function Medicamentos() {
                 <tbody>
                   {medicamentosFiltrados.map((m) => {
                     const stock = stockPorMedicamento[m.id] || 0
-                    const inactivo = m.activo === false
-                    const bajoMinimo = !inactivo && m.stock_minimo != null && stock < m.stock_minimo
+                    const bajoMinimo = m.stock_minimo != null && stock < m.stock_minimo
 
                     return (
                       <tr key={m.id} className="border-b border-border last:border-0">
-                        <td className="px-4 py-3 text-text-primary">
-                          {m.nombre}
-                          {inactivo && (
-                            <span className="ml-2 text-sm text-text-secondary">(dado de baja)</span>
-                          )}
-                        </td>
+                        <td className="px-4 py-3 text-text-primary">{m.nombre}</td>
                         <td className="px-4 py-3 text-text-primary">{m.concentracion || '—'}</td>
                         <td className="px-4 py-3 text-text-primary">{m.droga || '—'}</td>
                         <td className="px-4 py-3 text-text-primary">{formatearPresentacion(m) || '—'}</td>
@@ -255,10 +252,10 @@ export default function Medicamentos() {
                               Ver lotes
                             </button>
                             <button
-                              onClick={() => handleToggleActivo(m)}
-                              className={inactivo ? 'text-sm text-text-secondary hover:text-text-primary underline' : 'text-sm text-text-primary underline'}
+                              onClick={() => handleDarDeBaja(m)}
+                              className="text-sm text-text-primary underline"
                             >
-                              {inactivo ? 'Reactivar' : 'Dar de baja'}
+                              Dar de baja
                             </button>
                           </div>
                         </td>
