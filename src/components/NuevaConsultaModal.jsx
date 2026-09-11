@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { registrarAuditoria } from '@/lib/auditoria'
+import { ESTADOS_MEDICACION } from '@/lib/medicacion'
 
 const initialForm = {
   motivo: '',
@@ -18,6 +19,14 @@ const initialForm = {
   peso: '',
   talla: '',
   glucemia: '',
+}
+
+const medicacionNuevaInicial = {
+  nombre: '',
+  dosis: '',
+  estado: 'Activa',
+  fecha_inicio: '',
+  fecha_fin: '',
 }
 
 const CAMPOS_NUMERICOS = new Set([
@@ -46,6 +55,8 @@ export default function NuevaConsultaModal({ pacienteId, consulta, onClose, onSa
       ? Object.fromEntries(Object.keys(initialForm).map((key) => [key, consulta[key] ?? '']))
       : initialForm
   )
+  const [agregandoMedicacion, setAgregandoMedicacion] = useState(false)
+  const [medicacionNueva, setMedicacionNueva] = useState(medicacionNuevaInicial)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -89,6 +100,19 @@ export default function NuevaConsultaModal({ pacienteId, consulta, onClose, onSa
     return (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
   }
 
+  function mostrarAgregarMedicacion() {
+    setAgregandoMedicacion(true)
+  }
+
+  function cancelarAgregarMedicacion() {
+    setAgregandoMedicacion(false)
+    setMedicacionNueva(medicacionNuevaInicial)
+  }
+
+  function handleChangeMedicacion(campo) {
+    return (e) => setMedicacionNueva((prev) => ({ ...prev, [campo]: e.target.value }))
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
@@ -97,8 +121,34 @@ export default function NuevaConsultaModal({ pacienteId, consulta, onClose, onSa
       setError('Elegí quién atiende antes de guardar.')
       return
     }
+    if (agregandoMedicacion && !medicacionNueva.nombre.trim()) {
+      setError('Cargá el nombre del medicamento para agregarlo a medicación habitual.')
+      return
+    }
 
     setLoading(true)
+
+    // Va antes que la consulta a propósito — medicacion no tiene ninguna FK hacia
+    // consultas (es un agregado independiente, sin vínculo en la base), así que si esto
+    // falla no tiene sentido dejar a mitad de camino nada relacionado con la consulta:
+    // se corta acá, sin tocar la consulta todavía
+    if (agregandoMedicacion) {
+      const { error: medicacionError } = await supabase.from('medicacion').insert({
+        paciente_id: pacienteId,
+        nombre: medicacionNueva.nombre.trim(),
+        dosis: medicacionNueva.dosis || null,
+        estado: medicacionNueva.estado,
+        fecha_inicio: medicacionNueva.fecha_inicio || null,
+        fecha_fin: medicacionNueva.fecha_fin || null,
+        usuario_id: profesionalId,
+      })
+
+      if (medicacionError) {
+        setLoading(false)
+        setError(medicacionError.message)
+        return
+      }
+    }
 
     if (esEdicion) {
       const { error: auditoriaError } = await registrarAuditoria({
@@ -308,6 +358,77 @@ export default function NuevaConsultaModal({ pacienteId, consulta, onClose, onSa
                 />
               </Field>
             </div>
+
+            <div className="space-y-2">
+              {!agregandoMedicacion ? (
+                <button type="button" onClick={mostrarAgregarMedicacion} className="btn-secondary w-full">
+                  + Agregar a medicación habitual
+                </button>
+              ) : (
+                <button type="button" onClick={cancelarAgregarMedicacion} className="btn-secondary w-full">
+                  ‹ Cancelar medicación habitual
+                </button>
+              )}
+
+              {agregandoMedicacion && (
+                <div className="space-y-4 border border-border rounded-lg p-3 bg-background">
+                  <Field label="Nombre del medicamento" required>
+                    <input
+                      required
+                      value={medicacionNueva.nombre}
+                      onChange={handleChangeMedicacion('nombre')}
+                      placeholder="Ej: Losartán"
+                      className="input"
+                    />
+                  </Field>
+
+                  <Field label="Dosis">
+                    <input
+                      value={medicacionNueva.dosis}
+                      onChange={handleChangeMedicacion('dosis')}
+                      placeholder="Ej: 50mg cada 12hs"
+                      className="input"
+                    />
+                  </Field>
+
+                  <Field label="Estado">
+                    <select
+                      value={medicacionNueva.estado}
+                      onChange={handleChangeMedicacion('estado')}
+                      className="input"
+                    >
+                      {ESTADOS_MEDICACION.map((estado) => (
+                        <option key={estado} value={estado}>
+                          {estado}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field label="Fecha de inicio">
+                      <input
+                        type="date"
+                        value={medicacionNueva.fecha_inicio}
+                        onChange={handleChangeMedicacion('fecha_inicio')}
+                        className="input"
+                      />
+                    </Field>
+
+                    {medicacionNueva.estado === 'Suspendida' && (
+                      <Field label="Fecha de fin">
+                        <input
+                          type="date"
+                          value={medicacionNueva.fecha_fin}
+                          onChange={handleChangeMedicacion('fecha_fin')}
+                          className="input"
+                        />
+                      </Field>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {error && <p className="px-4 sm:px-6 text-base text-text-primary -mt-2 pb-2">{error}</p>}
@@ -326,10 +447,13 @@ export default function NuevaConsultaModal({ pacienteId, consulta, onClose, onSa
   )
 }
 
-function Field({ label, children }) {
+function Field({ label, required, children }) {
   return (
     <div className="space-y-1">
-      <label className="text-sm text-text-secondary">{label}</label>
+      <label className="text-sm text-text-secondary">
+        {label}
+        {required && <span className="text-text-primary"> *</span>}
+      </label>
       {children}
     </div>
   )
