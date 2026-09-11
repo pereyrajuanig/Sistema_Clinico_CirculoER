@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { limpiarDni, formatearDni } from '@/lib/dni'
+import { capitalizarPalabras } from '@/lib/pacientes'
 import { formatearPresentacion, identificarMedicamento } from '@/lib/medicamentos'
 
 function formatFecha(value) {
@@ -24,6 +25,9 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
   const [pacienteEncontrado, setPacienteEncontrado] = useState(null)
   const [buscandoPaciente, setBuscandoPaciente] = useState(false)
   const [dniError, setDniError] = useState('')
+  const [pacienteNoEncontrado, setPacienteNoEncontrado] = useState(false)
+  const [nombreNuevo, setNombreNuevo] = useState('')
+  const [apellidoNuevo, setApellidoNuevo] = useState('')
   const [consultas, setConsultas] = useState([])
   const [consultaId, setConsultaId] = useState('')
   const [cantidad, setCantidad] = useState('')
@@ -77,6 +81,12 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
     const dni = limpiarDni(dniBusqueda)
     setPacienteEncontrado(null)
     setDniError('')
+    setPacienteNoEncontrado(false)
+    // Si cambia el DNI, el nombre/apellido tipeados para un paciente nuevo quedan
+    // obsoletos — mejor limpiarlos que arriesgar registrar a alguien con el DNI
+    // equivocado
+    setNombreNuevo('')
+    setApellidoNuevo('')
 
     if (dni.length < 7) return
 
@@ -95,7 +105,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
             return
           }
           if (!data) {
-            setDniError('No se encontró ningún paciente con ese DNI.')
+            setPacienteNoEncontrado(true)
             return
           }
           setPacienteEncontrado(data)
@@ -132,8 +142,12 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
       setError('Elegí quién administra antes de guardar.')
       return
     }
-    if (!pacienteEncontrado) {
-      setError('Buscá y confirmá el paciente por DNI antes de guardar.')
+    if (!pacienteEncontrado && !pacienteNoEncontrado) {
+      setError('Buscá al paciente por DNI antes de guardar.')
+      return
+    }
+    if (pacienteNoEncontrado && (!nombreNuevo.trim() || !apellidoNuevo.trim())) {
+      setError('No se encontró el paciente por DNI — cargá nombre y apellido para registrarlo.')
       return
     }
     if (!loteSugerido) {
@@ -147,10 +161,36 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
 
     setLoading(true)
 
+    let pacienteId = pacienteEncontrado?.id
+
+    // No estaba registrado (no se hace consultas, solo retira medicación) — se lo da de
+    // alta como paciente con los 3 campos mínimos obligatorios (Nombre, Apellido, DNI),
+    // igual que el alta manual desde Pacientes.jsx, para poder cumplir el constraint de
+    // la base que exige paciente_id en toda salida
+    if (pacienteNoEncontrado) {
+      const { data: nuevoPaciente, error: pacienteError } = await supabase
+        .from('pacientes')
+        .insert({
+          nombre: capitalizarPalabras(nombreNuevo.trim()),
+          apellido: capitalizarPalabras(apellidoNuevo.trim()),
+          dni: limpiarDni(dniBusqueda),
+        })
+        .select('id')
+        .single()
+
+      if (pacienteError) {
+        setLoading(false)
+        setError(pacienteError.message)
+        return
+      }
+
+      pacienteId = nuevoPaciente.id
+    }
+
     const { error } = await supabase.from('movimientos_stock').insert({
       lote_id: loteSugerido.lote_id,
       usuario_id: profesionalId,
-      paciente_id: pacienteEncontrado.id,
+      paciente_id: pacienteId,
       consulta_id: consultaId || null,
       tipo: 'salida',
       cantidad: Number(cantidad),
@@ -280,6 +320,40 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
                 </p>
               )}
             </div>
+
+            {!buscandoPaciente && pacienteNoEncontrado && (
+              <div className="space-y-3 border border-border rounded-lg p-3 bg-background">
+                <p className="text-sm text-text-primary font-semibold">
+                  No se encontró ningún paciente con ese DNI. Pasa con pacientes que solo
+                  retiran medicación y no se registraron antes — cargá nombre y apellido
+                  para darlo de alta.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-sm text-text-secondary">
+                      Nombre <span className="text-text-primary">*</span>
+                    </label>
+                    <input
+                      required
+                      value={nombreNuevo}
+                      onChange={(e) => setNombreNuevo(e.target.value)}
+                      className="input"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-text-secondary">
+                      Apellido <span className="text-text-primary">*</span>
+                    </label>
+                    <input
+                      required
+                      value={apellidoNuevo}
+                      onChange={(e) => setApellidoNuevo(e.target.value)}
+                      className="input"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {pacienteEncontrado && consultas.length > 0 && (
               <div className="space-y-1">
