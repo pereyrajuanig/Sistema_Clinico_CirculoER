@@ -4,12 +4,14 @@ import { supabase } from '@/lib/supabaseClient'
 import NuevaConsultaModal from '@/components/NuevaConsultaModal'
 import DocumentosConsulta from '@/components/DocumentosConsulta'
 import AntecedenteFormModal from '@/components/AntecedenteFormModal'
+import PatologiaFormModal from '@/components/PatologiaFormModal'
 import PacienteFormModal from '@/components/PacienteFormModal'
 import LaboratorioFormModal from '@/components/LaboratorioFormModal'
 import EditarResultadoLaboratorioModal from '@/components/EditarResultadoLaboratorioModal'
 import ConfirmarConProfesionalModal from '@/components/ConfirmarConProfesionalModal'
 import Header from '@/components/Header'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
+import { ordenarPatologias, claseEstadoPatologia } from '@/lib/patologias'
 import { TIPOS_EXAMEN } from '@/lib/laboratorio'
 import { formatearDni } from '@/lib/dni'
 import { registrarAuditoria } from '@/lib/auditoria'
@@ -51,6 +53,7 @@ export default function HistoriaClinica() {
   const location = useLocation()
   const [paciente, setPaciente] = useState(null)
   const [antecedentes, setAntecedentes] = useState([])
+  const [patologias, setPatologias] = useState([])
   const [consultas, setConsultas] = useState([])
   const [documentos, setDocumentos] = useState([])
   const [resultadosLab, setResultadosLab] = useState([])
@@ -58,12 +61,15 @@ export default function HistoriaClinica() {
   const [error, setError] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [showAntecedenteModal, setShowAntecedenteModal] = useState(false)
+  const [showPatologiaModal, setShowPatologiaModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showLabModal, setShowLabModal] = useState(false)
   const [editingConsulta, setEditingConsulta] = useState(null)
   const [editingAntecedente, setEditingAntecedente] = useState(null)
+  const [editingPatologia, setEditingPatologia] = useState(null)
   const [editingResultado, setEditingResultado] = useState(null)
   const [antecedenteAEliminar, setAntecedenteAEliminar] = useState(null)
+  const [patologiaAEliminar, setPatologiaAEliminar] = useState(null)
   const [consultaAEliminar, setConsultaAEliminar] = useState(null)
   const [resultadoAEliminar, setResultadoAEliminar] = useState(null)
 
@@ -72,7 +78,7 @@ export default function HistoriaClinica() {
       setLoading(true)
       setError('')
 
-      const [pacienteRes, antecedentesRes, consultasRes, labRes] = await Promise.all([
+      const [pacienteRes, antecedentesRes, patologiasRes, consultasRes, labRes] = await Promise.all([
         supabase.from('pacientes').select('*').eq('id', id).single(),
         supabase
           .from('antecedentes')
@@ -80,6 +86,12 @@ export default function HistoriaClinica() {
           .eq('paciente_id', id)
           .is('eliminado_en', null)
           .order('created_at'),
+        supabase
+          .from('patologias')
+          .select('*')
+          .eq('paciente_id', id)
+          .is('eliminado_en', null)
+          .order('nombre'),
         supabase
           .from('consultas')
           .select('*, profesionales!profesional_id(nombre)')
@@ -97,7 +109,11 @@ export default function HistoriaClinica() {
       setLoading(false)
 
       const primerError =
-        pacienteRes.error || antecedentesRes.error || consultasRes.error || labRes.error
+        pacienteRes.error ||
+        antecedentesRes.error ||
+        patologiasRes.error ||
+        consultasRes.error ||
+        labRes.error
       if (primerError) {
         setError(primerError.message)
         return
@@ -105,6 +121,7 @@ export default function HistoriaClinica() {
 
       setPaciente(pacienteRes.data)
       setAntecedentes(antecedentesRes.data)
+      setPatologias(ordenarPatologias(patologiasRes.data))
       setConsultas(consultasRes.data)
       setResultadosLab(labRes.data)
 
@@ -173,6 +190,48 @@ export default function HistoriaClinica() {
 
     setAntecedentes((prev) => prev.filter((a) => a.id !== antecedente.id))
     setAntecedenteAEliminar(null)
+  }
+
+  function handlePatologiaGuardada(patologiaGuardada) {
+    setPatologias((prev) => {
+      const existe = prev.some((p) => p.id === patologiaGuardada.id)
+      const siguiente = existe
+        ? prev.map((p) => (p.id === patologiaGuardada.id ? patologiaGuardada : p))
+        : [...prev, patologiaGuardada]
+      return ordenarPatologias(siguiente)
+    })
+    setShowPatologiaModal(false)
+    setEditingPatologia(null)
+  }
+
+  async function confirmarEliminarPatologia(profesionalId) {
+    const patologia = patologiaAEliminar
+
+    const { error: auditoriaError } = await registrarAuditoria({
+      tabla: 'patologias',
+      registroId: patologia.id,
+      accion: 'eliminar',
+      usuarioId: profesionalId,
+      valoresAnteriores: patologia,
+    })
+
+    if (auditoriaError) {
+      setError(auditoriaError.message)
+      return
+    }
+
+    const { error } = await supabase
+      .from('patologias')
+      .update({ eliminado_en: new Date().toISOString(), eliminado_por: profesionalId })
+      .eq('id', patologia.id)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    setPatologias((prev) => prev.filter((p) => p.id !== patologia.id))
+    setPatologiaAEliminar(null)
   }
 
   function handleConsultaGuardada(consultaGuardada) {
@@ -416,6 +475,69 @@ export default function HistoriaClinica() {
 
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-text-primary">Patologías</h2>
+            <button
+              onClick={() => {
+                setEditingPatologia(null)
+                setShowPatologiaModal(true)
+              }}
+              className="btn-secondary px-3 py-1.5"
+            >
+              + Agregar patología
+            </button>
+          </div>
+          {patologias.length === 0 ? (
+            <p className="text-base text-text-secondary">No hay patologías registradas.</p>
+          ) : (
+            <ul className="space-y-2">
+              {patologias.map((p) => (
+                <li key={p.id} className="text-base flex items-start justify-between gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    <span
+                      className={
+                        'shrink-0 rounded-md px-2 py-0.5 text-sm border ' + claseEstadoPatologia(p.estado)
+                      }
+                    >
+                      {p.estado}
+                    </span>
+                    <span className="text-text-primary">
+                      {p.nombre}
+                      {p.fecha_diagnostico && (
+                        <span className="text-text-secondary">
+                          {' '}
+                          — diagnosticada {formatFecha(p.fecha_diagnostico)}
+                        </span>
+                      )}
+                      {p.observaciones && (
+                        <span className="block text-text-secondary text-sm">{p.observaciones}</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex gap-3 shrink-0">
+                    <button
+                      onClick={() => {
+                        setEditingPatologia(p)
+                        setShowPatologiaModal(true)
+                      }}
+                      className="text-sm text-text-secondary hover:text-text-primary underline"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => setPatologiaAEliminar(p)}
+                      className="text-sm text-text-primary underline"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-text-primary">Laboratorio</h2>
             <button onClick={() => setShowLabModal(true)} className="btn-secondary px-3 py-1.5">
               + Cargar resultados
@@ -492,6 +614,18 @@ export default function HistoriaClinica() {
         />
       )}
 
+      {showPatologiaModal && (
+        <PatologiaFormModal
+          pacienteId={id}
+          patologia={editingPatologia}
+          onClose={() => {
+            setShowPatologiaModal(false)
+            setEditingPatologia(null)
+          }}
+          onSaved={handlePatologiaGuardada}
+        />
+      )}
+
       {showEditModal && (
         <PacienteFormModal
           paciente={paciente}
@@ -523,6 +657,16 @@ export default function HistoriaClinica() {
           textoConfirmar="Eliminar"
           onCancelar={() => setAntecedenteAEliminar(null)}
           onConfirmar={confirmarEliminarAntecedente}
+        />
+      )}
+
+      {patologiaAEliminar && (
+        <ConfirmarConProfesionalModal
+          titulo="Eliminar patología"
+          mensaje="Deja de verse en la ficha del paciente. El registro se conserva internamente por la normativa de historia clínica (10 años) — no se puede deshacer desde la aplicación."
+          textoConfirmar="Eliminar"
+          onCancelar={() => setPatologiaAEliminar(null)}
+          onConfirmar={confirmarEliminarPatologia}
         />
       )}
 
