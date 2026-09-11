@@ -7,6 +7,7 @@ export const PRESENTACIONES = [
   'Gotas',
   'Supositorio',
   'Parche',
+  'Combinado (comprimidos + cápsulas)',
   'Otra',
 ]
 
