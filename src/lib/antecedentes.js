@@ -4,5 +4,4 @@ export const TIPOS_ANTECEDENTE = {
   familiar: 'Familiar / hereditario',
   habito: 'Hábito',
   vacuna: 'Vacuna',
-  medicacion_cronica: 'Medicación crónica',
 }
