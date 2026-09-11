@@ -82,7 +82,7 @@ export default function HistoriaClinica() {
         supabase.from('pacientes').select('*').eq('id', id).single(),
         supabase
           .from('antecedentes')
-          .select('*')
+          .select('*, profesionales!usuario_id(nombre)')
           .eq('paciente_id', id)
           .is('eliminado_en', null)
           .order('created_at'),
@@ -448,7 +448,14 @@ export default function HistoriaClinica() {
                     <span className="shrink-0 bg-border/50 text-text-primary rounded-md px-2 py-0.5 text-sm font-medium">
                       {TIPOS_ANTECEDENTE[a.tipo] || a.tipo}
                     </span>
-                    <span className="text-text-primary">{a.descripcion}</span>
+                    <span className="text-text-primary">
+                      {a.descripcion}
+                      {a.profesionales?.nombre && (
+                        <span className="block text-text-secondary text-sm">
+                          Cargado por {a.profesionales.nombre}
+                        </span>
+                      )}
+                    </span>
                   </div>
                   <div className="flex gap-3 shrink-0">
                     <button
