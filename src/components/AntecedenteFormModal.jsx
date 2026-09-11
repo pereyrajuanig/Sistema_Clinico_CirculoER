@@ -12,11 +12,11 @@ export default function AntecedenteFormModal({ pacienteId, antecedente, onClose,
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // El selector de "¿quién edita?" solo hace falta para la auditoría de una edición — dar
-  // de alta un antecedente nuevo no se audita, así que no pedimos esto al crear
+  // El selector va siempre, pero cumple dos roles distintos según el modo: al dar de ALTA
+  // fija `usuario_id` (quién cargó, NOT NULL en la base, se guarda una sola vez y no se
+  // vuelve a pedir ni modificar en ediciones posteriores); al EDITAR solo alimenta la
+  // auditoría de ese cambio puntual — nunca pisa el `usuario_id` original
   useEffect(() => {
-    if (!esEdicion) return
-
     supabase
       .from('profesionales')
       .select('id, nombre')
@@ -26,14 +26,14 @@ export default function AntecedenteFormModal({ pacienteId, antecedente, onClose,
         if (error) setError(error.message)
         else setProfesionales(data)
       })
-  }, [esEdicion])
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
 
-    if (esEdicion && !profesionalId) {
-      setError('Elegí quién edita antes de guardar.')
+    if (!profesionalId) {
+      setError(esEdicion ? 'Elegí quién edita antes de guardar.' : 'Elegí quién carga antes de guardar.')
       return
     }
 
@@ -57,9 +57,11 @@ export default function AntecedenteFormModal({ pacienteId, antecedente, onClose,
 
     const query = esEdicion
       ? supabase.from('antecedentes').update({ tipo, descripcion }).eq('id', antecedente.id)
-      : supabase.from('antecedentes').insert({ paciente_id: pacienteId, tipo, descripcion })
+      : supabase
+          .from('antecedentes')
+          .insert({ paciente_id: pacienteId, tipo, descripcion, usuario_id: profesionalId })
 
-    const { data, error } = await query.select().single()
+    const { data, error } = await query.select('*, profesionales!usuario_id(nombre)').single()
 
     setLoading(false)
 
@@ -82,31 +84,30 @@ export default function AntecedenteFormModal({ pacienteId, antecedente, onClose,
           </div>
 
           <div className="p-4 sm:p-6 space-y-4">
-            {esEdicion && (
-              <div className="space-y-2">
-                <label className="text-sm text-text-secondary">
-                  ¿Quién edita? <span className="text-text-primary">*</span>
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {profesionales.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setProfesionalId(p.id)}
-                      className={
-                        'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
-                        (profesionalId === p.id
-                          ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
-                          : 'bg-surface text-text-primary border-border hover:bg-background')
-                      }
-                      style={{ minHeight: '44px' }}
-                    >
-                      {p.nombre}
-                    </button>
-                  ))}
-                </div>
+            <div className="space-y-2">
+              <label className="text-sm text-text-secondary">
+                {esEdicion ? '¿Quién edita?' : '¿Quién carga?'}{' '}
+                <span className="text-text-primary">*</span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {profesionales.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setProfesionalId(p.id)}
+                    className={
+                      'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
+                      (profesionalId === p.id
+                        ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
+                        : 'bg-surface text-text-primary border-border hover:bg-background')
+                    }
+                    style={{ minHeight: '44px' }}
+                  >
+                    {p.nombre}
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
 
             <div className="space-y-1">
               <label className="text-sm text-text-secondary">
