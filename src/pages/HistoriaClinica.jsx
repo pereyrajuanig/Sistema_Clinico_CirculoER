@@ -5,6 +5,7 @@ import NuevaConsultaModal from '@/components/NuevaConsultaModal'
 import DocumentosConsulta from '@/components/DocumentosConsulta'
 import AntecedenteFormModal from '@/components/AntecedenteFormModal'
 import PatologiaFormModal from '@/components/PatologiaFormModal'
+import MedicacionFormModal from '@/components/MedicacionFormModal'
 import PacienteFormModal from '@/components/PacienteFormModal'
 import LaboratorioFormModal from '@/components/LaboratorioFormModal'
 import EditarResultadoLaboratorioModal from '@/components/EditarResultadoLaboratorioModal'
@@ -12,6 +13,7 @@ import ConfirmarConProfesionalModal from '@/components/ConfirmarConProfesionalMo
 import Header from '@/components/Header'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
 import { ordenarPatologias, claseEstadoPatologia } from '@/lib/patologias'
+import { ordenarMedicacion, claseEstadoMedicacion } from '@/lib/medicacion'
 import { TIPOS_EXAMEN } from '@/lib/laboratorio'
 import { formatearDni } from '@/lib/dni'
 import { registrarAuditoria } from '@/lib/auditoria'
@@ -54,6 +56,7 @@ export default function HistoriaClinica() {
   const [paciente, setPaciente] = useState(null)
   const [antecedentes, setAntecedentes] = useState([])
   const [patologias, setPatologias] = useState([])
+  const [medicacionHabitual, setMedicacionHabitual] = useState([])
   const [consultas, setConsultas] = useState([])
   const [documentos, setDocumentos] = useState([])
   const [resultadosLab, setResultadosLab] = useState([])
@@ -62,14 +65,18 @@ export default function HistoriaClinica() {
   const [showModal, setShowModal] = useState(false)
   const [showAntecedenteModal, setShowAntecedenteModal] = useState(false)
   const [showPatologiaModal, setShowPatologiaModal] = useState(false)
+  const [showMedicacionModal, setShowMedicacionModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showLabModal, setShowLabModal] = useState(false)
   const [editingConsulta, setEditingConsulta] = useState(null)
   const [editingAntecedente, setEditingAntecedente] = useState(null)
   const [editingPatologia, setEditingPatologia] = useState(null)
+  const [editingMedicacion, setEditingMedicacion] = useState(null)
+  const [medicacionValoresIniciales, setMedicacionValoresIniciales] = useState(null)
   const [editingResultado, setEditingResultado] = useState(null)
   const [antecedenteAEliminar, setAntecedenteAEliminar] = useState(null)
   const [patologiaAEliminar, setPatologiaAEliminar] = useState(null)
+  const [medicacionAEliminar, setMedicacionAEliminar] = useState(null)
   const [consultaAEliminar, setConsultaAEliminar] = useState(null)
   const [resultadoAEliminar, setResultadoAEliminar] = useState(null)
 
@@ -78,33 +85,40 @@ export default function HistoriaClinica() {
       setLoading(true)
       setError('')
 
-      const [pacienteRes, antecedentesRes, patologiasRes, consultasRes, labRes] = await Promise.all([
-        supabase.from('pacientes').select('*').eq('id', id).single(),
-        supabase
-          .from('antecedentes')
-          .select('*, profesionales!usuario_id(nombre)')
-          .eq('paciente_id', id)
-          .is('eliminado_en', null)
-          .order('created_at'),
-        supabase
-          .from('patologias')
-          .select('*')
-          .eq('paciente_id', id)
-          .is('eliminado_en', null)
-          .order('nombre'),
-        supabase
-          .from('consultas')
-          .select('*, profesionales!profesional_id(nombre)')
-          .eq('paciente_id', id)
-          .is('eliminado_en', null)
-          .order('fecha', { ascending: false }),
-        supabase
-          .from('resultados_laboratorio')
-          .select('*')
-          .eq('paciente_id', id)
-          .is('eliminado_en', null)
-          .order('fecha', { ascending: false }),
-      ])
+      const [pacienteRes, antecedentesRes, patologiasRes, medicacionRes, consultasRes, labRes] =
+        await Promise.all([
+          supabase.from('pacientes').select('*').eq('id', id).single(),
+          supabase
+            .from('antecedentes')
+            .select('*, profesionales!usuario_id(nombre)')
+            .eq('paciente_id', id)
+            .is('eliminado_en', null)
+            .order('created_at'),
+          supabase
+            .from('patologias')
+            .select('*')
+            .eq('paciente_id', id)
+            .is('eliminado_en', null)
+            .order('nombre'),
+          supabase
+            .from('medicacion')
+            .select('*')
+            .eq('paciente_id', id)
+            .is('eliminado_en', null)
+            .order('nombre'),
+          supabase
+            .from('consultas')
+            .select('*, profesionales!profesional_id(nombre)')
+            .eq('paciente_id', id)
+            .is('eliminado_en', null)
+            .order('fecha', { ascending: false }),
+          supabase
+            .from('resultados_laboratorio')
+            .select('*')
+            .eq('paciente_id', id)
+            .is('eliminado_en', null)
+            .order('fecha', { ascending: false }),
+        ])
 
       setLoading(false)
 
@@ -112,6 +126,7 @@ export default function HistoriaClinica() {
         pacienteRes.error ||
         antecedentesRes.error ||
         patologiasRes.error ||
+        medicacionRes.error ||
         consultasRes.error ||
         labRes.error
       if (primerError) {
@@ -122,6 +137,7 @@ export default function HistoriaClinica() {
       setPaciente(pacienteRes.data)
       setAntecedentes(antecedentesRes.data)
       setPatologias(ordenarPatologias(patologiasRes.data))
+      setMedicacionHabitual(ordenarMedicacion(medicacionRes.data))
       setConsultas(consultasRes.data)
       setResultadosLab(labRes.data)
 
@@ -234,6 +250,59 @@ export default function HistoriaClinica() {
     setPatologiaAEliminar(null)
   }
 
+  function handleMedicacionGuardada(medicacionGuardada) {
+    setMedicacionHabitual((prev) => {
+      const existe = prev.some((m) => m.id === medicacionGuardada.id)
+      const siguiente = existe
+        ? prev.map((m) => (m.id === medicacionGuardada.id ? medicacionGuardada : m))
+        : [...prev, medicacionGuardada]
+      return ordenarMedicacion(siguiente)
+    })
+    setShowMedicacionModal(false)
+    setEditingMedicacion(null)
+    setMedicacionValoresIniciales(null)
+  }
+
+  function abrirMedicacionDesdeConsulta(consulta) {
+    setEditingMedicacion(null)
+    setMedicacionValoresIniciales({
+      nombre: consulta.medicacion,
+      fechaInicio: consulta.fecha.slice(0, 10),
+      profesionalId: consulta.profesional_id,
+    })
+    setShowMedicacionModal(true)
+  }
+
+  async function confirmarEliminarMedicacion(profesionalId) {
+    const medicacion = medicacionAEliminar
+
+    const { error: auditoriaError } = await registrarAuditoria({
+      tabla: 'medicacion',
+      registroId: medicacion.id,
+      accion: 'eliminar',
+      usuarioId: profesionalId,
+      valoresAnteriores: medicacion,
+    })
+
+    if (auditoriaError) {
+      setError(auditoriaError.message)
+      return
+    }
+
+    const { error } = await supabase
+      .from('medicacion')
+      .update({ eliminado_en: new Date().toISOString(), eliminado_por: profesionalId })
+      .eq('id', medicacion.id)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    setMedicacionHabitual((prev) => prev.filter((m) => m.id !== medicacion.id))
+    setMedicacionAEliminar(null)
+  }
+
   function handleConsultaGuardada(consultaGuardada) {
     setConsultas((prev) => {
       const existe = prev.some((c) => c.id === consultaGuardada.id)
@@ -342,6 +411,9 @@ export default function HistoriaClinica() {
 
   const alergias = antecedentes.filter((a) => a.tipo === 'alergia')
   const edad = calcularEdad(paciente.fecha_nacimiento)
+  const patologiasActivas = patologias.filter((p) => p.estado === 'Activa')
+  const medicacionActiva = medicacionHabitual.filter((m) => m.estado === 'Activa')
+  const medicacionSuspendida = medicacionHabitual.filter((m) => m.estado === 'Suspendida')
 
   return (
     <div className="min-h-screen bg-background">
@@ -367,6 +439,35 @@ export default function HistoriaClinica() {
                 ))}
               </ul>
             </div>
+          </div>
+        )}
+
+        {(patologiasActivas.length > 0 || medicacionActiva.length > 0) && (
+          <div className="bg-surface border border-border rounded-lg p-4 space-y-3">
+            {patologiasActivas.length > 0 && (
+              <div>
+                <p className="font-semibold text-text-primary">Patologías activas</p>
+                <ul className="text-text-primary text-base list-disc list-inside">
+                  {patologiasActivas.map((p) => (
+                    <li key={p.id}>{p.nombre}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {medicacionActiva.length > 0 && (
+              <div>
+                <p className="font-semibold text-text-primary">Medicación habitual activa</p>
+                <ul className="text-text-primary text-base list-disc list-inside">
+                  {medicacionActiva.map((m) => (
+                    <li key={m.id}>
+                      {m.nombre}
+                      {m.dosis ? ` — ${m.dosis}` : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
@@ -419,6 +520,7 @@ export default function HistoriaClinica() {
                     setShowModal(true)
                   }}
                   onEliminar={() => setConsultaAEliminar(c)}
+                  onAgregarAMedicacion={() => abrirMedicacionDesdeConsulta(c)}
                 />
               ))}
             </div>
@@ -545,6 +647,68 @@ export default function HistoriaClinica() {
 
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-text-primary">Medicación habitual</h2>
+            <button
+              onClick={() => {
+                setEditingMedicacion(null)
+                setMedicacionValoresIniciales(null)
+                setShowMedicacionModal(true)
+              }}
+              className="btn-secondary px-3 py-1.5"
+            >
+              + Agregar medicación
+            </button>
+          </div>
+          {medicacionHabitual.length === 0 ? (
+            <p className="text-base text-text-secondary">No hay medicación habitual registrada.</p>
+          ) : (
+            <>
+              {medicacionActiva.length > 0 ? (
+                <ul className="space-y-2">
+                  {medicacionActiva.map((m) => (
+                    <MedicacionItem
+                      key={m.id}
+                      medicacion={m}
+                      onEditar={() => {
+                        setEditingMedicacion(m)
+                        setMedicacionValoresIniciales(null)
+                        setShowMedicacionModal(true)
+                      }}
+                      onEliminar={() => setMedicacionAEliminar(m)}
+                    />
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-base text-text-secondary">No hay medicación activa.</p>
+              )}
+
+              {medicacionSuspendida.length > 0 && (
+                <details className="mt-3">
+                  <summary className="text-sm text-text-secondary cursor-pointer hover:text-text-primary">
+                    Medicación suspendida ({medicacionSuspendida.length})
+                  </summary>
+                  <ul className="space-y-2 mt-2">
+                    {medicacionSuspendida.map((m) => (
+                      <MedicacionItem
+                        key={m.id}
+                        medicacion={m}
+                        onEditar={() => {
+                          setEditingMedicacion(m)
+                          setMedicacionValoresIniciales(null)
+                          setShowMedicacionModal(true)
+                        }}
+                        onEliminar={() => setMedicacionAEliminar(m)}
+                      />
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </>
+          )}
+        </section>
+
+        <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-text-primary">Laboratorio</h2>
             <button onClick={() => setShowLabModal(true)} className="btn-secondary px-3 py-1.5">
               + Cargar resultados
@@ -633,6 +797,20 @@ export default function HistoriaClinica() {
         />
       )}
 
+      {showMedicacionModal && (
+        <MedicacionFormModal
+          pacienteId={id}
+          medicacion={editingMedicacion}
+          valoresIniciales={medicacionValoresIniciales}
+          onClose={() => {
+            setShowMedicacionModal(false)
+            setEditingMedicacion(null)
+            setMedicacionValoresIniciales(null)
+          }}
+          onSaved={handleMedicacionGuardada}
+        />
+      )}
+
       {showEditModal && (
         <PacienteFormModal
           paciente={paciente}
@@ -677,6 +855,16 @@ export default function HistoriaClinica() {
         />
       )}
 
+      {medicacionAEliminar && (
+        <ConfirmarConProfesionalModal
+          titulo="Eliminar medicación"
+          mensaje="Deja de verse en la ficha del paciente. El registro se conserva internamente por la normativa de historia clínica (10 años) — no se puede deshacer desde la aplicación."
+          textoConfirmar="Eliminar"
+          onCancelar={() => setMedicacionAEliminar(null)}
+          onConfirmar={confirmarEliminarMedicacion}
+        />
+      )}
+
       {consultaAEliminar && (
         <ConfirmarConProfesionalModal
           titulo="Eliminar consulta"
@@ -709,7 +897,14 @@ function Dato({ label, value }) {
   )
 }
 
-function ConsultaCard({ consulta: c, documentos, onDocumentoSubido, onEditar, onEliminar }) {
+function ConsultaCard({
+  consulta: c,
+  documentos,
+  onDocumentoSubido,
+  onEditar,
+  onEliminar,
+  onAgregarAMedicacion,
+}) {
   const vitales = signosVitales(c)
 
   return (
@@ -734,7 +929,18 @@ function ConsultaCard({ consulta: c, documentos, onDocumentoSubido, onEditar, on
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-base">
         {CAMPOS_CONSULTA.filter(([campo]) => c[campo]).map(([campo, label]) => (
           <div key={campo}>
-            <dt className="text-text-secondary text-sm">{label}</dt>
+            <dt className="text-text-secondary text-sm flex flex-wrap items-center gap-2">
+              {label}
+              {campo === 'medicacion' && (
+                <button
+                  type="button"
+                  onClick={onAgregarAMedicacion}
+                  className="text-sm text-text-secondary hover:text-text-primary underline"
+                >
+                  + Agregar a medicación habitual
+                </button>
+              )}
+            </dt>
             <dd className="text-text-primary">{c[campo]}</dd>
           </div>
         ))}
@@ -765,6 +971,39 @@ function ConsultaCard({ consulta: c, documentos, onDocumentoSubido, onEditar, on
         onUploaded={onDocumentoSubido}
       />
     </div>
+  )
+}
+
+// Reusado para la lista de medicación activa y para la lista colapsada de suspendida —
+// mismas acciones (Editar/Eliminar), solo cambia qué grupo las contiene
+function MedicacionItem({ medicacion: m, onEditar, onEliminar }) {
+  return (
+    <li className="text-base flex items-start justify-between gap-2">
+      <div className="flex gap-2 flex-wrap">
+        <span className={'shrink-0 rounded-md px-2 py-0.5 text-sm border ' + claseEstadoMedicacion(m.estado)}>
+          {m.estado}
+        </span>
+        <span className="text-text-primary">
+          {m.nombre}
+          {m.dosis && <span className="text-text-secondary"> — {m.dosis}</span>}
+          {(m.fecha_inicio || m.fecha_fin) && (
+            <span className="block text-text-secondary text-sm">
+              {m.fecha_inicio && `Desde ${formatFecha(m.fecha_inicio)}`}
+              {m.fecha_inicio && m.fecha_fin && ' — '}
+              {m.fecha_fin && `hasta ${formatFecha(m.fecha_fin)}`}
+            </span>
+          )}
+        </span>
+      </div>
+      <div className="flex gap-3 shrink-0">
+        <button onClick={onEditar} className="text-sm text-text-secondary hover:text-text-primary underline">
+          Editar
+        </button>
+        <button onClick={onEliminar} className="text-sm text-text-primary underline">
+          Eliminar
+        </button>
+      </div>
+    </li>
   )
 }
 
