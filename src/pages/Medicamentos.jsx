@@ -36,11 +36,14 @@ export default function Medicamentos() {
     setError('')
 
     const [medsRes, stockRes, lotesRes] = await Promise.all([
-      supabase.from('medicamentos').select('*').order('nombre'),
-      supabase.from('stock_por_medicamento').select('*'),
+      supabase
+        .from('medicamentos')
+        .select('id, nombre, droga, concentracion, presentacion, presentacion_detalle, stock_minimo, activo')
+        .order('nombre'),
+      supabase.from('stock_por_medicamento').select('medicamento_id, stock_total'),
       supabase
         .from('stock_por_lote')
-        .select('*')
+        .select('lote_id, medicamento_id, numero_lote, fecha_vencimiento')
         .gt('stock_actual', 0)
         .lte('fecha_vencimiento', diasHastaLimite(30))
         .order('fecha_vencimiento', { ascending: true }),
@@ -109,7 +112,7 @@ export default function Medicamentos() {
       .from('medicamentos')
       .update({ activo: false })
       .eq('id', medicamento.id)
-      .select()
+      .select('id, nombre, droga, concentracion, presentacion, presentacion_detalle, stock_minimo, activo')
       .single()
 
     if (error) {

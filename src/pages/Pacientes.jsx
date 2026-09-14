@@ -25,7 +25,7 @@ export default function Pacientes() {
 
     const { data, error } = await supabase
       .from('pacientes')
-      .select('*')
+      .select('id, nombre, apellido, dni, telefono, fecha_nacimiento, sexo')
       .order('apellido')
       .order('nombre')
 

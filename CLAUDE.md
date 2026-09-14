@@ -1176,6 +1176,71 @@ superposición en ningún ancho y que el corte a `lg` es seguro. Todo lo tempora
 página de debug, scripts de captura, la dependencia de Playwright) se sacó después de
 verificar — no queda nada de esto en el repo.
 
+### Performance — revisión puntual, no una reescritura (pedido explícito del cliente)
+
+Tres cambios concretos, deliberadamente acotados: **sin paginación ni capas de caché** —
+el volumen real de esta clínica (3 profesionales, un consultorio) no lo justifica
+todavía. Si en algún momento la cantidad de pacientes/medicamentos crece mucho, ahí se
+reconsidera; hasta entonces, agregar esa complejidad sería público objetivo, no una
+necesidad real.
+
+1. **Fetches en paralelo en la ficha del paciente**: ya estaban bien —
+   `HistoriaClinica.jsx` dispara paciente, antecedentes, patologías, medicación,
+   consultas y resultados de laboratorio con un solo `Promise.all`, no `await`
+   secuencial (así fue desde que se armaron esas seis secciones, no fue necesario
+   tocar nada acá). El único fetch que va DESPUÉS (`documentos`) es una dependencia
+   real, no una paralelización perdida: necesita los `id` de las consultas que
+   recién devuelve el `Promise.all` de arriba (`.in('consulta_id', consultaIds)`) —
+   no hay forma de dispararlo antes sin ese dato.
+
+2. **`select()` acotado a las columnas que se muestran, en los listados
+   principales — `Pacientes.jsx` y `Medicamentos.jsx`** (no se tocaron otras
+   pantallas con el mismo patrón — `HistorialMovimientos.jsx`,
+   `UltimasConsultas.jsx`, `MedicamentosInactivos.jsx` — porque no se pidió, aunque
+   tienen el mismo `select('*')`; si en algún momento hace falta, es el mismo
+   criterio de abajo aplicado ahí):
+   - `Pacientes.jsx` (`fetchPacientes`): antes `select('*')`, ahora
+     `select('id, nombre, apellido, dni, telefono, fecha_nacimiento, sexo')` — el
+     listado (tarjetas en mobile, tabla en desktop) no muestra ni ordena por
+     dirección, contacto familiar, obra social, grupo sanguíneo, ocupación ni
+     estado civil; esos campos se traen recién al abrir la ficha completa
+     (`HistoriaClinica.jsx`, que sigue pidiendo `pacientes.select('*')` a propósito
+     — ahí sí hacen falta todos).
+   - `Medicamentos.jsx` (`fetchTodo`): los tres `select('*')` de esa pantalla
+     quedaron acotados — `medicamentos` a
+     `id, nombre, droga, concentracion, presentacion, presentacion_detalle,
+     stock_minimo, activo` (exactamente los campos que usan la tabla, las alertas
+     de stock bajo, y los modales que reciben esta lista como prop —
+     `EntradaStockModal`/`SalidaStockModal`/`MedicamentoFormModal`/
+     `LotesMedicamentoModal` —, verificado grepeando cada uno antes de acotar, no
+     asumido), `stock_por_medicamento` a `medicamento_id, stock_total`, y
+     `stock_por_lote` (la alerta de "vencen pronto") a
+     `lote_id, medicamento_id, numero_lote, fecha_vencimiento` — el filtro
+     `.gt('stock_actual', 0)` sigue funcionando aunque `stock_actual` no esté en
+     el `select`, porque los filtros de PostgREST se aplican sobre la tabla/vista
+     completa, no sobre las columnas pedidas. De paso, `handleDarDeBaja` (el
+     `update` que da de baja un medicamento) se acotó al mismo set de columnas en
+     su `.select()` de retorno, para que el objeto que vuelve a `setMedicamentos`
+     tenga la misma forma que el resto de la lista en memoria.
+
+3. **`React.lazy` + `Suspense` por ruta, en `App.jsx`**: los 7 componentes de
+   página (`Login`, `Pacientes`, `HistoriaClinica`, `UltimasConsultas`,
+   `Medicamentos`, `MedicamentosInactivos`, `HistorialMovimientos`) pasaron de
+   `import` estático a `lazy(() => import(...))`, con un único `<Suspense
+   fallback={<CargandoPantalla />}>` envolviendo todo el árbol de `<Routes>` (un
+   solo boundary alcanza — no hace falta uno por ruta, React re-muestra el
+   fallback en cada transición de ruta que todavía no bajó su chunk).
+   `ProtectedRoute` y los providers (`ThemeProvider`/`AuthProvider`) siguen con
+   import estático a propósito: son parte del shell que se necesita siempre,
+   antes de saber a qué ruta se va a navegar. Confirmado con `pnpm build` que
+   Vite separa cada pantalla en su propio chunk (`HistoriaClinica-*.js` 65KB,
+   `HistorialMovimientos-*.js` 24KB, `Medicamentos-*.js` 22KB, etc.) y que el
+   bundle principal bajó de ~586KB a ~444KB — el peso de las pantallas que no se
+   visitaron en esa sesión ya no viaja en la carga inicial. Mismo criterio de
+   code splitting ya usado para `pdfmake` (ver RF-19 más arriba) — ahí ya se
+   había establecido el patrón de `import()` dinámico para no inflar el bundle
+   principal, esto lo extiende a las pantallas enteras.
+
 ## Comandos habituales
 
 - `pnpm install` — instalar dependencias (NUNCA usar npm en este proyecto)
