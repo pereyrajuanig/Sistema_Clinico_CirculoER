@@ -10,6 +10,7 @@ import PacienteFormModal from '@/components/PacienteFormModal'
 import LaboratorioFormModal from '@/components/LaboratorioFormModal'
 import EditarResultadoLaboratorioModal from '@/components/EditarResultadoLaboratorioModal'
 import ConfirmarConProfesionalModal from '@/components/ConfirmarConProfesionalModal'
+import ExportarPdfModal from '@/components/ExportarPdfModal'
 import Header from '@/components/Header'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
 import { ordenarPatologias, claseEstadoPatologia } from '@/lib/patologias'
@@ -68,6 +69,7 @@ export default function HistoriaClinica() {
   const [showMedicacionModal, setShowMedicacionModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showLabModal, setShowLabModal] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
   const [editingConsulta, setEditingConsulta] = useState(null)
   const [editingAntecedente, setEditingAntecedente] = useState(null)
   const [editingPatologia, setEditingPatologia] = useState(null)
@@ -424,7 +426,10 @@ export default function HistoriaClinica() {
             DNI {formatearDni(paciente.dni)}
           </p>
         }
-        actions={[{ label: '← Volver a pacientes', to: '/', variant: 'secondary' }]}
+        actions={[
+          { label: 'Exportar PDF', onClick: () => setShowExportModal(true), variant: 'secondary' },
+          { label: '← Volver a pacientes', to: '/', variant: 'secondary' },
+        ]}
       />
 
       <main className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto">
@@ -816,6 +821,21 @@ export default function HistoriaClinica() {
           paciente={paciente}
           onClose={() => setShowEditModal(false)}
           onSaved={handlePacienteGuardado}
+        />
+      )}
+
+      {showExportModal && (
+        <ExportarPdfModal
+          datos={{
+            paciente,
+            antecedentes,
+            patologias,
+            medicacionHabitual,
+            consultas,
+            resultadosLab,
+            documentos,
+          }}
+          onClose={() => setShowExportModal(false)}
         />
       )}
 

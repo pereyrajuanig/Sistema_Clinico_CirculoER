@@ -526,6 +526,100 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
   vez (props, si tiene o no acciones, si muestra el paciente) — no valía la pena
   la abstracción para dos usos.
 
+- **RF-19 implementado — Exportar historia clínica a PDF** (`src/lib/pdfExport.js`,
+  `ExportarPdfModal.jsx`, botón "Exportar PDF" en las acciones del header de
+  `HistoriaClinica.jsx`): generado 100% en el navegador con **pdfmake** (elegido
+  sobre una captura de pantalla — se rompe con documentos de varias páginas — o
+  jsPDF puro — mucho más manual para tablas/paginación). Al hacer clic se abre
+  `ExportarPdfModal.jsx`, un selector simple con dos variantes: **Completo** o
+  **Resumen**.
+
+  **`pdfmake` 0.3.11 — cómo se importa, no es el patrón clásico de tutoriales
+  viejos de la librería**: el build para navegador vive en
+  `pdfmake/build/pdfmake.js` (el `main` del paquete, `js/index.js`, es para Node
+  con `pdfkit` — no sirve acá) + las fuentes en `pdfmake/build/vfs_fonts.js`. Se
+  importan los dos con `import()` dinámico DENTRO de `exportarHistoriaClinica()`
+  (nunca en el top-level del módulo) porque entre los dos pesan ~1.8MB — code
+  splitting real: Vite los separa en sus propios chunks
+  (`pdfmake-*.js`/`vfs_fonts-*.js`) que solo se piden la primera vez que alguien
+  exporta un PDF, no en la carga inicial de la app. Registro de fuentes
+  explícito, sin depender del side-effect global que trae `vfs_fonts.js`:
+  `pdfMake.addVirtualFileSystem(vfs)` a mano, en vez de dejar que
+  `vfs_fonts.js` se autoregistre pisando `window.pdfMake` (funciona, pero
+  depende del orden de imports de forma implícita). Fuente por defecto: Roboto
+  (la que trae pdfmake), cubre español sin problema — el único ajuste hecho a
+  propósito fue escribir "Saturación O2" en vez de "Saturación O₂" en los
+  signos vitales del PDF (el subíndice Unicode ₂, U+2082, no está garantizado en
+  el subset de la fuente). Verificado con un smoke test real fuera de Vite
+  (`node` + `require('pdfmake/build/pdfmake.js')`) que confirmó un PDF válido
+  (`%PDF-1.3`) de varias páginas con header/footer/tablas/listas/paginación
+  antes de dar el feature por terminado — no alcanzaba con que `pnpm build`
+  compilara sin errores, dado que la interacción entre el bundle UMD de pdfmake
+  y el import dinámico de Vite era nueva en este proyecto.
+
+  **De dónde sale el contenido**: `datos` es literalmente el mismo estado que ya
+  tiene cargado `HistoriaClinica.jsx` (`paciente`, `antecedentes`, `patologias`,
+  `medicacionHabitual`, `consultas`, `resultadosLab`, `documentos`) — no hay un
+  fetch propio del modal de exportación. Como esos fetches YA filtran
+  `is('eliminado_en', null)` (ver "CRUD de las tablas clínicas" más abajo), el
+  PDF nunca puede incluir un registro dado de baja lógicamente sin ningún
+  código extra en `pdfExport.js` — la exclusión sale gratis de reusar el estado
+  de la página, no es una regla que haya que mantener aparte.
+
+  **Diferencia de contenido entre las dos variantes** (para no confundir cuál
+  pedir):
+  - **Completo** (`construirPdfCompleto`): pensado como registro/archivo — TODO
+    el historial. Datos de identificación completos (los 12 campos de
+    `pacientes`, sin `id`), antecedentes agrupados por tipo (mismo orden que
+    `TIPOS_ANTECEDENTE`), patologías (todas, con estado), medicación habitual
+    (toda, activa y suspendida, con fechas), historial de consultas en **orden
+    cronológico ascendente** (al revés que en pantalla, que muestra la más
+    reciente primero — acá se invierte con `[...consultas].reverse()` porque
+    para leer una evolución de punta a punta importa el orden real en que
+    pasó), resultados de laboratorio agrupados por tipo de examen (mismo orden
+    que `TIPOS_EXAMEN`), y una lista de documentos adjuntos por nombre + fecha
+    de carga (`documentos.created_at`) **sin embeber los archivos** — son solo
+    una referencia, el archivo real sigue accesible desde el sistema (bucket
+    privado con URL firmada, como siempre).
+  - **Resumen** (`construirPdfResumen`): pensado como pantallazo rápido antes de
+    una consulta, no como archivo — datos básicos (nombre, DNI, fecha de
+    nacimiento/edad, sexo, teléfono, grupo sanguíneo — **no** el resto de los
+    campos de `pacientes`, esos quedan para el Completo), fecha de la última
+    consulta registrada (`consultas[0]`, ya viene ordenado por fecha
+    descendente), patologías ACTIVAS únicamente, medicación habitual ACTIVA
+    únicamente, alergias, y los signos vitales de la consulta más reciente
+    (`consultas[0]`) — si no hay consultas cargadas, cada sección lo dice
+    explícitamente en vez de quedar en blanco.
+
+  **Reglas comunes a las dos variantes**: encabezado repetido en cada página
+  (nombre completo + DNI + número de página, vía la función `header` de
+  pdfmake — se recalcula sola en cada página, no hay que paginar contenido a
+  mano) y pie de página fijo ("Generado el [fecha y hora] — Sistema de
+  Historia Clínica, Círculo de Retirados y Pensionados de la Policía de Entre
+  Ríos", con la fecha calculada UNA sola vez al armar el documento, no en cada
+  llamada a la función `footer`, para que diga lo mismo en todas las páginas).
+  **Ninguna de las dos incluye nada de `auditoria` ni de quién cargó/editó cada
+  registro** — ni siquiera "Cargado por" (que si se muestra en pantalla para
+  Antecedentes) — el PDF es el estado clínico actual, no el registro interno
+  de cambios.
+
+  `src/lib/pdfExport.js` duplica `CAMPOS_CONSULTA` y `signosVitales()` en vez de
+  importarlos de `HistoriaClinica.jsx` — mismo criterio ya documentado arriba
+  para por qué `UltimasConsultas.jsx` tampoco los comparte: un módulo de
+  `src/lib` no debería depender de una página, y ya hay precedente de que estas
+  dos pequeñas listas no valen la abstracción compartida entre sus usos
+  actuales. Si aparece un cuarto lugar que las necesite, ahí sí conviene
+  extraerlas a `src/lib/consultas.js`.
+
+  **Nota de tamaño del build**: el PWA precachea todos los archivos estáticos
+  del build (ver sección de PWA más abajo) — al agregar `pdfmake`, el precache
+  total subió de ~565KB a ~2.3MB (aunque siguen siendo dos chunks aparte que
+  solo se DESCARGAN bajo demanda la primera vez que se exporta un PDF, el
+  service worker los cachea de entrada en el install). Coherente con la
+  política ya existente de "precachear todo lo estático del build" — no se
+  cambió esa config para esto, sería una decisión aparte si en algún momento
+  el tamaño total del precache se vuelve un problema real.
+
 **Sacado por pedido del cliente**: RF-20 ("Próximos controles", `/proximos-controles`,
 `ProximosControles.jsx`) — no lo necesitan. Se sacó la ruta, el link del header de
 Pacientes y la página entera. El campo `proximo_control` en `consultas` ya no se pide en
