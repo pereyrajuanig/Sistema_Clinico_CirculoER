@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { limpiarDni } from '@/lib/dni'
 import { identificarMedicamento } from '@/lib/medicamentos'
@@ -32,6 +32,7 @@ function conSaldoPorMedicamento(movimientosAsc) {
 }
 
 export default function HistorialMovimientos() {
+  const location = useLocation()
   const [medicamentos, setMedicamentos] = useState([])
   const [movimientos, setMovimientos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -78,6 +79,16 @@ export default function HistorialMovimientos() {
   useEffect(() => {
     fetchTodo()
   }, [])
+
+  // Atajo desde "Ver reporte completo en PDF" en ConsumoDelMes.jsx (navega para acá con
+  // `state: { abrirReporteGeneral: true, desde, hasta }`) — mismo patrón ya usado en
+  // Pacientes.jsx → HistoriaClinica.jsx (`abrirNuevaConsulta`) para abrir un modal al
+  // llegar por navegación en vez de por un click en esta misma pantalla.
+  useEffect(() => {
+    if (location.state?.abrirReporteGeneral) {
+      setShowExportModal(true)
+    }
+  }, [location.state])
 
   const movimientosFiltrados = useMemo(() => {
     const busquedaTexto = busqueda.trim().toLowerCase()
@@ -290,6 +301,12 @@ export default function HistorialMovimientos() {
             desde: filtroDesde,
             hasta: filtroHasta,
           }}
+          pasoInicial={location.state?.abrirReporteGeneral ? 'reporteGeneral' : undefined}
+          fechasIniciales={
+            location.state?.abrirReporteGeneral
+              ? { desde: location.state.desde, hasta: location.state.hasta }
+              : undefined
+          }
           onClose={() => setShowExportModal(false)}
         />
       )}

@@ -16,6 +16,7 @@ const BusquedaClinica = lazy(() => import('@/pages/BusquedaClinica'))
 const Medicamentos = lazy(() => import('@/pages/Medicamentos'))
 const MedicamentosInactivos = lazy(() => import('@/pages/MedicamentosInactivos'))
 const HistorialMovimientos = lazy(() => import('@/pages/HistorialMovimientos'))
+const ConsumoDelMes = lazy(() => import('@/pages/ConsumoDelMes'))
 
 function CargandoPantalla() {
   return <p className="p-10 text-center text-text-secondary text-base">Cargando...</p>
@@ -82,6 +83,14 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <HistorialMovimientos />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/medicamentos/consumo-mes"
+                element={
+                  <ProtectedRoute>
+                    <ConsumoDelMes />
                   </ProtectedRoute>
                 }
               />

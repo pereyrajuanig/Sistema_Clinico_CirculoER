@@ -885,6 +885,14 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
      quedaba demasiado apretado; esto no se pidió explícitamente pero es una
      decisión de implementación directa, no una interpretación del contenido.
 
+     **Se puede llegar a este paso ya precargado**, desde "Consumo del mes"
+     (ver más abajo) — `ExportarMovimientosPdfModal.jsx` acepta
+     `pasoInicial`/`fechasIniciales` (opcionales, `undefined` en el uso normal
+     desde el botón "Exportar PDF" de esta misma pantalla) para abrir
+     directo en `reporteGeneral` con Desde/Hasta ya escritos. Sigue siendo una
+     precarga nomás — el PDF no se genera solo, el usuario confirma con
+     "Generar PDF" como siempre.
+
   **Regla importante, a propósito DISTINTA de la de RF-19 (historia clínica
   del paciente) — no mezclar los dos criterios**: acá **NO se excluye nada por
   `medicamentos.activo = false`**. Un medicamento dado de baja (ver reglas de
@@ -910,6 +918,55 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
   (para resolver el medicamento elegido en el filtro aun sin movimientos) como
   en la de `movimientos_stock` (para el encabezado de cada grupo del reporte
   general).
+
+- **"Consumo del mes"** (`/medicamentos/consumo-mes`, `ConsumoDelMes.jsx`,
+  botón "Consumo del mes" en las acciones del header de `Medicamentos.jsx` —
+  pedido explícito del cliente): pantalla aparte, autocontenida — trae su
+  propia consulta acotada a `movimientos_stock` (solo `tipo = 'salida'` desde
+  el 1° del mes en curso, columnas mínimas) en vez de reusar el estado de
+  `HistorialMovimientos.jsx`, porque acá alcanza con muchos menos datos y no
+  vale la pena cargar el historial completo solo para esto.
+
+  **Período, siempre 1° del mes en curso hasta hoy, sin selector** — se
+  recalcula solo cada vez que se entra a la pantalla porque este componente se
+  remonta entero en cada navegación (calcularlo en el cuerpo del componente ya
+  alcanza, no hace falta ningún mecanismo extra). `fechaLocalISO()` arma el
+  string `YYYY-MM-DD` leyendo los componentes de fecha en horario LOCAL
+  (`getFullYear()`/`getMonth()`/`getDate()`), a propósito sin pasar por
+  `toISOString().slice(0, 10)` — eso convierte a UTC primero, y en Argentina
+  (UTC-3) puede devolver la fecha de MAÑANA para cualquier hora de la noche,
+  corriendo todo el rango un día (mismo tipo de bug que ya se cuidó en el resto
+  de la app, ver `formatFechaAR` en `pdf.js`). La consulta a `movimientos_stock`
+  filtra `.gte('fecha', `${primerDiaMes}T00:00:00`)` sin cota superior — no
+  hace falta un `.lte()` "hasta hoy" porque `fecha` se fija una sola vez al
+  crear el movimiento (siempre "ahora", nunca backdateable), así que nunca
+  puede existir un movimiento a futuro.
+
+  **Solo entran medicamentos con al menos una salida en el mes**: mismo truco
+  que el reporte general en PDF — el grupo por medicamento se crea recién
+  cuando aparece la primera fila que matchea (`Map`), así que un medicamento
+  sin salidas simplemente nunca tiene entrada, no hace falta filtrarlo aparte.
+  Orden descendente por total de unidades consumidas (empate alfabético por
+  nombre, para que el orden sea predecible). Columnas: Marca Comercial +
+  Concentración (separadas, mismo criterio ya documentado para
+  `Medicamentos.jsx`/`HistorialMovimientos.jsx` — hay lugar para las dos en la
+  misma fila), total de salidas del mes, y stock actual (`stock_por_medicamento`,
+  la misma vista que ya usa `Medicamentos.jsx`).
+
+  **"Ver reporte completo en PDF" reusa el Reporte general (Variante 2) que ya
+  existe, no duplica nada de esa lógica**: el botón navega a
+  `/medicamentos/historial` con `state: { abrirReporteGeneral: true, desde:
+  primerDiaMes, hasta: hoy }` (mismo patrón de navegación con `state` que
+  `Pacientes.jsx` → `HistoriaClinica.jsx` usa para `abrirNuevaConsulta`).
+  `HistorialMovimientos.jsx` lee ese `location.state` en un `useEffect` y abre
+  `ExportarMovimientosPdfModal` con `pasoInicial="reporteGeneral"` y
+  `fechasIniciales={{ desde, hasta }}` — el modal salta directo al paso de
+  fechas ya completado, sin pasar por el selector de variante. Todo el resto
+  (armado del PDF, agrupación por medicamento, ranking) sigue viviendo
+  exclusivamente en `pdfExportMedicamentos.js`, sin tocar. Es solo una
+  precarga de navegación — el usuario todavía tiene que confirmar "Generar
+  PDF" en el modal, no se descarga nada automáticamente al hacer clic en el
+  link.
 
 ### Tests automatizados (Vitest)
 
@@ -1192,6 +1249,18 @@ temporalmente solo para esto y desinstalado después) que a 1024px ese header, e
 cargado de los cinco, entra completo en una fila con margen de sobra. `lg` es
 conservador a propósito: prioriza "nunca más superposición" por sobre "mostrar la fila
 completa lo antes posible".
+
+**Nota — esta verificación quedó desactualizada, no re-hecha todavía**: el ejemplo de
+arriba ("Próximos controles") ya no existe (se sacó, ver RF-20 en "Estado actual del
+desarrollo"), y desde entonces se fueron agregando más botones a varios headers —
+`Medicamentos.jsx` en particular ya tiene navLink + 4 acciones ("Historial de
+movimientos", "Medicamentos dados de baja", "Consumo del mes", "Buscar por
+medicación/patología", "← Volver a pacientes"), más que el header que en su momento se
+verificó como "el más cargado". Por debajo de `lg` sigue sin riesgo (colapsa a
+hamburguesa igual, eso no cambió), pero la afirmación puntual de "entra en una fila con
+margen de sobra a 1024px" ya no está confirmada para este header — si en algún momento
+se ve apretado en desktop a `lg` justo, conviene repetir la verificación con Playwright
+(mismo método de arriba) en vez de asumir que sigue sosteniendo.
 
 Los botones del menú desplegable son full-width y mantienen el mínimo táctil de 44px
 (`min-h-11` en los que no usan ya `.btn-primary`/`.btn-secondary`, que lo traen incluido)

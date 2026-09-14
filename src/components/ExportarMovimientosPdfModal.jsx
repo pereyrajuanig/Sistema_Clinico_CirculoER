@@ -31,11 +31,24 @@ function filtrarMovimientos(movimientos, { medicamentoId, tipo, desde, hasta }) 
 // acá adentro. `filtroInicial` solo se usa para PRECARGAR el formulario de "Historial de
 // este medicamento" con lo que ya estaba filtrado en pantalla, como conveniencia — no como
 // una dependencia real (se puede cambiar todo, incluido el medicamento, sin salir del modal).
-export default function ExportarMovimientosPdfModal({ medicamentos, movimientos, filtroInicial, onClose }) {
-  const [paso, setPaso] = useState('elegir')
+//
+// `pasoInicial`/`fechasIniciales` (opcionales): permiten abrir el modal directo en el paso
+// "Reporte general" con Desde/Hasta ya cargados — usado por el link "Ver reporte completo
+// en PDF" de `ConsumoDelMes.jsx` (vía navegación con `state`, ver `HistorialMovimientos.jsx`)
+// para reusar esta exportación sin duplicar nada de su lógica. Sigue siendo una precarga,
+// no un envío automático — el usuario confirma con "Generar PDF" como en cualquier otro caso.
+export default function ExportarMovimientosPdfModal({
+  medicamentos,
+  movimientos,
+  filtroInicial,
+  pasoInicial,
+  fechasIniciales,
+  onClose,
+}) {
+  const [paso, setPaso] = useState(pasoInicial || 'elegir')
   const [filtro, setFiltro] = useState({ ...initialFiltro, ...filtroInicial })
-  const [desde, setDesde] = useState('')
-  const [hasta, setHasta] = useState('')
+  const [desde, setDesde] = useState(fechasIniciales?.desde || '')
+  const [hasta, setHasta] = useState(fechasIniciales?.hasta || '')
   const [error, setError] = useState('')
   const [generando, setGenerando] = useState(false)
 

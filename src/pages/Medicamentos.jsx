@@ -139,6 +139,7 @@ export default function Medicamentos() {
         }}
         actions={[
           { label: 'Medicamentos dados de baja', to: '/medicamentos/inactivos', variant: 'secondary' },
+          { label: 'Consumo del mes', to: '/medicamentos/consumo-mes', variant: 'secondary' },
           { label: 'Buscar por medicación/patología', to: '/busqueda', variant: 'secondary' },
           { label: '← Volver a pacientes', to: '/', variant: 'secondary' },
         ]}
