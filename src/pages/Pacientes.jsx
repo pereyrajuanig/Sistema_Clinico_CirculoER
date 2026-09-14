@@ -67,6 +67,15 @@ export default function Pacientes() {
           factor * (a.apellido.localeCompare(b.apellido) || a.nombre.localeCompare(b.nombre))
         )
       }
+      // Edad no es una columna propia (se calcula desde fecha_nacimiento) — no puede
+      // ordenarse con el mismo localeCompare de string que el resto de los campos, hace
+      // falta comparación numérica. Sin fecha de nacimiento cargada queda como -1, mismo
+      // criterio que el resto de los campos (el string vacío ordena primero en ascendente).
+      if (sortField === 'edad') {
+        const edadA = calcularEdad(a.fecha_nacimiento) ?? -1
+        const edadB = calcularEdad(b.fecha_nacimiento) ?? -1
+        return factor * (edadA - edadB)
+      }
       return factor * (a[sortField] || '').localeCompare(b[sortField] || '')
     })
   }, [pacientesFiltrados, sortField, sortDirection])
@@ -167,7 +176,7 @@ export default function Pacientes() {
                       <SortableTh field="apellido" label="Apellido y nombre" sort={sortField} direction={sortDirection} onSort={toggleSort} />
                       <SortableTh field="dni" label="DNI" sort={sortField} direction={sortDirection} onSort={toggleSort} />
                       <SortableTh field="telefono" label="Teléfono" sort={sortField} direction={sortDirection} onSort={toggleSort} />
-                      <th className="px-4 py-3 font-medium">Edad</th>
+                      <SortableTh field="edad" label="Edad" sort={sortField} direction={sortDirection} onSort={toggleSort} />
                       <SortableTh field="sexo" label="Sexo" sort={sortField} direction={sortDirection} onSort={toggleSort} />
                     </tr>
                   </thead>

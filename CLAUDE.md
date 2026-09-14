@@ -464,7 +464,14 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
 **Historia clínica — hecho:**
 - Login con Supabase Auth, sesión persistente, timeout por inactividad (25 min)
 - Pacientes: listado con búsqueda/orden, alta y edición, DNI normalizado (solo dígitos)
-  para evitar duplicados. **Bug real corregido**: el campo de DNI en
+  para evitar duplicados. Las 5 columnas de la tabla (`Pacientes.jsx`) son ordenables
+  — Apellido y nombre, DNI, Teléfono, Edad, Sexo —, incluida Edad, que no es una
+  columna propia de `pacientes` (se calcula al vuelo con `calcularEdad()` desde
+  `fecha_nacimiento`): el `sort` genérico del resto de las columnas hace
+  `localeCompare` de string sobre el campo crudo, pero Edad necesita su propia rama
+  en `pacientesOrdenados` con comparación numérica (`calcularEdad(a.fecha_nacimiento)
+  ?? -1`, mismo criterio que el resto — sin fecha de nacimiento cargada, ordena
+  como si tuviera el valor más bajo). **Bug real corregido**: el campo de DNI en
   `PacienteFormModal.jsx` no filtraba nada al tipear — `limpiarDni()` (saca todo lo
   que no sea dígito) recién corría en `handleSubmit`, sobre el payload, así que se
   podía escribir cualquier string y el campo se veía "con contenido" hasta el
