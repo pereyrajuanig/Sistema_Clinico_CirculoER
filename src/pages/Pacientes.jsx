@@ -106,6 +106,7 @@ export default function Pacientes() {
         navLink={{ label: 'Medicamentos', to: '/medicamentos', variant: 'accent' }}
         actions={[
           { label: 'Últimas consultas', to: '/consultas/recientes', variant: 'secondary' },
+          { label: 'Buscar por medicación/patología', to: '/busqueda', variant: 'secondary' },
           { label: 'Cerrar sesión', onClick: logout, variant: 'alert' },
         ]}
       />

@@ -12,6 +12,7 @@ const Login = lazy(() => import('@/pages/Login'))
 const Pacientes = lazy(() => import('@/pages/Pacientes'))
 const HistoriaClinica = lazy(() => import('@/pages/HistoriaClinica'))
 const UltimasConsultas = lazy(() => import('@/pages/UltimasConsultas'))
+const BusquedaClinica = lazy(() => import('@/pages/BusquedaClinica'))
 const Medicamentos = lazy(() => import('@/pages/Medicamentos'))
 const MedicamentosInactivos = lazy(() => import('@/pages/MedicamentosInactivos'))
 const HistorialMovimientos = lazy(() => import('@/pages/HistorialMovimientos'))
@@ -49,6 +50,14 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <UltimasConsultas />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/busqueda"
+                element={
+                  <ProtectedRoute>
+                    <BusquedaClinica />
                   </ProtectedRoute>
                 }
               />

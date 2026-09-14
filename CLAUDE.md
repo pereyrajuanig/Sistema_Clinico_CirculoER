@@ -533,6 +533,48 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
   vez (props, si tiene o no acciones, si muestra el paciente) — no valía la pena
   la abstracción para dos usos.
 
+- **Buscador cruzado por Medicación/Patología** (`/busqueda`,
+  `BusquedaClinica.jsx`, botón "Buscar por medicación/patología" en las acciones
+  del header de `Pacientes.jsx` Y de `Medicamentos.jsx` — dos puntos de entrada a
+  la misma pantalla, pedido explícito del cliente): caso real motivador — "¿qué
+  pacientes toman tal medicamento?" ante un recall o un cambio de stock. Busca
+  sobre las tablas ESTRUCTURADAS `medicacion`/`patologias` (`ilike('nombre',
+  '%query%')`, insensible a mayúsculas y parcial), **no** sobre el campo de texto
+  libre `consultas.medicacion` — a propósito, es otro dato (lo indicado en una
+  visita puntual, no la lista viva de qué toma el paciente hoy — ver la
+  aclaración ya documentada en el modelo de datos de `medicacion`).
+
+  Selector de modo ("Medicación"/"Patologías", mismo estilo de botones que
+  "¿Quién atiende?") + campo de texto (dispara la búsqueda solo, sin botón
+  "Buscar" — debounce de 300ms, mismo patrón que la búsqueda de paciente por DNI
+  en `SalidaStockModal.jsx`, y un mínimo de 2 caracteres antes de consultar la
+  base, para no salir a buscar en cada primera tecla) + checkbox para ampliar el
+  filtro de estado. `CONFIG_MODO` en `BusquedaClinica.jsx` separa explícitamente
+  qué columnas/estados corresponden a cada tabla — **no comparten forma**:
+  `medicacion` tiene `dosis`/`fecha_inicio` y por defecto solo busca
+  `estado = 'Activa'` (checkbox "Incluir suspendidas" suma `'Suspendida'`);
+  `patologias` tiene `fecha_diagnostico` (no usado acá) y por defecto busca
+  `estado in ('Activa', 'Controlada')` (checkbox "Incluir resueltas" suma
+  `'Resuelta'`) — pedir una columna que no existe en la tabla del otro modo
+  (`dosis` en `patologias`, `fecha_diagnostico` en `medicacion`) tira error, así
+  que cada modo arma su propio `select()`. Las dos queries filtran
+  `is('eliminado_en', null)`, mismo criterio que el resto del sistema con estas
+  tablas (ver "CRUD de las tablas clínicas" más abajo).
+
+  Cada fila de resultado es un registro que matcheó (no un paciente agrupado —
+  si un paciente tiene dos coincidencias aparece dos veces, cada una con su
+  propio detalle), con nombre/apellido/DNI del paciente y el detalle puntual que
+  coincidió: en Medicación, "Nombre Dosis — Estado desde MM/AAAA" (mes/año
+  nomás, no día completo — alcanza para "hace cuánto" en una línea compacta;
+  **esto es un formato de PANTALLA nuevo, no confundir con la regla de PDF
+  DD/MM/AAAA de la sección de arriba**, esa es específica a exportaciones); en
+  Patologías, "Nombre — Estado". Ordenado client-side por apellido/nombre del
+  paciente después de traer los resultados (no vía `.order()` de Supabase —
+  PostgREST no ordena de forma simple por una columna de un recurso embebido
+  como `pacientes(apellido)`, y el volumen esperado por búsqueda es chico, así
+  que ordenar en el navegador es más simple y no hace falta optimizarlo). Cada
+  fila linkea directo a `/pacientes/:id`.
+
 - **RF-19 implementado — Exportar historia clínica a PDF** (`src/lib/pdfExport.js`,
   `ExportarPdfModal.jsx`, botón "Exportar PDF" en las acciones del header de
   `HistoriaClinica.jsx`): generado 100% en el navegador con **pdfmake** (elegido
@@ -1230,9 +1272,11 @@ necesidad real.
      su `.select()` de retorno, para que el objeto que vuelve a `setMedicamentos`
      tenga la misma forma que el resto de la lista en memoria.
 
-3. **`React.lazy` + `Suspense` por ruta, en `App.jsx`**: los 7 componentes de
+3. **`React.lazy` + `Suspense` por ruta, en `App.jsx`**: todos los componentes de
    página (`Login`, `Pacientes`, `HistoriaClinica`, `UltimasConsultas`,
-   `Medicamentos`, `MedicamentosInactivos`, `HistorialMovimientos`) pasaron de
+   `BusquedaClinica`, `Medicamentos`, `MedicamentosInactivos`,
+   `HistorialMovimientos` — se suma cada pantalla nueva a esta lista según se
+   agrega, no es un número fijo) pasaron de
    `import` estático a `lazy(() => import(...))`, con un único `<Suspense
    fallback={<CargandoPantalla />}>` envolviendo todo el árbol de `<Routes>` (un
    solo boundary alcanza — no hace falta uno por ruta, React re-muestra el
