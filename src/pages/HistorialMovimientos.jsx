@@ -98,8 +98,6 @@ export default function HistorialMovimientos() {
       .reverse()
   }, [movimientos, filtroMedicamento, filtroTipo, filtroDesde, filtroHasta, busqueda])
 
-  const medicamentoElegido = medicamentos.find((m) => m.id === filtroMedicamento) || null
-
   return (
     <div className="min-h-screen bg-background">
       <Header
@@ -284,10 +282,14 @@ export default function HistorialMovimientos() {
 
       {showExportModal && (
         <ExportarMovimientosPdfModal
-          medicamento={medicamentoElegido}
+          medicamentos={medicamentos}
           movimientos={movimientos}
-          movimientosFiltrados={movimientosFiltrados}
-          filtros={{ tipo: filtroTipo, desde: filtroDesde, hasta: filtroHasta }}
+          filtroInicial={{
+            medicamentoId: filtroMedicamento,
+            tipo: filtroTipo,
+            desde: filtroDesde,
+            hasta: filtroHasta,
+          }}
           onClose={() => setShowExportModal(false)}
         />
       )}

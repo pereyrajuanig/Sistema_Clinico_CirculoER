@@ -777,22 +777,31 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
   título + descripción) — reemplazó una primera versión con dos botones
   sueltos en dos lugares distintos de la pantalla (uno condicional al lado de
   los filtros, otro en el header), que no eran consistentes con el patrón ya
-  establecido para el paciente.
+  establecido para el paciente. **Ninguna de las dos variantes depende de los
+  filtros puestos en `HistorialMovimientos.jsx` en ese momento** — cada una
+  pide sus propios datos en un segundo paso dentro del mismo modal (mismo
+  criterio de disclosure progresivo que ya usa "+ Agregar medicamento nuevo"
+  en `EntradaStockModal.jsx`, en vez de abrir un modal nuevo encima del
+  selector). Primera versión de "Historial de este medicamento" SÍ dependía
+  del filtro "Medicamento" de la pantalla de fondo (quedaba deshabilitado sin
+  uno elegido ahí) — se sacó esa dependencia a pedido del cliente: ahora el
+  segundo paso tiene su propio selector de medicamento, precargado con lo que
+  estuviera elegido en el filtro de la pantalla si había algo (conveniencia,
+  vía `filtroInicial`), pero completamente editable sin salir del modal.
 
-  1. **"Historial de este medicamento"**: deshabilitado si no hay un
-     medicamento elegido en el filtro "Medicamento" de la pantalla de fondo
-     (sin eso no hay a qué medicamento referir el encabezado) — el modal
-     recibe `medicamento`/`movimientosFiltrados`/`filtros` como props ya
-     resueltos desde `HistorialMovimientos.jsx`. Al elegir esta opción se
-     genera directo, sin ningún paso intermedio, porque toda la información
-     que necesita ya está en la pantalla de fondo. Exporta **exactamente lo
-     que está filtrado en pantalla en ese momento** — `movimientosFiltrados`
-     tal cual, con el mismo tipo/rango de fechas (y hasta la búsqueda por
-     DNI/quién registró) ya aplicados, nunca el historial completo sin
-     filtrar. El PDF documenta qué filtro se usó (`textoFiltrosAplicados()`,
-     línea "Filtros aplicados — Tipo: … · Desde: … · Hasta: …", o "historial
-     completo del medicamento" si no hay ninguno puesto). Contenido:
-     encabezado con nombre + concentración + presentación
+  1. **"Historial de un medicamento"**: segundo paso
+     (`paso === 'historialMedicamento'`) con selector de Medicamento
+     (obligatorio) + Tipo y rango de fechas (opcionales, a diferencia del
+     filtro de la pantalla que son independientes) — sin tocar Tipo/fechas
+     exporta el historial completo del medicamento elegido. Al confirmar,
+     filtra `movimientos` (el array completo, sin depender de
+     `movimientosFiltrados` de la pantalla) con el mismo criterio que ese
+     filtro de pantalla — medicamento + tipo + rango — pero SIN la búsqueda
+     por DNI/quién registró (esa es una conveniencia de la tabla en pantalla,
+     no de esta exportación). El PDF documenta qué filtro se usó
+     (`textoFiltrosAplicados()`, línea "Filtros aplicados — Tipo: … · Desde: …
+     · Hasta: …", o "historial completo del medicamento" si no se tocó
+     ninguno). Contenido: encabezado con nombre + concentración + presentación
      (`identificarMedicamento()` + `formatearPresentacion()`, mismos helpers
      de `src/lib/medicamentos.js` — nunca nombre solo), la tabla de
      movimientos (ver columnas más abajo, son las mismas para las dos
@@ -806,20 +815,12 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
      (`conSaldoPorMedicamento()`), arrancar de cero en el resumen falsearía
      el stock real.
 
-  2. **"Reporte general"**: a diferencia de la variante 1, necesita un dato
-     que el modal no tiene de entrada (el rango de fechas), así que en vez de
-     generar directo pasa a un SEGUNDO PASO adentro del mismo modal
-     (`paso === 'reporteGeneral'` en `ExportarMovimientosPdfModal.jsx`, con un
-     botón "‹ Volver" para arrepentirse) — mismo criterio de disclosure
-     progresivo que ya usa "+ Agregar medicamento nuevo" en
-     `EntradaStockModal.jsx`, en vez de abrir un modal nuevo encima del
-     selector (no hay precedente de modal-sobre-modal en esta app). Ese
-     segundo paso pide Desde/Hasta (los dos `required`, valida además que
-     Desde no sea posterior a Hasta) y arma el PDF a partir del array
-     `movimientos` completo (sin filtrar por nada de lo que esté puesto en
-     los filtros de la pantalla de fondo — **no ligado** a ellos, es
-     independiente), re-filtrado únicamente por ese rango de fechas. Agrupa
-     por `medicamento_id` (`Map`, orden final alfabético por
+  2. **"Reporte general"**: segundo paso (`paso === 'reporteGeneral'`) con
+     rango de fechas obligatorio (Desde/Hasta, los dos `required`, valida
+     además que Desde no sea posterior a Hasta). Arma el PDF a partir del
+     array `movimientos` completo, re-filtrado únicamente por ese rango de
+     fechas — sin relación con ningún filtro de la pantalla de fondo, nunca la
+     tuvo. Agrupa por `medicamento_id` (`Map`, orden final alfabético por
      `identificarMedicamento()` — predecible, no depende del orden de
      aparición de los movimientos) y **solo entran medicamentos que tuvieron
      al menos un movimiento en el rango** — nunca se lista un medicamento sin
