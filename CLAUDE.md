@@ -1376,6 +1376,46 @@ necesidad real.
 - `pnpm build` — build de producción, usar para verificar que compila antes de dar
   algo por terminado
 
+## Flujo de Git: Pull Request obligatorio a `main` (branch protection)
+
+**Esto reemplaza el flujo anterior de todo el historial de este proyecto** — hasta acá
+el patrón por defecto era commitear y pushear directo a `main` sin abrir PR. Desde que se
+configuró la protección de rama (pedido explícito del cliente), **eso ya no es posible,
+ni siquiera para el owner del repo** — un `git push origin main` directo va a ser
+rechazado por GitHub. Si alguna sesión anterior de este mismo documento (o el hábito de
+la conversación) sugiere "commit + push a main", esa parte quedó desactualizada por este
+cambio — el flujo correcto de acá en adelante es:
+
+1. Crear una rama nueva (`git checkout -b nombre-de-la-rama`), commitear ahí.
+2. Pushear esa rama (`git push -u origin nombre-de-la-rama`).
+3. Abrir un Pull Request hacia `main` (`gh pr create` si `gh` está instalado y
+   autenticado, si no, el link que devuelve `git push` o directo en GitHub).
+4. Esperar a que el check `ci` (el job de `.github/workflows/ci.yml` — lint + test +
+   build, ver esa sección más abajo) quede en verde.
+5. Mergear el PR (desde GitHub, o `gh pr merge` si está disponible).
+
+**Por qué existe esto**: Vercel (donde se despliega la app) no tiene "Deployment
+Checks" en el plan gratuito — sin esto, un push a `main` con el build roto se
+despliega igual. La protección de rama logra el mismo resultado práctico sin pagar
+nada: como Vercel solo despliega lo que hay en `main`, y a `main` no puede llegar nada
+sin pasar antes por un PR con el check `ci` en verde, código roto nunca llega a estar
+ahí para empezar.
+
+**Configuración exacta de la regla** (GitHub → Settings → Branches → regla para
+`main`, configurada a mano por el usuario, no por mí — no tengo `gh` instalado ni
+autenticado en este entorno para aplicarlo por API):
+- **Require a pull request before merging**, con **0 aprobaciones requeridas** — el
+  repo tiene un solo desarrollador, exigir aprobaciones dejaría todo bloqueado sin
+  nadie que pueda aprobar. Alcanza con que el PR exista.
+- **Require status checks to pass before merging**, chequeo requerido: **`ci`** — OJO,
+  no son tres checks separados ("lint"/"test"/"build") aunque `ci.yml` corra esos tres
+  pasos: al ser un solo job (`jobs: ci:`) que los corre secuencialmente, GitHub
+  reporta un único status check llamado `ci` (si `lint` falla, ni `test` ni `build`
+  llegan a correr, y ese único check queda en rojo).
+- **Include administrators** activado — la regla aplica incluso al owner del repo, sin
+  atajos para "emergencias". Coherente con "de ahora en más el flujo pasa a ser..." —
+  sin excepciones, no una sugerencia.
+
 ## Entorno y detalles a tener en cuenta
 
 - El usuario está en Windows y formateó su PC hace poco — no asumir herramientas
