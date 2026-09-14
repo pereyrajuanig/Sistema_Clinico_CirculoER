@@ -538,24 +538,60 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
   viejos de la librería**: el build para navegador vive en
   `pdfmake/build/pdfmake.js` (el `main` del paquete, `js/index.js`, es para Node
   con `pdfkit` — no sirve acá) + las fuentes en `pdfmake/build/vfs_fonts.js`. Se
-  importan los dos con `import()` dinámico DENTRO de `exportarHistoriaClinica()`
-  (nunca en el top-level del módulo) porque entre los dos pesan ~1.8MB — code
-  splitting real: Vite los separa en sus propios chunks
-  (`pdfmake-*.js`/`vfs_fonts-*.js`) que solo se piden la primera vez que alguien
-  exporta un PDF, no en la carga inicial de la app. Registro de fuentes
-  explícito, sin depender del side-effect global que trae `vfs_fonts.js`:
-  `pdfMake.addVirtualFileSystem(vfs)` a mano, en vez de dejar que
-  `vfs_fonts.js` se autoregistre pisando `window.pdfMake` (funciona, pero
-  depende del orden de imports de forma implícita). Fuente por defecto: Roboto
-  (la que trae pdfmake), cubre español sin problema — el único ajuste hecho a
-  propósito fue escribir "Saturación O2" en vez de "Saturación O₂" en los
-  signos vitales del PDF (el subíndice Unicode ₂, U+2082, no está garantizado en
-  el subset de la fuente). Verificado con un smoke test real fuera de Vite
-  (`node` + `require('pdfmake/build/pdfmake.js')`) que confirmó un PDF válido
-  (`%PDF-1.3`) de varias páginas con header/footer/tablas/listas/paginación
-  antes de dar el feature por terminado — no alcanzaba con que `pnpm build`
-  compilara sin errores, dado que la interacción entre el bundle UMD de pdfmake
-  y el import dinámico de Vite era nueva en este proyecto.
+  importan los dos con `import()` dinámico (nunca en el top-level de ningún
+  módulo) porque entre los dos pesan ~1.8MB — code splitting real: Vite los
+  separa en sus propios chunks (`pdfmake-*.js`/`vfs_fonts-*.js`) que solo se
+  piden la primera vez que alguien exporta un PDF, no en la carga inicial de la
+  app. Registro de fuentes explícito, sin depender del side-effect global que
+  trae `vfs_fonts.js`: `pdfMake.addVirtualFileSystem(vfs)` a mano, en vez de
+  dejar que `vfs_fonts.js` se autoregistre pisando `window.pdfMake` (funciona,
+  pero depende del orden de imports de forma implícita). Fuente por defecto:
+  Roboto (la que trae pdfmake), cubre español sin problema — el único ajuste
+  hecho a propósito fue escribir "Saturación O2" en vez de "Saturación O₂" en
+  los signos vitales del PDF (el subíndice Unicode ₂, U+2082, no está
+  garantizado en el subset de la fuente). Verificado con un smoke test real
+  fuera de Vite (`node` + `require('pdfmake/build/pdfmake.js')`) que confirmó un
+  PDF válido (`%PDF-1.3`) de varias páginas con header/footer/tablas/listas/
+  paginación antes de dar el feature por terminado — no alcanzaba con que
+  `pnpm build` compilara sin errores, dado que la interacción entre el bundle
+  UMD de pdfmake y el import dinámico de Vite era nueva en este proyecto.
+
+  **`src/lib/pdf.js` — infraestructura compartida entre TODAS las exportaciones
+  a PDF de la app** (no solo historia clínica — también las dos de medicamentos,
+  ver más abajo en "Medicamentos y stock"): `cargarPdfMake()`/`generarPdf()`
+  (el import dinámico + registro de fuentes de arriba, memoizado — una segunda
+  exportación en la misma sesión no vuelve a pagar el costo del import),
+  `formatFechaAR()`/`formatFechaHoraAR()` (ver el recuadro de formato de fecha
+  más abajo), `documentoBase()` (armazón común: tamaño de página, header/footer
+  repetidos, estilos), `piePaginaInstitucional` (el texto "Generado el..." fijo,
+  correcto en TODAS las exportaciones porque viven en un solo lugar),
+  `tituloSeccion`/`subtituloSeccion`/`tablaClaveValor`/`lineaSeparadora`/
+  `valorOTexto`/`slugArchivo` y el diccionario `ESTILOS_PDF`. Se extrajo a un
+  módulo aparte (no vivía ahí originalmente) al agregar las exportaciones de
+  medicamentos, porque en ese momento dejó de ser código exclusivo de
+  `pdfExport.js` — lo que sí queda sin compartir es la construcción de cada
+  documento puntual (`construirPdfCompleto`/`construirPdfResumen` en
+  `pdfExport.js`, `construirPdfHistorialMedicamento`/`construirPdfReporteGeneral`
+  en `pdfExportMedicamentos.js`), porque ahí sí diverge demasiado entre los
+  casos de uso como para valer una abstracción común.
+
+  **Formato de fecha, regla no negociable para CUALQUIER exportación a PDF de
+  esta app**: siempre DD/MM/AAAA (y DD/MM/AAAA HH:MM cuando hay hora), nunca
+  MM/DD/AAAA — pedido explícito del cliente. `formatFechaAR()`/
+  `formatFechaHoraAR()` en `src/lib/pdf.js` arman el string a mano
+  (`getDate()`/`getMonth()`/`getFullYear()` con `padStart`), a propósito **sin
+  pasar por `toLocaleDateString`/`toLocaleString` con `dateStyle`/`timeStyle`**
+  — esas opciones devuelven fechas en prosa ("13 sept 2026"), no el formato
+  numérico pedido, y aunque se pidiera el formato numérico por otra vía
+  (`Intl.DateTimeFormat` con `day`/`month`/`year` numéricos), el orden exacto
+  puede depender del entorno donde corra — construirlo a mano es la única
+  forma de garantizarlo siempre igual. **Esto es intencionalmente distinto
+  del formato en PANTALLA** (`Pacientes.jsx`, `HistoriaClinica.jsx`,
+  `Medicamentos.jsx`, `HistorialMovimientos.jsx`, etc., que siguen usando
+  `toLocaleDateString('es-AR', { dateStyle: 'medium' })` o similar sin que
+  nadie lo haya pedido cambiar) — no confundir las dos cosas ni "corregir" el
+  formato en pantalla por analogía con esta regla; el pedido fue específico a
+  los PDFs.
 
   **De dónde sale el contenido**: `datos` es literalmente el mismo estado que ya
   tiene cargado `HistoriaClinica.jsx` (`paciente`, `antecedentes`, `patologias`,
@@ -729,6 +765,83 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
   tiene un "Corregir este movimiento" que pre-completa el movimiento
   compensatorio (`CorregirMovimientoModal.jsx`) — ver detalle en la regla de
   CRUD de `movimientos_stock` más arriba.
+
+- **Exportar a PDF (`src/lib/pdfExportMedicamentos.js`), dos variantes — pedido
+  explícito del cliente, misma librería que RF-19 (pdfmake), reusando la
+  infraestructura compartida de `src/lib/pdf.js`**:
+
+  1. **Historial de un medicamento puntual** (botón "Exportar (PDF)" en
+     `HistorialMovimientos.jsx`, visible únicamente cuando el filtro
+     "Medicamento" tiene uno elegido — sin eso no hay a qué medicamento
+     referir el encabezado). Exporta **exactamente lo que está filtrado en
+     pantalla en ese momento** — pasa `movimientosFiltrados` tal cual
+     (`handleExportarMedicamento()`), con el mismo tipo/rango de fechas (y
+     hasta la búsqueda por DNI/quién registró) ya aplicados, nunca el
+     historial completo sin filtrar. El PDF documenta qué filtro se usó
+     (`textoFiltrosAplicados()`, línea "Filtros aplicados — Tipo: … · Desde: …
+     · Hasta: …", o "historial completo del medicamento" si no hay ninguno
+     puesto). Contenido: encabezado con nombre + concentración + presentación
+     (`identificarMedicamento()` + `formatearPresentacion()`, mismos helpers
+     de `src/lib/medicamentos.js` — nunca nombre solo), la tabla de
+     movimientos (ver columnas más abajo, son las mismas para las dos
+     variantes) y un resumen final con total de entradas, total de salidas y
+     "stock al cierre del período exportado" — este último es
+     `movimientos[0].saldo` (el array llega en el mismo orden que en
+     pantalla, más reciente primero, así que el primer elemento es el último
+     movimiento cronológico del recorte exportado) — **no** un delta que
+     arranque de cero en el período: `saldo` ya es una cifra absoluta
+     calculada sobre TODO el historial real del medicamento
+     (`conSaldoPorMedicamento()`), arrancar de cero en el resumen falsearía
+     el stock real.
+
+  2. **Reporte general de movimientos** (`ReporteGeneralPdfModal.jsx`, botón
+     "Reporte general (PDF)" en el header de `HistorialMovimientos.jsx`, **no
+     ligado a ningún filtro de la pantalla ni a un medicamento puntual**):
+     pide un rango de fechas obligatorio (Desde/Hasta, los dos `required`,
+     valida además que Desde no sea posterior a Hasta) y arma el PDF a partir
+     del array `movimientos` completo (sin filtrar por nada de lo que esté
+     puesto en pantalla), re-filtrado únicamente por ese rango de fechas.
+     Agrupa por `medicamento_id` (`Map`, orden final alfabético por
+     `identificarMedicamento()` — predecible, no depende del orden de
+     aparición de los movimientos) y **solo entran medicamentos que tuvieron
+     al menos un movimiento en el rango** — nunca se lista un medicamento sin
+     movimientos con una tabla vacía, porque el grupo ni siquiera se crea si
+     no hay ninguna fila para él. Dentro de cada grupo, la misma tabla de
+     columnas que la variante 1. Al final, un resumen general (total de
+     movimientos en el período) y un ranking de medicamentos por consumo
+     (suma de cantidad en salidas, descendente, excluye los que no tuvieron
+     ninguna salida en el período). Página en **apaisado**
+     (`pageOrientation: 'landscape'`, `documentoBase()` acepta ese parámetro y
+     ajusta el ancho de las líneas separadoras/header solo — ver
+     `anchoContenido()` en `pdf.js`) — con 9 columnas de datos, retrato
+     quedaba demasiado apretado; esto no se pidió explícitamente pero es una
+     decisión de implementación directa, no una interpretación del contenido.
+
+  **Regla importante, a propósito DISTINTA de la de RF-19 (historia clínica
+  del paciente) — no mezclar los dos criterios**: acá **NO se excluye nada por
+  `medicamentos.activo = false`**. Un medicamento dado de baja (ver reglas de
+  CRUD de medicamentos más arriba) tiene un historial de movimientos real y
+  válido — dar de baja el medicamento del catálogo no vuelve inválidos sus
+  movimientos pasados, así que sigue apareciendo en el reporte general si cae
+  dentro del rango de fechas consultado. Esto es lo opuesto al criterio de
+  `pdfExport.js` (historia clínica), donde SÍ se excluye todo lo que tiene
+  `eliminado_en` no nulo, porque ahí una baja lógica representa una
+  corrección/error, no un hecho real que deba seguir aparte. Ninguna de las
+  dos exportaciones de medicamentos necesita filtrar nada de todos modos:
+  `movimientos_stock` no tiene baja lógica propia (es un libro contable
+  inmutable, ver reglas de CRUD más arriba) — no hay ningún `eliminado_en`
+  que filtrar ahí, a diferencia de las tablas clínicas del paciente.
+
+  **Columnas de la tabla de movimientos, iguales en las dos variantes**
+  (`tablaMovimientos()`): Fecha y hora, Tipo, Lote (número + vencimiento),
+  Cant., Registró, Paciente, Consulta, Motivo, Saldo — mismo orden que las
+  columnas de `HistorialMovimientos.jsx` en pantalla. Para que el encabezado
+  con presentación funcione, el `select` de Supabase de esa página tuvo que
+  sumar `presentacion, presentacion_detalle` al embed de `medicamentos` (antes
+  solo pedía `nombre, concentracion`) — tanto en la query de `medicamentos`
+  (para resolver el medicamento elegido en el filtro aun sin movimientos) como
+  en la de `movimientos_stock` (para el encabezado de cada grupo del reporte
+  general).
 
 ### Tests automatizados (Vitest)
 

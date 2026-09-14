@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { limpiarDni } from '@/lib/dni'
 import { identificarMedicamento } from '@/lib/medicamentos'
+import { exportarHistorialMedicamento } from '@/lib/pdfExportMedicamentos'
 import CorregirMovimientoModal from '@/components/CorregirMovimientoModal'
+import ReporteGeneralPdfModal from '@/components/ReporteGeneralPdfModal'
 import Header from '@/components/Header'
 
 function formatFechaHora(value) {
@@ -41,19 +43,25 @@ export default function HistorialMovimientos() {
   const [filtroHasta, setFiltroHasta] = useState('')
   const [busqueda, setBusqueda] = useState('')
   const [movimientoACorregir, setMovimientoACorregir] = useState(null)
+  const [showReporteGeneralModal, setShowReporteGeneralModal] = useState(false)
+  const [exportandoHistorial, setExportandoHistorial] = useState(false)
+  const [errorExportHistorial, setErrorExportHistorial] = useState('')
 
   async function fetchTodo() {
     setLoading(true)
     setError('')
 
     const [medRes, movRes] = await Promise.all([
-      supabase.from('medicamentos').select('id, nombre, concentracion').order('nombre'),
+      supabase
+        .from('medicamentos')
+        .select('id, nombre, concentracion, presentacion, presentacion_detalle')
+        .order('nombre'),
       // Orden ascendente para poder calcular el saldo acumulado antes de mostrarlo
       // del más reciente al más viejo
       supabase
         .from('movimientos_stock')
         .select(
-          'id, lote_id, tipo, cantidad, fecha, motivo, lotes!inner(numero_lote, fecha_vencimiento, medicamento_id, medicamentos(nombre, concentracion)), profesionales(nombre), pacientes(id, nombre, apellido, dni), consultas(id, fecha)'
+          'id, lote_id, tipo, cantidad, fecha, motivo, lotes!inner(numero_lote, fecha_vencimiento, medicamento_id, medicamentos(nombre, concentracion, presentacion, presentacion_detalle)), profesionales(nombre), pacientes(id, nombre, apellido, dni), consultas(id, fecha)'
         )
         .order('fecha', { ascending: true }),
     ])
@@ -93,11 +101,44 @@ export default function HistorialMovimientos() {
       .reverse()
   }, [movimientos, filtroMedicamento, filtroTipo, filtroDesde, filtroHasta, busqueda])
 
+  // Exporta EXACTAMENTE lo que está filtrado en pantalla en ese momento (mismo criterio
+  // que `movimientosFiltrados`, incluida la búsqueda por DNI/quién registró) — nunca el
+  // historial completo sin filtrar. Solo tiene sentido con un medicamento puntual elegido
+  // (si no, el encabezado "nombre + concentración + presentación" no tendría a quién
+  // referirse) — el botón que llama a esto solo se muestra cuando `filtroMedicamento` está
+  // elegido.
+  async function handleExportarMedicamento() {
+    const medicamento = medicamentos.find((m) => m.id === filtroMedicamento)
+    if (!medicamento) return
+
+    setErrorExportHistorial('')
+    setExportandoHistorial(true)
+
+    try {
+      await exportarHistorialMedicamento({
+        medicamento,
+        movimientos: movimientosFiltrados,
+        filtros: { tipo: filtroTipo, desde: filtroDesde, hasta: filtroHasta },
+      })
+    } catch (err) {
+      setErrorExportHistorial(err.message || 'No se pudo generar el PDF.')
+    } finally {
+      setExportandoHistorial(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header
         title="Historial de movimientos"
-        actions={[{ label: '← Volver a medicamentos', to: '/medicamentos', variant: 'secondary' }]}
+        actions={[
+          {
+            label: 'Reporte general (PDF)',
+            onClick: () => setShowReporteGeneralModal(true),
+            variant: 'secondary',
+          },
+          { label: '← Volver a medicamentos', to: '/medicamentos', variant: 'secondary' },
+        ]}
       />
 
       <main className="p-4 sm:p-6 space-y-4">
@@ -162,7 +203,22 @@ export default function HistorialMovimientos() {
               className="input sm:w-40"
             />
           </div>
+
+          {filtroMedicamento && (
+            <div className="space-y-1 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={handleExportarMedicamento}
+                disabled={exportandoHistorial}
+                className="btn-secondary w-full sm:w-auto"
+              >
+                {exportandoHistorial ? 'Generando PDF...' : 'Exportar (PDF)'}
+              </button>
+            </div>
+          )}
         </div>
+
+        {errorExportHistorial && <p className="text-base text-text-primary">{errorExportHistorial}</p>}
 
         <div className="bg-surface border border-border rounded-lg overflow-hidden">
           {loading ? (
@@ -269,6 +325,13 @@ export default function HistorialMovimientos() {
             setMovimientoACorregir(null)
             fetchTodo()
           }}
+        />
+      )}
+
+      {showReporteGeneralModal && (
+        <ReporteGeneralPdfModal
+          movimientos={movimientos}
+          onClose={() => setShowReporteGeneralModal(false)}
         />
       )}
     </div>

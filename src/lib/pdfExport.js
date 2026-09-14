@@ -2,6 +2,18 @@ import { formatearDni } from '@/lib/dni'
 import { calcularEdad, formatearMayuscula } from '@/lib/pacientes'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
 import { TIPOS_EXAMEN } from '@/lib/laboratorio'
+import {
+  documentoBase,
+  generarPdf,
+  tituloSeccion,
+  subtituloSeccion,
+  tablaClaveValor,
+  lineaSeparadora,
+  valorOTexto,
+  formatFechaAR,
+  formatFechaHoraAR,
+  slugArchivo,
+} from '@/lib/pdf'
 
 // Duplica CAMPOS_CONSULTA/signosVitales de HistoriaClinica.jsx (y de UltimasConsultas.jsx,
 // que ya hace lo mismo) a propósito: es un módulo de src/lib, no debería depender de una
@@ -33,27 +45,6 @@ const CAMPOS_PACIENTE = [
   ['estado_civil', 'Estado civil'],
 ]
 
-function v(valor, fallback = '—') {
-  return valor === null || valor === undefined || valor === '' ? fallback : String(valor)
-}
-
-// `value + 'T00:00:00'` fuerza a interpretar una columna `date` (sin hora) en horario local
-// en vez de UTC — mismo fix ya aplicado en Medicamentos.jsx/HistorialMovimientos.jsx para
-// evitar que una fecha se muestre un día antes por el desfase de huso horario (Argentina
-// UTC-3). HistoriaClinica.jsx tiene su propio formatFecha local que NO hace este fix (bug
-// latente preexistente, fuera del alcance de esta tarea) — acá, código nuevo, se hace bien
-// desde el principio.
-function formatFechaSolo(valor) {
-  if (!valor) return null
-  const iso = valor.length === 10 ? `${valor}T00:00:00` : valor
-  return new Date(iso).toLocaleDateString('es-AR', { dateStyle: 'medium' })
-}
-
-function formatFechaHora(valor) {
-  if (!valor) return null
-  return new Date(valor).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' })
-}
-
 // Mismo cálculo que signosVitales() en HistoriaClinica.jsx/UltimasConsultas.jsx, salvo
 // "Saturación O2" en vez de "Saturación O₂" — el subíndice Unicode (U+2082) no está
 // garantizado en el subset de la fuente Roboto que trae pdfmake por defecto, y no vale la
@@ -73,42 +64,11 @@ function signosVitales(c) {
   return items
 }
 
-function tituloSeccion(texto) {
-  return { text: texto, style: 'seccion' }
-}
-
-function subtituloSeccion(texto) {
-  return { text: texto, style: 'subseccion' }
-}
-
-function lineaSeparadora() {
-  return {
-    canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#cccccc' }],
-    margin: [0, 8, 0, 8],
-  }
-}
-
-// Tabla de dos columnas etiqueta/valor, sin bordes — usada para "Datos del paciente" y
-// "Datos básicos"
-function tablaClaveValor(filas) {
-  return {
-    table: {
-      widths: ['35%', '65%'],
-      body: filas.map(([etiqueta, valor]) => [
-        { text: etiqueta, style: 'etiqueta' },
-        { text: v(valor), style: 'normal' },
-      ]),
-    },
-    layout: 'noBorders',
-    margin: [0, 0, 0, 8],
-  }
-}
-
 function datosPaciente(paciente) {
   const valores = {
     ...paciente,
     dni: formatearDni(paciente.dni),
-    fecha_nacimiento: formatFechaSolo(paciente.fecha_nacimiento),
+    fecha_nacimiento: formatFechaAR(paciente.fecha_nacimiento),
     obra_social: formatearMayuscula(paciente.obra_social),
     grupo_sanguineo: formatearMayuscula(paciente.grupo_sanguineo),
   }
@@ -159,8 +119,8 @@ function seccionPatologias(patologias) {
           ...patologias.map((p) => [
             { text: p.nombre, style: 'normal' },
             { text: p.estado, style: 'normal' },
-            { text: v(formatFechaSolo(p.fecha_diagnostico)), style: 'normal' },
-            { text: v(p.observaciones), style: 'normal' },
+            { text: valorOTexto(formatFechaAR(p.fecha_diagnostico)), style: 'normal' },
+            { text: valorOTexto(p.observaciones), style: 'normal' },
           ]),
         ],
       },
@@ -191,10 +151,10 @@ function seccionMedicacion(medicacion) {
           ],
           ...medicacion.map((m) => [
             { text: m.nombre, style: 'normal' },
-            { text: v(m.dosis), style: 'normal' },
+            { text: valorOTexto(m.dosis), style: 'normal' },
             { text: m.estado, style: 'normal' },
-            { text: v(formatFechaSolo(m.fecha_inicio)), style: 'normal' },
-            { text: v(formatFechaSolo(m.fecha_fin)), style: 'normal' },
+            { text: valorOTexto(formatFechaAR(m.fecha_inicio)), style: 'normal' },
+            { text: valorOTexto(formatFechaAR(m.fecha_fin)), style: 'normal' },
           ]),
         ],
       },
@@ -209,14 +169,14 @@ function bloqueConsulta(c) {
     etiqueta,
     c[campo],
   ])
-  if (c.proximo_control) filasCampos.push(['Próximo control', formatFechaSolo(c.proximo_control)])
+  if (c.proximo_control) filasCampos.push(['Próximo control', formatFechaAR(c.proximo_control)])
 
   const vitales = signosVitales(c)
 
   const bloque = [
     {
       columns: [
-        { text: formatFechaHora(c.fecha), style: 'subseccion' },
+        { text: formatFechaHoraAR(c.fecha), style: 'subseccion' },
         {
           text: `Atendió: ${c.profesionales?.nombre || 'sin asignar'}`,
           style: 'chico',
@@ -277,7 +237,7 @@ function seccionLaboratorio(resultados) {
   grupos.forEach(([nombre, lista]) => {
     contenido.push(subtituloSeccion(nombre))
     contenido.push({
-      ul: lista.map((r) => ({ text: `${formatFechaSolo(r.fecha)} — ${r.resultado}`, style: 'normal' })),
+      ul: lista.map((r) => ({ text: `${formatFechaAR(r.fecha)} — ${r.resultado}`, style: 'normal' })),
       margin: [0, 0, 0, 6],
     })
   })
@@ -300,7 +260,7 @@ function seccionDocumentos(documentos) {
   })
   contenido.push({
     ul: documentos.map((d) => ({
-      text: `${v(d.nombre, 'Documento')} — ${formatFechaHora(d.created_at)}`,
+      text: `${valorOTexto(d.nombre, 'Documento')} — ${formatFechaHoraAR(d.created_at)}`,
       style: 'normal',
     })),
   })
@@ -308,57 +268,11 @@ function seccionDocumentos(documentos) {
   return contenido
 }
 
-const ESTILOS = {
-  titulo: { fontSize: 16, bold: true, margin: [0, 0, 0, 2] },
-  subtitulo: { fontSize: 10, color: '#555555', margin: [0, 0, 0, 14] },
-  seccion: { fontSize: 13, bold: true, margin: [0, 14, 0, 6] },
-  subseccion: { fontSize: 10.5, bold: true, margin: [0, 6, 0, 3] },
-  etiqueta: { fontSize: 9, bold: true, color: '#444444' },
-  tablaHeader: { fontSize: 9, bold: true, fillColor: '#f0f0f0' },
-  normal: { fontSize: 9.5 },
-  chico: { fontSize: 8.5, color: '#666666' },
-  headerPagina: { fontSize: 8.5, color: '#666666' },
-  footer: { fontSize: 8, color: '#666666', alignment: 'center' },
-}
-
-function encabezadoPagina(paciente) {
-  const nombreCompleto = `${paciente.apellido}, ${paciente.nombre}`
-  return (currentPage, pageCount) => ({
-    margin: [40, 20, 40, 0],
-    stack: [
-      {
-        columns: [
-          { text: `${nombreCompleto} — DNI ${formatearDni(paciente.dni)}`, style: 'headerPagina' },
-          { text: `Página ${currentPage} de ${pageCount}`, style: 'headerPagina', alignment: 'right' },
-        ],
-      },
-      {
-        canvas: [{ type: 'line', x1: 0, y1: 4, x2: 515, y2: 4, lineWidth: 0.5, lineColor: '#cccccc' }],
-      },
-    ],
+function baseHistoriaClinica(paciente) {
+  return documentoBase({
+    headerTexto: `${paciente.apellido}, ${paciente.nombre} — DNI ${formatearDni(paciente.dni)}`,
+    fechaGeneracionTexto: formatFechaHoraAR(new Date().toISOString()),
   })
-}
-
-function piePagina(fechaGeneracionTexto) {
-  return () => ({
-    margin: [40, 10, 40, 20],
-    text: `Generado el ${fechaGeneracionTexto} — Sistema de Historia Clínica, Círculo de Retirados y Pensionados de la Policía de Entre Ríos`,
-    style: 'footer',
-  })
-}
-
-function baseDocDefinicion(paciente) {
-  const fechaGeneracionTexto = new Date().toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'short' })
-
-  return {
-    pageSize: 'A4',
-    pageMargins: [40, 55, 40, 55],
-    header: encabezadoPagina(paciente),
-    footer: piePagina(fechaGeneracionTexto),
-    defaultStyle: { fontSize: 9.5 },
-    styles: ESTILOS,
-    content: [],
-  }
 }
 
 // PDF Completo (RF-19): todo el historial del paciente, en el orden pedido. `datos` ya tiene
@@ -367,7 +281,7 @@ function baseDocDefinicion(paciente) {
 export function construirPdfCompleto(datos) {
   const { paciente, antecedentes, patologias, medicacionHabitual, consultas, resultadosLab, documentos } = datos
 
-  const doc = baseDocDefinicion(paciente)
+  const doc = baseHistoriaClinica(paciente)
 
   doc.content = [
     { text: 'Historia clínica', style: 'titulo' },
@@ -391,7 +305,7 @@ export function construirPdfCompleto(datos) {
 export function construirPdfResumen(datos) {
   const { paciente, antecedentes, patologias, medicacionHabitual, consultas } = datos
 
-  const doc = baseDocDefinicion(paciente)
+  const doc = baseHistoriaClinica(paciente)
   const edad = calcularEdad(paciente.fecha_nacimiento)
   const ultimaConsulta = consultas[0] || null
   const alergias = antecedentes.filter((a) => a.tipo === 'alergia')
@@ -407,7 +321,7 @@ export function construirPdfResumen(datos) {
     tablaClaveValor([
       ['Nombre completo', `${paciente.apellido}, ${paciente.nombre}`],
       ['DNI', formatearDni(paciente.dni)],
-      ['Fecha de nacimiento', formatFechaSolo(paciente.fecha_nacimiento)],
+      ['Fecha de nacimiento', formatFechaAR(paciente.fecha_nacimiento)],
       ['Edad', edad != null ? `${edad} años` : null],
       ['Sexo', paciente.sexo],
       ['Teléfono', paciente.telefono],
@@ -416,7 +330,7 @@ export function construirPdfResumen(datos) {
 
     tituloSeccion('Última consulta registrada'),
     {
-      text: ultimaConsulta ? formatFechaHora(ultimaConsulta.fecha) : 'No hay consultas registradas.',
+      text: ultimaConsulta ? formatFechaHoraAR(ultimaConsulta.fecha) : 'No hay consultas registradas.',
       style: 'normal',
     },
 
@@ -455,33 +369,13 @@ export function construirPdfResumen(datos) {
 }
 
 function nombreArchivo(paciente, variante) {
-  const slug = (texto) =>
-    (texto || '')
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .replace(/[^a-zA-Z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-
   const fecha = new Date().toISOString().slice(0, 10)
-  return `historia-clinica-${slug(paciente.apellido)}-${slug(paciente.nombre)}-${variante}-${fecha}.pdf`
+  return `historia-clinica-${slugArchivo(paciente.apellido)}-${slugArchivo(paciente.nombre)}-${variante}-${fecha}.pdf`
 }
 
-// Único punto que toca pdfmake de verdad — import dinámico a propósito: pdfmake + sus
-// fuentes pesan ~1.8MB entre los dos archivos (build/pdfmake.js + build/vfs_fonts.js), no
-// tiene sentido sumarlo al bundle principal de la app para una acción que se usa
-// ocasionalmente. Se resuelve recién cuando se hace clic en exportar.
 export async function exportarHistoriaClinica(variante, datos) {
-  const [{ default: pdfMake }, { default: vfs }] = await Promise.all([
-    import('pdfmake/build/pdfmake.js'),
-    import('pdfmake/build/vfs_fonts.js'),
-  ])
-  pdfMake.addVirtualFileSystem(vfs)
-
   const docDefinition =
     variante === 'resumen' ? construirPdfResumen(datos) : construirPdfCompleto(datos)
 
-  // `download()` es async (arma el blob completo antes de disparar la descarga) — hay que
-  // esperarlo, si no el modal que llama a esta función cerraría/mostraría éxito antes de
-  // que termine de generarse, y un error asincrónico ahí no se llegaría a mostrar
-  return pdfMake.createPdf(docDefinition).download(nombreArchivo(datos.paciente, variante))
+  return generarPdf(docDefinition, nombreArchivo(datos.paciente, variante))
 }
