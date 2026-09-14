@@ -107,7 +107,9 @@ export default function ConsumoDelMes() {
             Del {formatFecha(primerDiaMes)} al {formatFecha(hoy)}
           </p>
         }
-        actions={[{ label: '← Volver a medicamentos', to: '/medicamentos', variant: 'secondary' }]}
+        actions={[
+          { label: '← Volver a historial de movimientos', to: '/medicamentos/historial', variant: 'secondary' },
+        ]}
       />
 
       <main className="p-4 sm:p-6 space-y-4 max-w-3xl mx-auto">

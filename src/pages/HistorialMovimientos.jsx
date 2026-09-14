@@ -115,6 +115,7 @@ export default function HistorialMovimientos() {
         title="Historial de movimientos"
         actions={[
           { label: 'Exportar PDF', onClick: () => setShowExportModal(true), variant: 'secondary' },
+          { label: 'Consumo del mes', to: '/medicamentos/consumo-mes', variant: 'secondary' },
           { label: '← Volver a medicamentos', to: '/medicamentos', variant: 'secondary' },
         ]}
       />

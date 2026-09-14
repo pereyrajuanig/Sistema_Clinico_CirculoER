@@ -534,9 +534,11 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
   la abstracción para dos usos.
 
 - **Buscador cruzado por Medicación/Patología** (`/busqueda`,
-  `BusquedaClinica.jsx`, botón "Buscar por medicación/patología" en las acciones
-  del header de `Pacientes.jsx` Y de `Medicamentos.jsx` — dos puntos de entrada a
-  la misma pantalla, pedido explícito del cliente): caso real motivador — "¿qué
+  `BusquedaClinica.jsx`, botón "Buscar por medicación/patología" en las
+  acciones del header de `Pacientes.jsx` **únicamente** — pedido explícito del
+  cliente; hubo una versión previa con el mismo botón también en el header de
+  `Medicamentos.jsx`, se sacó de ahí a pedido del cliente, queda solo en
+  Pacientes): caso real motivador — "¿qué
   pacientes toman tal medicamento?" ante un recall o un cambio de stock. Busca
   sobre las tablas ESTRUCTURADAS `medicacion`/`patologias` (`ilike('nombre',
   '%query%')`, insensible a mayúsculas y parcial), **no** sobre el campo de texto
@@ -920,8 +922,14 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
   general).
 
 - **"Consumo del mes"** (`/medicamentos/consumo-mes`, `ConsumoDelMes.jsx`,
-  botón "Consumo del mes" en las acciones del header de `Medicamentos.jsx` —
-  pedido explícito del cliente): pantalla aparte, autocontenida — trae su
+  botón "Consumo del mes" en las acciones del header de
+  `HistorialMovimientos.jsx` — pedido explícito del cliente; estuvo primero en
+  el header de `Medicamentos.jsx`, se movió a `HistorialMovimientos.jsx` a
+  pedido del cliente por quedar más cerca de "Exportar PDF"/"Reporte general",
+  con los que se relaciona directamente — ver el link entre las dos pantallas
+  más abajo. Su propio botón de volver ("← Volver a historial de movimientos")
+  también se actualizó para reflejar este nuevo punto de entrada, ya no dice
+  "Volver a medicamentos"): pantalla aparte, autocontenida — trae su
   propia consulta acotada a `movimientos_stock` (solo `tipo = 'salida'` desde
   el 1° del mes en curso, columnas mínimas) en vez de reusar el estado de
   `HistorialMovimientos.jsx`, porque acá alcanza con muchos menos datos y no
@@ -1250,17 +1258,17 @@ cargado de los cinco, entra completo en una fila con margen de sobra. `lg` es
 conservador a propósito: prioriza "nunca más superposición" por sobre "mostrar la fila
 completa lo antes posible".
 
-**Nota — esta verificación quedó desactualizada, no re-hecha todavía**: el ejemplo de
-arriba ("Próximos controles") ya no existe (se sacó, ver RF-20 en "Estado actual del
-desarrollo"), y desde entonces se fueron agregando más botones a varios headers —
-`Medicamentos.jsx` en particular ya tiene navLink + 4 acciones ("Historial de
-movimientos", "Medicamentos dados de baja", "Consumo del mes", "Buscar por
-medicación/patología", "← Volver a pacientes"), más que el header que en su momento se
-verificó como "el más cargado". Por debajo de `lg` sigue sin riesgo (colapsa a
-hamburguesa igual, eso no cambió), pero la afirmación puntual de "entra en una fila con
-margen de sobra a 1024px" ya no está confirmada para este header — si en algún momento
-se ve apretado en desktop a `lg` justo, conviene repetir la verificación con Playwright
-(mismo método de arriba) en vez de asumir que sigue sosteniendo.
+**Nota — el ejemplo de arriba quedó desactualizado, no la verificación en sí**: "Próximos
+controles" ya no existe (se sacó, ver RF-20 en "Estado actual del desarrollo") — hoy el
+header con más elementos es `Pacientes.jsx` (navLink "Medicamentos" + "Últimas
+consultas" + "Buscar por medicación/patología" + "Cerrar sesión"), mismo total de 4
+elementos que el que se verificó en su momento, pero con al menos una etiqueta bastante
+más larga ("Buscar por medicación/patología" vs. "Próximos controles") — la cantidad de
+botones sigue dentro de lo probado, el ancho exacto en píxeles no. Por debajo de `lg`
+no hay ningún riesgo (colapsa a hamburguesa igual). Si en algún momento un header se ve
+apretado en desktop a `lg` justo, conviene repetir la verificación con Playwright (mismo
+método de arriba) en vez de asumir que sigue sosteniendo — más aún si se le siguen
+agregando botones a algún header.
 
 Los botones del menú desplegable son full-width y mantienen el mínimo táctil de 44px
 (`min-h-11` en los que no usan ya `.btn-primary`/`.btn-secondary`, que lo traen incluido)
