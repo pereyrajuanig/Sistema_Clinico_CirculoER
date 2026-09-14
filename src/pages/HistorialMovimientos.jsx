@@ -3,9 +3,8 @@ import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { limpiarDni } from '@/lib/dni'
 import { identificarMedicamento } from '@/lib/medicamentos'
-import { exportarHistorialMedicamento } from '@/lib/pdfExportMedicamentos'
 import CorregirMovimientoModal from '@/components/CorregirMovimientoModal'
-import ReporteGeneralPdfModal from '@/components/ReporteGeneralPdfModal'
+import ExportarMovimientosPdfModal from '@/components/ExportarMovimientosPdfModal'
 import Header from '@/components/Header'
 
 function formatFechaHora(value) {
@@ -43,9 +42,7 @@ export default function HistorialMovimientos() {
   const [filtroHasta, setFiltroHasta] = useState('')
   const [busqueda, setBusqueda] = useState('')
   const [movimientoACorregir, setMovimientoACorregir] = useState(null)
-  const [showReporteGeneralModal, setShowReporteGeneralModal] = useState(false)
-  const [exportandoHistorial, setExportandoHistorial] = useState(false)
-  const [errorExportHistorial, setErrorExportHistorial] = useState('')
+  const [showExportModal, setShowExportModal] = useState(false)
 
   async function fetchTodo() {
     setLoading(true)
@@ -101,42 +98,14 @@ export default function HistorialMovimientos() {
       .reverse()
   }, [movimientos, filtroMedicamento, filtroTipo, filtroDesde, filtroHasta, busqueda])
 
-  // Exporta EXACTAMENTE lo que está filtrado en pantalla en ese momento (mismo criterio
-  // que `movimientosFiltrados`, incluida la búsqueda por DNI/quién registró) — nunca el
-  // historial completo sin filtrar. Solo tiene sentido con un medicamento puntual elegido
-  // (si no, el encabezado "nombre + concentración + presentación" no tendría a quién
-  // referirse) — el botón que llama a esto solo se muestra cuando `filtroMedicamento` está
-  // elegido.
-  async function handleExportarMedicamento() {
-    const medicamento = medicamentos.find((m) => m.id === filtroMedicamento)
-    if (!medicamento) return
-
-    setErrorExportHistorial('')
-    setExportandoHistorial(true)
-
-    try {
-      await exportarHistorialMedicamento({
-        medicamento,
-        movimientos: movimientosFiltrados,
-        filtros: { tipo: filtroTipo, desde: filtroDesde, hasta: filtroHasta },
-      })
-    } catch (err) {
-      setErrorExportHistorial(err.message || 'No se pudo generar el PDF.')
-    } finally {
-      setExportandoHistorial(false)
-    }
-  }
+  const medicamentoElegido = medicamentos.find((m) => m.id === filtroMedicamento) || null
 
   return (
     <div className="min-h-screen bg-background">
       <Header
         title="Historial de movimientos"
         actions={[
-          {
-            label: 'Reporte general (PDF)',
-            onClick: () => setShowReporteGeneralModal(true),
-            variant: 'secondary',
-          },
+          { label: 'Exportar PDF', onClick: () => setShowExportModal(true), variant: 'secondary' },
           { label: '← Volver a medicamentos', to: '/medicamentos', variant: 'secondary' },
         ]}
       />
@@ -203,22 +172,7 @@ export default function HistorialMovimientos() {
               className="input sm:w-40"
             />
           </div>
-
-          {filtroMedicamento && (
-            <div className="space-y-1 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={handleExportarMedicamento}
-                disabled={exportandoHistorial}
-                className="btn-secondary w-full sm:w-auto"
-              >
-                {exportandoHistorial ? 'Generando PDF...' : 'Exportar (PDF)'}
-              </button>
-            </div>
-          )}
         </div>
-
-        {errorExportHistorial && <p className="text-base text-text-primary">{errorExportHistorial}</p>}
 
         <div className="bg-surface border border-border rounded-lg overflow-hidden">
           {loading ? (
@@ -328,10 +282,13 @@ export default function HistorialMovimientos() {
         />
       )}
 
-      {showReporteGeneralModal && (
-        <ReporteGeneralPdfModal
+      {showExportModal && (
+        <ExportarMovimientosPdfModal
+          medicamento={medicamentoElegido}
           movimientos={movimientos}
-          onClose={() => setShowReporteGeneralModal(false)}
+          movimientosFiltrados={movimientosFiltrados}
+          filtros={{ tipo: filtroTipo, desde: filtroDesde, hasta: filtroHasta }}
+          onClose={() => setShowExportModal(false)}
         />
       )}
     </div>

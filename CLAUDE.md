@@ -768,19 +768,31 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
 
 - **Exportar a PDF (`src/lib/pdfExportMedicamentos.js`), dos variantes — pedido
   explícito del cliente, misma librería que RF-19 (pdfmake), reusando la
-  infraestructura compartida de `src/lib/pdf.js`**:
+  infraestructura compartida de `src/lib/pdf.js`. Un solo punto de entrada,
+  unificado a propósito con el mismo criterio de UX que el selector de RF-19
+  ("Completo"/"Resumen" en la ficha del paciente)**: un único botón "Exportar
+  PDF" en el header de `HistorialMovimientos.jsx` abre
+  `ExportarMovimientosPdfModal.jsx`, que ofrece las dos variantes como
+  opciones a elegir (mismo look que `ExportarPdfModal.jsx`: dos botones con
+  título + descripción) — reemplazó una primera versión con dos botones
+  sueltos en dos lugares distintos de la pantalla (uno condicional al lado de
+  los filtros, otro en el header), que no eran consistentes con el patrón ya
+  establecido para el paciente.
 
-  1. **Historial de un medicamento puntual** (botón "Exportar (PDF)" en
-     `HistorialMovimientos.jsx`, visible únicamente cuando el filtro
-     "Medicamento" tiene uno elegido — sin eso no hay a qué medicamento
-     referir el encabezado). Exporta **exactamente lo que está filtrado en
-     pantalla en ese momento** — pasa `movimientosFiltrados` tal cual
-     (`handleExportarMedicamento()`), con el mismo tipo/rango de fechas (y
-     hasta la búsqueda por DNI/quién registró) ya aplicados, nunca el
-     historial completo sin filtrar. El PDF documenta qué filtro se usó
-     (`textoFiltrosAplicados()`, línea "Filtros aplicados — Tipo: … · Desde: …
-     · Hasta: …", o "historial completo del medicamento" si no hay ninguno
-     puesto). Contenido: encabezado con nombre + concentración + presentación
+  1. **"Historial de este medicamento"**: deshabilitado si no hay un
+     medicamento elegido en el filtro "Medicamento" de la pantalla de fondo
+     (sin eso no hay a qué medicamento referir el encabezado) — el modal
+     recibe `medicamento`/`movimientosFiltrados`/`filtros` como props ya
+     resueltos desde `HistorialMovimientos.jsx`. Al elegir esta opción se
+     genera directo, sin ningún paso intermedio, porque toda la información
+     que necesita ya está en la pantalla de fondo. Exporta **exactamente lo
+     que está filtrado en pantalla en ese momento** — `movimientosFiltrados`
+     tal cual, con el mismo tipo/rango de fechas (y hasta la búsqueda por
+     DNI/quién registró) ya aplicados, nunca el historial completo sin
+     filtrar. El PDF documenta qué filtro se usó (`textoFiltrosAplicados()`,
+     línea "Filtros aplicados — Tipo: … · Desde: … · Hasta: …", o "historial
+     completo del medicamento" si no hay ninguno puesto). Contenido:
+     encabezado con nombre + concentración + presentación
      (`identificarMedicamento()` + `formatearPresentacion()`, mismos helpers
      de `src/lib/medicamentos.js` — nunca nombre solo), la tabla de
      movimientos (ver columnas más abajo, son las mismas para las dos
@@ -794,14 +806,20 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
      (`conSaldoPorMedicamento()`), arrancar de cero en el resumen falsearía
      el stock real.
 
-  2. **Reporte general de movimientos** (`ReporteGeneralPdfModal.jsx`, botón
-     "Reporte general (PDF)" en el header de `HistorialMovimientos.jsx`, **no
-     ligado a ningún filtro de la pantalla ni a un medicamento puntual**):
-     pide un rango de fechas obligatorio (Desde/Hasta, los dos `required`,
-     valida además que Desde no sea posterior a Hasta) y arma el PDF a partir
-     del array `movimientos` completo (sin filtrar por nada de lo que esté
-     puesto en pantalla), re-filtrado únicamente por ese rango de fechas.
-     Agrupa por `medicamento_id` (`Map`, orden final alfabético por
+  2. **"Reporte general"**: a diferencia de la variante 1, necesita un dato
+     que el modal no tiene de entrada (el rango de fechas), así que en vez de
+     generar directo pasa a un SEGUNDO PASO adentro del mismo modal
+     (`paso === 'reporteGeneral'` en `ExportarMovimientosPdfModal.jsx`, con un
+     botón "‹ Volver" para arrepentirse) — mismo criterio de disclosure
+     progresivo que ya usa "+ Agregar medicamento nuevo" en
+     `EntradaStockModal.jsx`, en vez de abrir un modal nuevo encima del
+     selector (no hay precedente de modal-sobre-modal en esta app). Ese
+     segundo paso pide Desde/Hasta (los dos `required`, valida además que
+     Desde no sea posterior a Hasta) y arma el PDF a partir del array
+     `movimientos` completo (sin filtrar por nada de lo que esté puesto en
+     los filtros de la pantalla de fondo — **no ligado** a ellos, es
+     independiente), re-filtrado únicamente por ese rango de fechas. Agrupa
+     por `medicamento_id` (`Map`, orden final alfabético por
      `identificarMedicamento()` — predecible, no depende del orden de
      aparición de los movimientos) y **solo entran medicamentos que tuvieron
      al menos un movimiento en el rango** — nunca se lista un medicamento sin
