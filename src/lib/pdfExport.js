@@ -206,10 +206,12 @@ function seccionConsultas(consultas) {
     return [tituloSeccion('Historial de consultas'), { text: 'No hay consultas registradas.', style: 'normal' }]
   }
 
-  // El listado en pantalla va de la más reciente a la más vieja (para uso diario) — acá se
-  // invierte a propósito, orden cronológico ascendente, como pide RF-19 para leer la
-  // evolución del paciente de punta a punta
-  const ordenAscendente = [...consultas].reverse()
+  // `consultas` ya llega en orden cronológico ascendente desde HistoriaClinica.jsx (el
+  // mismo criterio que pide RF-19 para leer la evolución del paciente de punta a punta) —
+  // antes hacía falta invertir acá porque la pantalla mostraba lo más reciente primero;
+  // desde el rediseño de "línea de tiempo" (ver CLAUDE.md) la pantalla también es
+  // ascendente, así que ya no hace falta ningún reverse()
+  const ordenAscendente = consultas
 
   const contenido = [tituloSeccion('Historial de consultas')]
 
@@ -307,7 +309,9 @@ export function construirPdfResumen(datos) {
 
   const doc = baseHistoriaClinica(paciente)
   const edad = calcularEdad(paciente.fecha_nacimiento)
-  const ultimaConsulta = consultas[0] || null
+  // `consultas` llega en orden ascendente (ver seccionConsultas más arriba) — la más
+  // reciente es la ÚLTIMA del array, no la primera
+  const ultimaConsulta = consultas[consultas.length - 1] || null
   const alergias = antecedentes.filter((a) => a.tipo === 'alergia')
   const patologiasActivas = patologias.filter((p) => p.estado === 'Activa')
   const medicacionActiva = medicacionHabitual.filter((m) => m.estado === 'Activa')

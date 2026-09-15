@@ -43,7 +43,7 @@ function signosVitales(c) {
 // haciéndose únicamente desde la ficha del paciente (HistoriaClinica.jsx), donde ya
 // está resuelta la auditoría y el selector de "¿quién edita?" — duplicar eso acá no
 // aporta nada. `fecha` se usa para ordenar (no `created_at`): en consultas `fecha` se
-// fija una sola vez al crear (`new Date().toISOString()`, ver NuevaConsultaModal.jsx) y
+// fija una sola vez al crear (`new Date().toISOString()`, ver ConsultaEntryForm.jsx) y
 // nunca se toca en la edición, así que equivale al momento real de carga.
 export default function UltimasConsultas() {
   const [consultas, setConsultas] = useState([])

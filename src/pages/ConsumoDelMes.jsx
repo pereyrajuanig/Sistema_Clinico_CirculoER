@@ -42,7 +42,7 @@ export default function ConsumoDelMes() {
       setError('')
 
       // Sin cota superior a propósito: `fecha` se fija una sola vez al crear el
-      // movimiento (siempre "ahora", nunca backdateable — ver NuevaConsultaModal.jsx/
+      // movimiento (siempre "ahora", nunca backdateable — ver ConsultaEntryForm.jsx/
       // SalidaStockModal.jsx), así que nunca puede haber un movimiento a futuro; "hasta
       // hoy" ya se cumple solo con filtrar desde el 1° del mes.
       const [movRes, stockRes] = await Promise.all([

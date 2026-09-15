@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
-import NuevaConsultaModal from '@/components/NuevaConsultaModal'
+import ConsultaEntryForm from '@/components/ConsultaEntryForm'
 import DocumentosConsulta from '@/components/DocumentosConsulta'
 import AntecedenteFormModal from '@/components/AntecedenteFormModal'
 import PatologiaFormModal from '@/components/PatologiaFormModal'
@@ -54,6 +54,7 @@ function signosVitales(c) {
 export default function HistoriaClinica() {
   const { id } = useParams()
   const location = useLocation()
+  const nuevaConsultaRef = useRef(null)
   const [paciente, setPaciente] = useState(null)
   const [antecedentes, setAntecedentes] = useState([])
   const [patologias, setPatologias] = useState([])
@@ -63,7 +64,10 @@ export default function HistoriaClinica() {
   const [resultadosLab, setResultadosLab] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [showModal, setShowModal] = useState(false)
+  // Alta de consulta: en línea al final de la línea de tiempo, no un modal — ver
+  // ConsultaEntryForm.jsx. `editingConsulta` (más abajo) sigue abriendo un modal, eso no
+  // cambió: solo el alta se integró al flujo de la página.
+  const [mostrandoNuevaConsulta, setMostrandoNuevaConsulta] = useState(false)
   const [showAntecedenteModal, setShowAntecedenteModal] = useState(false)
   const [showPatologiaModal, setShowPatologiaModal] = useState(false)
   const [showMedicacionModal, setShowMedicacionModal] = useState(false)
@@ -108,12 +112,15 @@ export default function HistoriaClinica() {
             .eq('paciente_id', id)
             .is('eliminado_en', null)
             .order('nombre'),
+          // Ascendente a propósito, al revés que el resto de las tablas clínicas de esta
+          // página — experimento de UX (ver CLAUDE.md): la línea de tiempo de consultas se
+          // lee de la más vieja a la más nueva, como las páginas de un cuaderno
           supabase
             .from('consultas')
             .select('*, profesionales!profesional_id(nombre)')
             .eq('paciente_id', id)
             .is('eliminado_en', null)
-            .order('fecha', { ascending: false }),
+            .order('fecha', { ascending: true }),
           supabase
             .from('resultados_laboratorio')
             .select('*')
@@ -160,9 +167,18 @@ export default function HistoriaClinica() {
 
   useEffect(() => {
     if (location.state?.abrirNuevaConsulta) {
-      setShowModal(true)
+      setMostrandoNuevaConsulta(true)
     }
   }, [location.state])
+
+  // La entrada nueva ya no es un modal centrado imposible de perder — vive al final de la
+  // línea de tiempo, que puede estar bien abajo de la página. Sin este scroll, abrirla desde
+  // el atajo de Pacientes.jsx ("Cargar consulta" post-alta) la dejaría fuera de la vista.
+  useEffect(() => {
+    if (mostrandoNuevaConsulta) {
+      nuevaConsultaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [mostrandoNuevaConsulta])
 
   function handlePacienteGuardado(pacienteActualizado) {
     setPaciente(pacienteActualizado)
@@ -310,10 +326,11 @@ export default function HistoriaClinica() {
       const existe = prev.some((c) => c.id === consultaGuardada.id)
       const siguiente = existe
         ? prev.map((c) => (c.id === consultaGuardada.id ? consultaGuardada : c))
-        : [consultaGuardada, ...prev]
-      return siguiente.sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+        : [...prev, consultaGuardada]
+      // Ascendente, igual que el fetch inicial — la nueva entrada se asienta al final
+      return siguiente.sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
     })
-    setShowModal(false)
+    setMostrandoNuevaConsulta(false)
     setEditingConsulta(null)
   }
 
@@ -497,39 +514,47 @@ export default function HistoriaClinica() {
           </dl>
         </section>
 
+        {/* Línea de tiempo de consultas — experimento de UX pedido directo por los médicos
+            (ver CLAUDE.md): se lee de arriba hacia abajo, de la más vieja a la más nueva,
+            como un cuaderno. El alta de una consulta nueva se agrega al final de esta misma
+            lista (ConsultaEntryForm sin overlay), no en un modal aparte — así el médico sigue
+            viendo todo lo anterior mientras escribe. Editar una consulta existente sigue
+            siendo un modal (no se pidió cambiar eso). */}
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-text-primary">Consultas</h2>
-            <button
-              onClick={() => {
-                setEditingConsulta(null)
-                setShowModal(true)
-              }}
-              className="btn-primary px-3 py-1.5"
-            >
-              + Nueva consulta
-            </button>
-          </div>
-          {consultas.length === 0 ? (
-            <p className="text-base text-text-secondary">No hay consultas registradas.</p>
-          ) : (
-            <div className="space-y-4">
-              {consultas.map((c) => (
+          <h2 className="text-lg font-semibold text-text-primary mb-4">Consultas</h2>
+
+          {consultas.length === 0 && !mostrandoNuevaConsulta && (
+            <p className="text-base text-text-secondary mb-4">No hay consultas registradas.</p>
+          )}
+
+          <div className="divide-y divide-border">
+            {consultas.map((c) => (
+              <div key={c.id} className="py-6 first:pt-0">
                 <ConsultaCard
-                  key={c.id}
                   consulta={c}
                   documentos={documentos.filter((d) => d.consulta_id === c.id)}
                   onDocumentoSubido={(doc) => setDocumentos((prev) => [...prev, doc])}
-                  onEditar={() => {
-                    setEditingConsulta(c)
-                    setShowModal(true)
-                  }}
+                  onEditar={() => setEditingConsulta(c)}
                   onEliminar={() => setConsultaAEliminar(c)}
                   onAgregarAMedicacion={() => abrirMedicacionDesdeConsulta(c)}
                 />
-              ))}
+              </div>
+            ))}
+
+            <div ref={nuevaConsultaRef} className="py-6 first:pt-0">
+              {mostrandoNuevaConsulta ? (
+                <ConsultaEntryForm
+                  pacienteId={id}
+                  onClose={() => setMostrandoNuevaConsulta(false)}
+                  onSaved={handleConsultaGuardada}
+                />
+              ) : (
+                <button onClick={() => setMostrandoNuevaConsulta(true)} className="btn-primary">
+                  + Nueva consulta
+                </button>
+              )}
             </div>
-          )}
+          </div>
         </section>
 
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
@@ -766,14 +791,11 @@ export default function HistoriaClinica() {
         </section>
       </main>
 
-      {showModal && (
-        <NuevaConsultaModal
+      {editingConsulta && (
+        <ConsultaEntryForm
           pacienteId={id}
           consulta={editingConsulta}
-          onClose={() => {
-            setShowModal(false)
-            setEditingConsulta(null)
-          }}
+          onClose={() => setEditingConsulta(null)}
           onSaved={handleConsultaGuardada}
         />
       )}
@@ -928,7 +950,7 @@ function ConsultaCard({
   const vitales = signosVitales(c)
 
   return (
-    <div className="border border-border rounded-lg p-4 space-y-3">
+    <div className="space-y-3">
       <div className="flex justify-between items-baseline flex-wrap gap-2">
         <span className="text-base font-semibold text-text-primary">
           {formatFecha(c.fecha, { dateStyle: 'medium' })}
@@ -946,7 +968,7 @@ function ConsultaCard({
         </div>
       </div>
 
-      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-base">
+      <dl className="space-y-3 text-base">
         {CAMPOS_CONSULTA.filter(([campo]) => c[campo]).map(([campo, label]) => (
           <div key={campo}>
             <dt className="text-text-secondary text-sm flex flex-wrap items-center gap-2">
