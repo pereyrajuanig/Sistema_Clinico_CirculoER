@@ -176,53 +176,39 @@ Historia clínica (`schema-historia-clinica.sql`):
   para Patologías, salvo que Patologías no tiene panel resumen propio aparte de
   su sección normal (solo aporta su lista de activas al panel compartido).
 
-  **Dos atajos distintos entre Consultas y Medicación, no confundir uno con
-  otro** — los dos son solo precarga de formulario, **ninguno crea ninguna
-  relación en la base entre `consultas` y `medicacion`** (no hay columna que
-  guarde "esta medicación vino de tal consulta"); confirmar el alta sigue siendo
-  siempre una decisión manual, nada se agrega solo, y en los dos casos el
-  `usuario_id` que se guarda es un botón más del selector, editable como
-  cualquier otro, no un valor forzado:
+  **Atajo entre Consultas y Medicación** (dentro del formulario de Nueva/Editar
+  consulta, `ConsultaEntryForm.jsx`, pedido explícito del cliente): un apartado
+  colapsable "+ Agregar a medicación habitual" — mismo patrón visual que
+  "+ Agregar medicamento nuevo" en `EntradaStockModal.jsx` (`agregandoMedicacion`
+  en el estado, botón que se convierte en "‹ Cancelar medicación habitual" para
+  volver, agrupado al lado del de "+ Agregar signos vitales" — ver el detalle en
+  "Estado actual del desarrollo" más abajo), con sus propios campos (Nombre,
+  Dosis, Estado, Fecha de inicio/fin) **en blanco, sin relación con el campo
+  `medicacion` de esa misma consulta** — decisión explícita del cliente para no
+  arrastrar texto que puede no ser la medicación habitual real (ej. algo
+  puntual de esa visita). Reusa el mismo `profesionalId` ya elegido en "¿Quién
+  atiende?" — no pide un selector aparte, igual criterio que
+  `EntradaStockModal.jsx` reusando "¿quién registra la entrada?" para el
+  medicamento nuevo. En el submit, el insert a `medicacion` va ANTES que el
+  guardado de la consulta — como no hay FK entre las dos tablas no hace falta
+  que una exista para que la otra se guarde, pero si el insert de medicación
+  falla se corta ahí (no se toca la consulta todavía), para no dejar al usuario
+  sin saber si algo se guardó a medias. Vive DENTRO del mismo formulario/bloque
+  de `ConsultaEntryForm.jsx` (no abre nada aparte, ni un modal ni la sección
+  "Medicación habitual") — campos propios, insert directo a `medicacion` en el
+  mismo `handleSubmit`, sin pasar por `MedicacionEntryForm.jsx` para nada; no
+  crea ninguna relación en la base con la consulta de origen (no hay columna
+  que guarde "esta medicación vino de tal consulta"), confirmar el alta sigue
+  siendo una decisión manual, nada se agrega solo.
 
-  1. **Desde la consulta ya guardada** (`ConsultaCard`, en `HistoriaClinica.jsx`):
-     si la consulta tiene algo escrito en su campo `medicacion`, aparece un link
-     "+ Agregar a medicación habitual" al lado de esa etiqueta. Dispara
-     `abrirMedicacionDesdeConsulta()`, que arma `valoresIniciales` — `nombre`
-     con el texto completo tal cual estaba en `consulta.medicacion` (sin
-     separar automáticamente nombre de dosis), `fecha_inicio` con la fecha de
-     esa consulta, profesional preseleccionado el que atendió
-     (`consulta.profesional_id`) — y abre la entrada en línea de la sección
-     "Medicación habitual" (`mostrandoNuevaMedicacion`, `MedicacionEntryForm.jsx`
-     en modo alta), con un `scrollIntoView` hasta ahí (`nuevaMedicacionRef`) —
-     **ya no un modal aparte**, desde que ese formulario también se integró a
-     la línea de tiempo de su propia sección (ver el punto sobre las otras
-     cuatro secciones más abajo).
-  2. **Desde el formulario de Nueva/Editar consulta** (`ConsultaEntryForm.jsx`,
-     pedido explícito del cliente): un apartado colapsable "+ Agregar a
-     medicación habitual" — mismo patrón visual que "+ Agregar medicamento
-     nuevo" en `EntradaStockModal.jsx` (`agregandoMedicacion` en el estado,
-     botón que se convierte en "‹ Cancelar medicación habitual" para volver),
-     con sus propios campos (Nombre, Dosis, Estado, Fecha de inicio/fin) **en
-     blanco, sin relación con el campo `medicacion` de esa misma consulta** —
-     decisión explícita del cliente para no arrastrar texto que puede no ser la
-     medicación habitual real (ej. algo puntual de esa visita). Reusa el mismo
-     `profesionalId` ya elegido en "¿Quién atiende?" — no pide un selector
-     aparte, igual criterio que `EntradaStockModal.jsx` reusando "¿quién
-     registra la entrada?" para el medicamento nuevo. En el submit, el insert a
-     `medicacion` va ANTES que el guardado de la consulta — como no hay FK entre
-     las dos tablas no hace falta que una exista para que la otra se guarde,
-     pero si el insert de medicación falla se corta ahí (no se toca la consulta
-     todavía), para no dejar al usuario sin saber si algo se guardó a medias.
-     A diferencia del atajo 1, este vive DENTRO del mismo formulario/bloque de
-     `ConsultaEntryForm.jsx` (no abre nada aparte, ni un modal ni la sección
-     "Medicación habitual") — campos propios, insert directo a `medicacion`
-     en el mismo `handleSubmit`, sin pasar por `MedicacionEntryForm.jsx` para
-     nada. Se mantuvo así a propósito incluso después de que
-     `MedicacionEntryForm.jsx` empezara a poder renderizarse en línea:
-     delegarle este apartado hubiera significado montar un formulario dentro
-     de otro formulario (`ConsultaEntryForm.jsx` puede ser modal o en línea
-     según el modo), más complejidad de la que resuelve — el apartado interno
-     ya es chico y autocontenido.
+  **Ya NO existe un segundo atajo desde `ConsultaCard`** (consulta ya guardada,
+  vía un link al lado del campo Medicación) — existió durante una parte de este
+  redisño pero se sacó junto con el campo Medicación del formulario activo (ver
+  "Estado actual del desarrollo" más abajo): sin ese campo en el alta/edición,
+  no queda de dónde precargarlo. Si estas líneas hablan de un `valoresIniciales`
+  en `MedicacionEntryForm.jsx` o de `abrirMedicacionDesdeConsulta()` en algún
+  otro lugar de este documento, es porque quedó desactualizado — ese prop y esa
+  función ya no existen en el código.
 - `consultas` — núcleo del sistema, incluye signos vitales como columnas directas
   (siempre van pegados a una consulta, nunca sueltos). El campo `medicacion` (texto
   libre) es lo que se indicó en esa visita puntual — ver la aclaración de arriba en
@@ -586,36 +572,70 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
       booleano aparte) es la única condición que abre este modal.
   - **Los campos, agrupados en un solo bloque continuo, una sola columna**
     (antes `grid grid-cols-1 sm:grid-cols-2 gap-4` — dos columnas de casilleros
-    lado a lado): Motivo, Examen físico, Diagnóstico, Tratamiento, Medicación y
-    Conclusión ahora se listan uno debajo del otro, `rows={3}` en vez de `2`
-    (más lugar para escribir, coherente con "no achicar el texto" del
-    design-system aunque haya más contenido en pantalla). Los subtítulos de
-    cada campo (`Field`, `text-sm text-text-secondary`) no cambiaron — ya eran
-    "livianos" en el sentido tipográfico que pedía el rediseño, lo que generaba
-    la sensación de casillero era la cuadrícula de dos columnas, no el tamaño
-    del label. Signos vitales **se dejó como grid compacto** (`grid-cols-2
+    lado a lado): los campos de texto libre se listan uno debajo del otro,
+    `rows={3}` en vez de `2` (más lugar para escribir, coherente con "no
+    achicar el texto" del design-system aunque haya más contenido en
+    pantalla). Los subtítulos de cada campo (`Field`, `text-sm
+    text-text-secondary`) no cambiaron — ya eran "livianos" en el sentido
+    tipográfico que pedía el rediseño, lo que generaba la sensación de
+    casillero era la cuadrícula de dos columnas, no el tamaño del label.
+    Signos vitales **se dejó como grid compacto** (`grid-cols-2
     sm:grid-cols-4`) — a propósito: un número de 2-3 dígitos por campo lee
     mejor en una cuadrícula chica (convención médica real, hasta en papel) que
     como campo de ancho completo con su propio renglón; esto no cambió cuando
     se agregó el pedido de más abajo, solo se lo hizo colapsable.
+
+    **Reducido después a solo 3 campos de texto libre — pedido de seguimiento
+    del cliente**: Motivo, Tratamiento y Conclusión (`evolucion`) son los
+    únicos que quedan en `ConsultaEntryForm.jsx`. Examen físico, Diagnóstico y
+    Medicación se sacaron del `initialForm` — mismo criterio ya establecido
+    para `pronostico`/`proximo_control`/`observaciones` antes: la columna
+    sigue existiendo en la base sin tocar, `CAMPOS_CONSULTA`
+    (`HistoriaClinica.jsx`, usado por `ConsultaCard` y por
+    `ConsultaFeedCard` en `UltimasConsultas.jsx`) sigue mostrándolas si una
+    consulta vieja ya tenía el dato cargado, pero no se piden más al cargar o
+    editar. Como no están en `initialForm`, editar una consulta vieja con
+    esos tres campos ya cargados **no los borra** — `camposClinicos` (el
+    payload del `UPDATE`) simplemente no los incluye, así que Supabase deja
+    esas columnas tal cual estaban; solo dejaron de ser editables desde acá,
+    no se pierde nada.
   - **Signos vitales, colapsado detrás de un botón** (pedido de seguimiento
     del cliente): la cuadrícula de 8 campos ya no se ve siempre — arranca
     oculta detrás de "+ Agregar signos vitales" (`mostrandoVitales` en el
-    estado, mismo patrón `btn-secondary w-full` que "+ Agregar medicamento
-    nuevo" en `EntradaStockModal.jsx`), que al hacer clic se convierte en
-    "‹ Ocultar signos vitales" y despliega la cuadrícula debajo. **Excepción a
+    estado, mismo patrón `btn-secondary` que "+ Agregar medicamento nuevo" en
+    `EntradaStockModal.jsx`), que al hacer clic se convierte en "‹ Ocultar
+    signos vitales" y despliega la cuadrícula debajo. **Excepción a
     propósito**: si se edita una consulta que YA tenía algún signo vital
     cargado, arranca desplegada (`useState` inicial evalúa
     `[...CAMPOS_NUMERICOS].some(...)` sobre la consulta) — nunca esconder un
     dato ya cargado detrás de un clic, la regla de "colapsado por defecto"
     aplica solo cuando no hay nada que mostrar todavía (alta, o edición de una
     consulta sin signos vitales).
-  - El atajo "+ Agregar a medicación habitual" (ver `medicacion` en el modelo
-    de datos más arriba) no se tocó — sigue en `ConsultaCard` (consulta ya
-    guardada) tal cual estaba, y el bloque de alta rápida de medicación dentro
-    de `ConsultaEntryForm.jsx` (heredado de `NuevaConsultaModal.jsx`) tampoco
-    cambió de comportamiento, solo se movió de lugar dentro del archivo
-    renombrado.
+  - **El toggle de "+ Agregar a medicación habitual" se agrupó al lado del de
+    signos vitales** (pedido de seguimiento del cliente, "que esté junto con
+    el de agregar signos vitales") — los dos botones van en un
+    `grid grid-cols-1 sm:grid-cols-2 gap-3`, uno al lado del otro en pantallas
+    grandes, apilados en mobile; cada uno despliega su propio bloque debajo,
+    sin depender del otro. Antes este botón vivía después del bloque de texto
+    libre; ahora los dos apartados opcionales ("no siempre hace falta
+    cargarlos") quedan juntos arriba, y el bloque de texto libre que sí se
+    escribe siempre queda al final. El bloque de alta rápida de medicación en
+    sí (`agregandoMedicacion`, con sus propios campos Nombre/Dosis/Estado/
+    Fecha) no cambió de comportamiento, solo de lugar.
+  - **El atajo "+ Agregar a medicación habitual" que vivía en `ConsultaCard`
+    (junto al campo Medicación de una consulta ya guardada) SE SACÓ** — dejó
+    de tener sentido al sacar Medicación del formulario activo (ver arriba):
+    ya no hay forma de que una consulta nueva cargue ese campo, así que no
+    tiene de dónde precargar el atajo. Se eliminaron `abrirMedicacionDesdeConsulta()`
+    y el estado `medicacionValoresIniciales` de `HistoriaClinica.jsx` (estaban
+    documentados más arriba, en el modelo de datos de `medicacion` — esa
+    sección quedó desactualizada por este cambio, ver la nota ahí) y el prop
+    `valoresIniciales` de `MedicacionEntryForm.jsx` — nada de esto se dejó a
+    medio usar. La carga de medicación habitual sigue disponible por los dos
+    caminos que no dependían de este atajo: el botón nativo "+ Agregar
+    medicación" de la sección "Medicación habitual", y el apartado de alta
+    rápida dentro de `ConsultaEntryForm.jsx` descrito en el punto de arriba
+    (que siempre fue independiente del campo Medicación, no se vio afectado).
   - **Verificado en el navegador, no solo con `pnpm build`** (dado el alcance
     del cambio): se instaló Playwright de forma temporal (mismo patrón que la
     auditoría de responsive — `pnpm add -D playwright` +
@@ -672,24 +692,28 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
     `space-y-2`, mismo criterio de tamaño de arriba). La entrada en curso usa
     el mismo `border-2 border-dashed border-primary rounded-lg bg-primary/10`
     en las cuatro.
-  - **Medicación habitual, un caso particular**: como el atajo
-    "+ Agregar a medicación habitual" de una consulta (ver más arriba en el
-    modelo de datos de `medicacion`) abre esta misma sección con
-    `valoresIniciales` precargados, y ese atajo NUNCA pasa un `medicacion`
-    existente, `MedicacionEntryForm.jsx` lo trata igual que cualquier otra
-    alta — se abre en línea dentro de la sección "Medicación habitual" (no un
-    modal aparte, como antes de este cambio) y un `nuevaMedicacionRef` +
+  - **Medicación habitual, historia de un caso particular que ya no aplica**:
+    en una versión intermedia de este cambio hubo un atajo
+    "+ Agregar a medicación habitual" en `ConsultaCard` (consulta ya guardada)
+    que abría esta sección con `valoresIniciales` precargados desde el campo
+    `medicacion` de esa consulta. Ese atajo **se sacó** cuando Medicación dejó
+    de ser un campo del formulario de consultas (ver "Estado actual del
+    desarrollo" más abajo) — ya no queda de dónde precargarlo, y con él se
+    sacaron `abrirMedicacionDesdeConsulta()`/`medicacionValoresIniciales` de
+    `HistoriaClinica.jsx` y el prop `valoresIniciales` de
+    `MedicacionEntryForm.jsx`. Lo que SÍ sigue en pie: `nuevaMedicacionRef` +
     `scrollIntoView` (mismo mecanismo que `nuevaConsultaRef` para el atajo
-    `abrirNuevaConsulta` de `Pacientes.jsx`) lleva la vista hasta ahí — sin
-    esto, la entrada precargada podía abrirse fuera de la pantalla si el
-    médico estaba leyendo Consultas, más arriba en la página.
+    `abrirNuevaConsulta` de `Pacientes.jsx`) — ya no por el atajo desaparecido,
+    sino simplemente para que el botón nativo "+ Agregar medicación" de esta
+    misma sección lleve la vista hasta el formulario recién abierto.
   - **Verificado en el navegador** con el mismo método que Consultas
     (Playwright temporal contra `pnpm dev`, cuenta real, desinstalado
     después): las cuatro entradas nuevas abren sin ningún `.fixed.inset-0`
-    (cero overlays), el atajo de medicación desde una consulta hace scroll y
-    precarga correctamente (nombre, fecha, profesional), y no hay errores de
-    consola en ningún caso. No se guardó ningún registro de prueba contra
-    datos reales.
+    (cero overlays), y no hay errores de consola en ningún caso. No se guardó
+    ningún registro de prueba contra datos reales. (En su momento esto
+    también verificó el atajo de medicación desde una consulta — precargaba y
+    hacía scroll correctamente —, pero ese atajo ya no existe, ver el punto de
+    arriba.)
 
 - Cartel de alergias visible al abrir la ficha del paciente (RF-17)
 - Sistema de diseño con modo claro/oscuro (`design-system.md`)

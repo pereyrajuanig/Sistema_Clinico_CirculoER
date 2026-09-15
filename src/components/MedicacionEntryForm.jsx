@@ -7,26 +7,14 @@ import { registrarAuditoria } from '@/lib/auditoria'
 // continuo" pedido por los médicos, extendido al resto de la ficha): el alta se renderiza en
 // línea, sin overlay, dentro del flujo de la sección "Medicación habitual" de
 // HistoriaClinica.jsx; editar sigue siendo un modal, eso no cambió.
-//
-// valoresIniciales: precarga opcional desde el atajo "+ Agregar a medicación habitual" de
-// una consulta ({ nombre, fechaInicio, profesionalId }) — solo se usa al dar de alta, nunca
-// si medicacion (edición) está presente. Es puramente una precarga de campos del
-// formulario: no crea ninguna relación en la base con la consulta de origen. Como sigue
-// siendo un alta (no hay `medicacion`), este caso también se renderiza en línea — el atajo
-// hace scroll hasta la sección "Medicación habitual" y la abre ya precargada, en vez de
-// abrir un modal aparte.
-export default function MedicacionEntryForm({ pacienteId, medicacion, valoresIniciales, onClose, onSaved }) {
+export default function MedicacionEntryForm({ pacienteId, medicacion, onClose, onSaved }) {
   const esEdicion = Boolean(medicacion)
   const [profesionales, setProfesionales] = useState([])
-  const [profesionalId, setProfesionalId] = useState(
-    medicacion?.usuario_id || valoresIniciales?.profesionalId || null
-  )
-  const [nombre, setNombre] = useState(medicacion?.nombre || valoresIniciales?.nombre || '')
+  const [profesionalId, setProfesionalId] = useState(medicacion?.usuario_id || null)
+  const [nombre, setNombre] = useState(medicacion?.nombre || '')
   const [dosis, setDosis] = useState(medicacion?.dosis || '')
   const [estado, setEstado] = useState(medicacion?.estado || 'Activa')
-  const [fechaInicio, setFechaInicio] = useState(
-    medicacion?.fecha_inicio || valoresIniciales?.fechaInicio || ''
-  )
+  const [fechaInicio, setFechaInicio] = useState(medicacion?.fecha_inicio || '')
   const [fechaFin, setFechaFin] = useState(medicacion?.fecha_fin || '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)

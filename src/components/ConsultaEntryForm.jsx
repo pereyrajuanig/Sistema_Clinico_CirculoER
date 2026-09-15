@@ -3,12 +3,16 @@ import { supabase } from '@/lib/supabaseClient'
 import { registrarAuditoria } from '@/lib/auditoria'
 import { ESTADOS_MEDICACION } from '@/lib/medicacion'
 
+// examen_fisico, diagnostico y medicacion se sacaron del formulario a pedido del cliente —
+// mismo criterio que pronostico/proximo_control/observaciones antes: la columna sigue
+// existiendo en la base sin tocar, `CAMPOS_CONSULTA` (HistoriaClinica.jsx) las sigue
+// mostrando si una consulta vieja ya tenía el dato cargado, pero no se piden más acá. Al no
+// estar en `initialForm`, editar una consulta vieja con esos campos cargados no los borra —
+// `camposClinicos` (más abajo) simplemente no los incluye en el UPDATE, así que Supabase
+// deja esas columnas como estaban.
 const initialForm = {
   motivo: '',
-  examen_fisico: '',
-  diagnostico: '',
   tratamiento: '',
-  medicacion: '',
   evolucion: '',
   presion_sistolica: '',
   presion_diastolica: '',
@@ -238,131 +242,175 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
         </div>
       </div>
 
-      <div className="space-y-2">
-        {!mostrandoVitales ? (
-          <button type="button" onClick={() => setMostrandoVitales(true)} className="btn-secondary w-full">
-            + Agregar signos vitales
-          </button>
-        ) : (
-          <>
-            <button type="button" onClick={() => setMostrandoVitales(false)} className="btn-secondary w-full">
-              ‹ Ocultar signos vitales
-            </button>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <Field label="P.A. sistólica">
-                <input
-                  type="number"
-                  value={form.presion_sistolica}
-                  onChange={handleChange('presion_sistolica')}
-                  className="input"
-                />
-              </Field>
-              <Field label="P.A. diastólica">
-                <input
-                  type="number"
-                  value={form.presion_diastolica}
-                  onChange={handleChange('presion_diastolica')}
-                  className="input"
-                />
-              </Field>
-              <Field label="Frec. cardíaca">
-                <input
-                  type="number"
-                  value={form.frecuencia_cardiaca}
-                  onChange={handleChange('frecuencia_cardiaca')}
-                  className="input"
-                />
-              </Field>
-              <Field label="Temperatura">
-                <input
-                  type="number"
-                  step="0.1"
-                  value={form.temperatura}
-                  onChange={handleChange('temperatura')}
-                  className="input"
-                />
-              </Field>
-              <Field label="Frec. respiratoria">
-                <input
-                  type="number"
-                  value={form.frecuencia_respiratoria}
-                  onChange={handleChange('frecuencia_respiratoria')}
-                  className="input"
-                />
-              </Field>
-              <Field label="Saturación O₂">
-                <input
-                  type="number"
-                  value={form.saturacion_oxigeno}
-                  onChange={handleChange('saturacion_oxigeno')}
-                  className="input"
-                />
-              </Field>
-              <Field label="Peso (kg)">
-                <input
-                  type="number"
-                  step="0.1"
-                  value={form.peso}
-                  onChange={handleChange('peso')}
-                  className="input"
-                />
-              </Field>
-              <Field label="Talla (cm)">
-                <input
-                  type="number"
-                  value={form.talla}
-                  onChange={handleChange('talla')}
-                  className="input"
-                />
-              </Field>
-              <Field label="Glucemia">
-                <input
-                  type="number"
-                  value={form.glucemia}
-                  onChange={handleChange('glucemia')}
-                  className="input"
-                />
-              </Field>
-            </div>
-          </>
-        )}
+      {/* Los dos apartados opcionales van juntos, uno al lado del otro — ninguno depende
+          del otro, agrupan lo que "no siempre hace falta cargar" antes del bloque de texto
+          libre que sí se escribe siempre */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => setMostrandoVitales((v) => !v)}
+          className="btn-secondary w-full"
+        >
+          {mostrandoVitales ? '‹ Ocultar signos vitales' : '+ Agregar signos vitales'}
+        </button>
+        <button
+          type="button"
+          onClick={agregandoMedicacion ? cancelarAgregarMedicacion : mostrarAgregarMedicacion}
+          className="btn-secondary w-full"
+        >
+          {agregandoMedicacion ? '‹ Cancelar medicación habitual' : '+ Agregar a medicación habitual'}
+        </button>
       </div>
 
-      {/* Bloque continuo, una sola columna — se escribe de corrido de arriba hacia abajo,
-          sin pestañas ni acordeones. Los subtítulos livianos (Field) marcan dónde empieza
-          cada campo sin cortar el flujo en casilleros separados. */}
+      {mostrandoVitales && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Field label="P.A. sistólica">
+            <input
+              type="number"
+              value={form.presion_sistolica}
+              onChange={handleChange('presion_sistolica')}
+              className="input"
+            />
+          </Field>
+          <Field label="P.A. diastólica">
+            <input
+              type="number"
+              value={form.presion_diastolica}
+              onChange={handleChange('presion_diastolica')}
+              className="input"
+            />
+          </Field>
+          <Field label="Frec. cardíaca">
+            <input
+              type="number"
+              value={form.frecuencia_cardiaca}
+              onChange={handleChange('frecuencia_cardiaca')}
+              className="input"
+            />
+          </Field>
+          <Field label="Temperatura">
+            <input
+              type="number"
+              step="0.1"
+              value={form.temperatura}
+              onChange={handleChange('temperatura')}
+              className="input"
+            />
+          </Field>
+          <Field label="Frec. respiratoria">
+            <input
+              type="number"
+              value={form.frecuencia_respiratoria}
+              onChange={handleChange('frecuencia_respiratoria')}
+              className="input"
+            />
+          </Field>
+          <Field label="Saturación O₂">
+            <input
+              type="number"
+              value={form.saturacion_oxigeno}
+              onChange={handleChange('saturacion_oxigeno')}
+              className="input"
+            />
+          </Field>
+          <Field label="Peso (kg)">
+            <input
+              type="number"
+              step="0.1"
+              value={form.peso}
+              onChange={handleChange('peso')}
+              className="input"
+            />
+          </Field>
+          <Field label="Talla (cm)">
+            <input
+              type="number"
+              value={form.talla}
+              onChange={handleChange('talla')}
+              className="input"
+            />
+          </Field>
+          <Field label="Glucemia">
+            <input
+              type="number"
+              value={form.glucemia}
+              onChange={handleChange('glucemia')}
+              className="input"
+            />
+          </Field>
+        </div>
+      )}
+
+      {agregandoMedicacion && (
+        <div className="space-y-4 border border-border rounded-lg p-3 bg-background">
+          <Field label="Nombre del medicamento" required>
+            <input
+              required
+              value={medicacionNueva.nombre}
+              onChange={handleChangeMedicacion('nombre')}
+              placeholder="Ej: Losartán"
+              className="input"
+            />
+          </Field>
+
+          <Field label="Dosis">
+            <input
+              value={medicacionNueva.dosis}
+              onChange={handleChangeMedicacion('dosis')}
+              placeholder="Ej: 50mg cada 12hs"
+              className="input"
+            />
+          </Field>
+
+          <Field label="Estado">
+            <select
+              value={medicacionNueva.estado}
+              onChange={handleChangeMedicacion('estado')}
+              className="input"
+            >
+              {ESTADOS_MEDICACION.map((estado) => (
+                <option key={estado} value={estado}>
+                  {estado}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Fecha de inicio">
+              <input
+                type="date"
+                value={medicacionNueva.fecha_inicio}
+                onChange={handleChangeMedicacion('fecha_inicio')}
+                className="input"
+              />
+            </Field>
+
+            {medicacionNueva.estado === 'Suspendida' && (
+              <Field label="Fecha de fin">
+                <input
+                  type="date"
+                  value={medicacionNueva.fecha_fin}
+                  onChange={handleChangeMedicacion('fecha_fin')}
+                  className="input"
+                />
+              </Field>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Bloque continuo, una sola columna — se escribe de corrido de arriba hacia abajo.
+          Solo estos tres quedan siempre visibles (pedido del cliente); examen_fisico,
+          diagnostico y medicacion se sacaron, ver el comentario de initialForm más arriba. */}
       <div className="space-y-4">
         <Field label="Motivo">
           <textarea value={form.motivo} onChange={handleChange('motivo')} className="input" rows={3} />
-        </Field>
-        <Field label="Examen físico">
-          <textarea
-            value={form.examen_fisico}
-            onChange={handleChange('examen_fisico')}
-            className="input"
-            rows={3}
-          />
-        </Field>
-        <Field label="Diagnóstico">
-          <textarea
-            value={form.diagnostico}
-            onChange={handleChange('diagnostico')}
-            className="input"
-            rows={3}
-          />
         </Field>
         <Field label="Tratamiento">
           <textarea
             value={form.tratamiento}
             onChange={handleChange('tratamiento')}
-            className="input"
-            rows={3}
-          />
-        </Field>
-        <Field label="Medicación">
-          <textarea
-            value={form.medicacion}
-            onChange={handleChange('medicacion')}
             className="input"
             rows={3}
           />
@@ -375,77 +423,6 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
             rows={3}
           />
         </Field>
-      </div>
-
-      <div className="space-y-2">
-        {!agregandoMedicacion ? (
-          <button type="button" onClick={mostrarAgregarMedicacion} className="btn-secondary w-full">
-            + Agregar a medicación habitual
-          </button>
-        ) : (
-          <button type="button" onClick={cancelarAgregarMedicacion} className="btn-secondary w-full">
-            ‹ Cancelar medicación habitual
-          </button>
-        )}
-
-        {agregandoMedicacion && (
-          <div className="space-y-4 border border-border rounded-lg p-3 bg-background">
-            <Field label="Nombre del medicamento" required>
-              <input
-                required
-                value={medicacionNueva.nombre}
-                onChange={handleChangeMedicacion('nombre')}
-                placeholder="Ej: Losartán"
-                className="input"
-              />
-            </Field>
-
-            <Field label="Dosis">
-              <input
-                value={medicacionNueva.dosis}
-                onChange={handleChangeMedicacion('dosis')}
-                placeholder="Ej: 50mg cada 12hs"
-                className="input"
-              />
-            </Field>
-
-            <Field label="Estado">
-              <select
-                value={medicacionNueva.estado}
-                onChange={handleChangeMedicacion('estado')}
-                className="input"
-              >
-                {ESTADOS_MEDICACION.map((estado) => (
-                  <option key={estado} value={estado}>
-                    {estado}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Fecha de inicio">
-                <input
-                  type="date"
-                  value={medicacionNueva.fecha_inicio}
-                  onChange={handleChangeMedicacion('fecha_inicio')}
-                  className="input"
-                />
-              </Field>
-
-              {medicacionNueva.estado === 'Suspendida' && (
-                <Field label="Fecha de fin">
-                  <input
-                    type="date"
-                    value={medicacionNueva.fecha_fin}
-                    onChange={handleChangeMedicacion('fecha_fin')}
-                    className="input"
-                  />
-                </Field>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </>
   )

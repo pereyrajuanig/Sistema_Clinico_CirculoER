@@ -79,7 +79,6 @@ export default function HistoriaClinica() {
   const [editingAntecedente, setEditingAntecedente] = useState(null)
   const [editingPatologia, setEditingPatologia] = useState(null)
   const [editingMedicacion, setEditingMedicacion] = useState(null)
-  const [medicacionValoresIniciales, setMedicacionValoresIniciales] = useState(null)
   const [editingResultado, setEditingResultado] = useState(null)
   const [antecedenteAEliminar, setAntecedenteAEliminar] = useState(null)
   const [patologiaAEliminar, setPatologiaAEliminar] = useState(null)
@@ -288,20 +287,6 @@ export default function HistoriaClinica() {
     })
     setMostrandoNuevaMedicacion(false)
     setEditingMedicacion(null)
-    setMedicacionValoresIniciales(null)
-  }
-
-  // El atajo vive en Consultas pero abre la entrada en línea de la sección "Medicación
-  // habitual" (ver el scroll más arriba) — ya no un modal aparte, mismo componente y mismo
-  // camino que "+ Agregar medicación" de esa sección, solo que precargado
-  function abrirMedicacionDesdeConsulta(consulta) {
-    setEditingMedicacion(null)
-    setMedicacionValoresIniciales({
-      nombre: consulta.medicacion,
-      fechaInicio: consulta.fecha.slice(0, 10),
-      profesionalId: consulta.profesional_id,
-    })
-    setMostrandoNuevaMedicacion(true)
   }
 
   async function confirmarEliminarMedicacion(profesionalId) {
@@ -549,7 +534,6 @@ export default function HistoriaClinica() {
                   onDocumentoSubido={(doc) => setDocumentos((prev) => [...prev, doc])}
                   onEditar={() => setEditingConsulta(c)}
                   onEliminar={() => setConsultaAEliminar(c)}
-                  onAgregarAMedicacion={() => abrirMedicacionDesdeConsulta(c)}
                 />
               </div>
             ))}
@@ -757,11 +741,7 @@ export default function HistoriaClinica() {
               <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6">
                 <MedicacionEntryForm
                   pacienteId={id}
-                  valoresIniciales={medicacionValoresIniciales}
-                  onClose={() => {
-                    setMostrandoNuevaMedicacion(false)
-                    setMedicacionValoresIniciales(null)
-                  }}
+                  onClose={() => setMostrandoNuevaMedicacion(false)}
                   onSaved={handleMedicacionGuardada}
                 />
               </div>
@@ -968,14 +948,7 @@ function Dato({ label, value }) {
   )
 }
 
-function ConsultaCard({
-  consulta: c,
-  documentos,
-  onDocumentoSubido,
-  onEditar,
-  onEliminar,
-  onAgregarAMedicacion,
-}) {
+function ConsultaCard({ consulta: c, documentos, onDocumentoSubido, onEditar, onEliminar }) {
   const vitales = signosVitales(c)
 
   return (
@@ -1000,18 +973,7 @@ function ConsultaCard({
       <dl className="space-y-3 text-base">
         {CAMPOS_CONSULTA.filter(([campo]) => c[campo]).map(([campo, label]) => (
           <div key={campo}>
-            <dt className="text-text-secondary text-sm flex flex-wrap items-center gap-2">
-              {label}
-              {campo === 'medicacion' && (
-                <button
-                  type="button"
-                  onClick={onAgregarAMedicacion}
-                  className="text-sm text-text-secondary hover:text-text-primary underline"
-                >
-                  + Agregar a medicación habitual
-                </button>
-              )}
-            </dt>
+            <dt className="text-text-secondary text-sm">{label}</dt>
             <dd className="text-text-primary">{c[campo]}</dd>
           </div>
         ))}
