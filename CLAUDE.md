@@ -537,14 +537,27 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
     hay que revisar estos dos puntos en `pdfExport.js` de nuevo.
   - **El historial completo se ve de una, sin clics para expandir**: cada
     consulta pasada (`ConsultaCard`) ya se mostraba entera sin acordeón — lo que
-    cambió fue sacarle el recuadro con borde propio (antes
-    `border border-border rounded-lg p-4` por consulta) y en cambio separar las
-    entradas con `divide-y divide-border` sobre el contenedor de la sección, así
-    se lee como una sola superficie continua (un cuaderno) en vez de una pila de
-    tarjetas independientes. Los campos de cada entrada (`dl` de
-    `ConsultaCard`) pasaron de `grid-cols-1 sm:grid-cols-2` a una sola columna,
-    mismo criterio que el punto siguiente — coherencia entre cómo se lee una
-    consulta vieja y cómo se escribe una nueva.
+    cambió fue sacarle el recuadro con borde propio de los cuatro lados (antes
+    `border border-border rounded-lg p-4` por consulta). Los campos de cada
+    entrada (`dl` de `ConsultaCard`) pasaron de `grid-cols-1 sm:grid-cols-2` a
+    una sola columna, mismo criterio que el punto siguiente — coherencia entre
+    cómo se lee una consulta vieja y cómo se escribe una nueva.
+
+    **Detalle visual de "página", pedido en una segunda vuelta sobre este mismo
+    rediseño** (el wrapper de cada entrada vive en `HistoriaClinica.jsx`, no
+    en `ConsultaCard` — ese componente sigue sin bordes propios): cada consulta
+    pasada tiene `border-l-4 border-primary rounded-r-lg bg-surface pl-4 py-3`
+    — un acento de color SOLO del lado izquierdo (no un borde completo) con las
+    esquinas redondeadas solo del lado derecho, separadas entre sí con
+    `space-y-4` (se probó primero con `divide-y divide-border`, una línea
+    horizontal fina entre entradas, pero se reemplazó por este acento + espacio
+    para dar más sensación de "página" que de "fila de tabla"). La entrada que
+    se está escribiendo (alta en línea, ver el punto siguiente) usa en cambio
+    `border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4
+    sm:p-6` — borde PUNTEADO (no sólido) alrededor de los cuatro lados, con un
+    fondo apenas teñido en `primary` al 10% — para que se distinga de un
+    vistazo cuál es la entrada todavía en curso, sin competir con `alert`
+    (reservado al cartel de alergias) ni con ningún otro color de la paleta.
   - **Alta de consulta: en línea al final de la línea de tiempo, sin modal —
     "como agregar la próxima página"**: antes "+ Nueva consulta" abría
     `NuevaConsultaModal.jsx` (overlay centrado, tapaba el resto de la ficha).

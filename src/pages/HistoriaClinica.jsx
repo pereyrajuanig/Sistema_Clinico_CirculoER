@@ -527,9 +527,9 @@ export default function HistoriaClinica() {
             <p className="text-base text-text-secondary mb-4">No hay consultas registradas.</p>
           )}
 
-          <div className="divide-y divide-border">
+          <div className="space-y-4">
             {consultas.map((c) => (
-              <div key={c.id} className="py-6 first:pt-0">
+              <div key={c.id} className="border-l-4 border-primary rounded-r-lg bg-surface pl-4 py-3">
                 <ConsultaCard
                   consulta={c}
                   documentos={documentos.filter((d) => d.consulta_id === c.id)}
@@ -541,13 +541,18 @@ export default function HistoriaClinica() {
               </div>
             ))}
 
-            <div ref={nuevaConsultaRef} className="py-6 first:pt-0">
+            <div ref={nuevaConsultaRef}>
               {mostrandoNuevaConsulta ? (
-                <ConsultaEntryForm
-                  pacienteId={id}
-                  onClose={() => setMostrandoNuevaConsulta(false)}
-                  onSaved={handleConsultaGuardada}
-                />
+                // Borde punteado + fondo apenas teñido en `primary` (no un borde sólido
+                // como las entradas ya escritas) — marca de un vistazo cuál es la entrada
+                // todavía en curso, sin gritar ni romper el resto de la paleta
+                <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6">
+                  <ConsultaEntryForm
+                    pacienteId={id}
+                    onClose={() => setMostrandoNuevaConsulta(false)}
+                    onSaved={handleConsultaGuardada}
+                  />
+                </div>
               ) : (
                 <button onClick={() => setMostrandoNuevaConsulta(true)} className="btn-primary">
                   + Nueva consulta
