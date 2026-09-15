@@ -594,11 +594,22 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
     "livianos" en el sentido tipográfico que pedía el rediseño, lo que generaba
     la sensación de casillero era la cuadrícula de dos columnas, no el tamaño
     del label. Signos vitales **se dejó como grid compacto** (`grid-cols-2
-    sm:grid-cols-4`, sin cambios) — a propósito: un número de 2-3 dígitos por
-    campo lee mejor en una cuadrícula chica (convención médica real, hasta en
-    papel) que como campo de ancho completo con su propio renglón; cambiarlo
-    hubiera sido inconsistente con el pedido real (que era sobre los campos de
-    texto libre, no sobre los signos vitales).
+    sm:grid-cols-4`) — a propósito: un número de 2-3 dígitos por campo lee
+    mejor en una cuadrícula chica (convención médica real, hasta en papel) que
+    como campo de ancho completo con su propio renglón; esto no cambió cuando
+    se agregó el pedido de más abajo, solo se lo hizo colapsable.
+  - **Signos vitales, colapsado detrás de un botón** (pedido de seguimiento
+    del cliente): la cuadrícula de 8 campos ya no se ve siempre — arranca
+    oculta detrás de "+ Agregar signos vitales" (`mostrandoVitales` en el
+    estado, mismo patrón `btn-secondary w-full` que "+ Agregar medicamento
+    nuevo" en `EntradaStockModal.jsx`), que al hacer clic se convierte en
+    "‹ Ocultar signos vitales" y despliega la cuadrícula debajo. **Excepción a
+    propósito**: si se edita una consulta que YA tenía algún signo vital
+    cargado, arranca desplegada (`useState` inicial evalúa
+    `[...CAMPOS_NUMERICOS].some(...)` sobre la consulta) — nunca esconder un
+    dato ya cargado detrás de un clic, la regla de "colapsado por defecto"
+    aplica solo cuando no hay nada que mostrar todavía (alta, o edición de una
+    consulta sin signos vitales).
   - El atajo "+ Agregar a medicación habitual" (ver `medicacion` en el modelo
     de datos más arriba) no se tocó — sigue en `ConsultaCard` (consulta ya
     guardada) tal cual estaba, y el bloque de alta rápida de medicación dentro

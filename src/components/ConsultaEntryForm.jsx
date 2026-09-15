@@ -63,6 +63,12 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
       ? Object.fromEntries(Object.keys(initialForm).map((key) => [key, consulta[key] ?? '']))
       : initialForm
   )
+  // Colapsados por defecto en el alta (nada que mostrar todavía); si se edita una consulta
+  // que ya tenía algún signo vital cargado, arranca desplegado para no esconder un dato que
+  // ya estaba — nunca ocultar datos existentes detrás de un clic
+  const [mostrandoVitales, setMostrandoVitales] = useState(
+    () => esEdicion && [...CAMPOS_NUMERICOS].some((campo) => consulta[campo] != null && consulta[campo] !== '')
+  )
   const [agregandoMedicacion, setAgregandoMedicacion] = useState(false)
   const [medicacionNueva, setMedicacionNueva] = useState(medicacionNuevaInicial)
   const [error, setError] = useState('')
@@ -233,83 +239,93 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
       </div>
 
       <div className="space-y-2">
-        <h3 className="text-base font-semibold text-text-secondary">Signos vitales</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Field label="P.A. sistólica">
-            <input
-              type="number"
-              value={form.presion_sistolica}
-              onChange={handleChange('presion_sistolica')}
-              className="input"
-            />
-          </Field>
-          <Field label="P.A. diastólica">
-            <input
-              type="number"
-              value={form.presion_diastolica}
-              onChange={handleChange('presion_diastolica')}
-              className="input"
-            />
-          </Field>
-          <Field label="Frec. cardíaca">
-            <input
-              type="number"
-              value={form.frecuencia_cardiaca}
-              onChange={handleChange('frecuencia_cardiaca')}
-              className="input"
-            />
-          </Field>
-          <Field label="Temperatura">
-            <input
-              type="number"
-              step="0.1"
-              value={form.temperatura}
-              onChange={handleChange('temperatura')}
-              className="input"
-            />
-          </Field>
-          <Field label="Frec. respiratoria">
-            <input
-              type="number"
-              value={form.frecuencia_respiratoria}
-              onChange={handleChange('frecuencia_respiratoria')}
-              className="input"
-            />
-          </Field>
-          <Field label="Saturación O₂">
-            <input
-              type="number"
-              value={form.saturacion_oxigeno}
-              onChange={handleChange('saturacion_oxigeno')}
-              className="input"
-            />
-          </Field>
-          <Field label="Peso (kg)">
-            <input
-              type="number"
-              step="0.1"
-              value={form.peso}
-              onChange={handleChange('peso')}
-              className="input"
-            />
-          </Field>
-          <Field label="Talla (cm)">
-            <input
-              type="number"
-              value={form.talla}
-              onChange={handleChange('talla')}
-              className="input"
-            />
-          </Field>
-          <Field label="Glucemia">
-            <input
-              type="number"
-              value={form.glucemia}
-              onChange={handleChange('glucemia')}
-              className="input"
-            />
-          </Field>
-        </div>
+        {!mostrandoVitales ? (
+          <button type="button" onClick={() => setMostrandoVitales(true)} className="btn-secondary w-full">
+            + Agregar signos vitales
+          </button>
+        ) : (
+          <>
+            <button type="button" onClick={() => setMostrandoVitales(false)} className="btn-secondary w-full">
+              ‹ Ocultar signos vitales
+            </button>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Field label="P.A. sistólica">
+                <input
+                  type="number"
+                  value={form.presion_sistolica}
+                  onChange={handleChange('presion_sistolica')}
+                  className="input"
+                />
+              </Field>
+              <Field label="P.A. diastólica">
+                <input
+                  type="number"
+                  value={form.presion_diastolica}
+                  onChange={handleChange('presion_diastolica')}
+                  className="input"
+                />
+              </Field>
+              <Field label="Frec. cardíaca">
+                <input
+                  type="number"
+                  value={form.frecuencia_cardiaca}
+                  onChange={handleChange('frecuencia_cardiaca')}
+                  className="input"
+                />
+              </Field>
+              <Field label="Temperatura">
+                <input
+                  type="number"
+                  step="0.1"
+                  value={form.temperatura}
+                  onChange={handleChange('temperatura')}
+                  className="input"
+                />
+              </Field>
+              <Field label="Frec. respiratoria">
+                <input
+                  type="number"
+                  value={form.frecuencia_respiratoria}
+                  onChange={handleChange('frecuencia_respiratoria')}
+                  className="input"
+                />
+              </Field>
+              <Field label="Saturación O₂">
+                <input
+                  type="number"
+                  value={form.saturacion_oxigeno}
+                  onChange={handleChange('saturacion_oxigeno')}
+                  className="input"
+                />
+              </Field>
+              <Field label="Peso (kg)">
+                <input
+                  type="number"
+                  step="0.1"
+                  value={form.peso}
+                  onChange={handleChange('peso')}
+                  className="input"
+                />
+              </Field>
+              <Field label="Talla (cm)">
+                <input
+                  type="number"
+                  value={form.talla}
+                  onChange={handleChange('talla')}
+                  className="input"
+                />
+              </Field>
+              <Field label="Glucemia">
+                <input
+                  type="number"
+                  value={form.glucemia}
+                  onChange={handleChange('glucemia')}
+                  className="input"
+                />
+              </Field>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Bloque continuo, una sola columna — se escribe de corrido de arriba hacia abajo,
