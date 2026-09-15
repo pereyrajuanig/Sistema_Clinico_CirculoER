@@ -12,7 +12,12 @@ function hoyISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
-export default function LaboratorioFormModal({ pacienteId, onClose, onCreated }) {
+// Mismo concepto que ConsultaEntryForm.jsx (ver CLAUDE.md — experimento de "cuaderno
+// continuo" pedido por los médicos, extendido al resto de la ficha): se renderiza en línea,
+// sin overlay, dentro del flujo de la sección "Laboratorio" de HistoriaClinica.jsx. Este
+// formulario es de alta ÚNICAMENTE (nunca edita) — la edición de un resultado ya cargado
+// sigue siendo un modal aparte, `EditarResultadoLaboratorioModal.jsx`, sin cambios.
+export default function LaboratorioEntryForm({ pacienteId, onClose, onCreated }) {
   const [profesionales, setProfesionales] = useState([])
   const [profesionalId, setProfesionalId] = useState(null)
   const [fecha, setFecha] = useState(hoyISO())
@@ -130,97 +135,89 @@ export default function LaboratorioFormModal({ pacienteId, onClose, onCreated })
   }
 
   return (
-    <div className="fixed inset-0 bg-text-primary/40 flex items-center justify-center p-4 z-50">
-      <div className="bg-surface rounded-lg border border-border shadow-sm w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <form onSubmit={handleSubmit}>
-          <div className="px-4 sm:px-6 py-4 border-b border-border">
-            <h2 className="text-lg font-semibold text-text-primary">Cargar resultado de laboratorio</h2>
-          </div>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <h3 className="text-lg font-semibold text-text-primary">Cargar resultado de laboratorio</h3>
 
-          <div className="p-4 sm:p-6 space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm text-text-secondary">
-                ¿Quién carga el resultado? <span className="text-text-primary">*</span>
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {profesionales.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setProfesionalId(p.id)}
-                    className={
-                      'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
-                      (profesionalId === p.id
-                        ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
-                        : 'bg-surface text-text-primary border-border hover:bg-background')
-                    }
-                    style={{ minHeight: '44px' }}
-                  >
-                    {p.nombre}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-sm text-text-secondary">
-                  Examen <span className="text-text-primary">*</span>
-                </label>
-                <select
-                  required
-                  value={tipoSeleccionado}
-                  onChange={(e) => setTipoSeleccionado(e.target.value)}
-                  className="input"
-                >
-                  <option value="" disabled>
-                    Elegir examen...
-                  </option>
-                  {GRUPOS_CARGA.map((t) => (
-                    <option key={t.nombre} value={t.nombre}>
-                      {t.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm text-text-secondary">
-                  Fecha <span className="text-text-primary">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={fecha}
-                  onChange={(e) => setFecha(e.target.value)}
-                  className="input"
-                />
-              </div>
-            </div>
-
-            {examen && (
-              <ExamenCampo
-                examen={examen}
-                valor={valor}
-                onSimpleChange={handleSimpleChange}
-                onCampoChange={handleCampoChange}
-              />
-            )}
-          </div>
-
-          {error && <p className="px-4 sm:px-6 text-base text-text-primary -mt-2 pb-2">{error}</p>}
-
-          <div className="px-4 sm:px-6 py-4 border-t border-border flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="btn-secondary">
-              Cancelar
+      <div className="space-y-2">
+        <label className="text-sm text-text-secondary">
+          ¿Quién carga el resultado? <span className="text-text-primary">*</span>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {profesionales.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setProfesionalId(p.id)}
+              className={
+                'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
+                (profesionalId === p.id
+                  ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
+                  : 'bg-surface text-text-primary border-border hover:bg-background')
+              }
+              style={{ minHeight: '44px' }}
+            >
+              {p.nombre}
             </button>
-            <button type="submit" disabled={loading} className="btn-primary">
-              {loading ? 'Guardando...' : 'Guardar resultado'}
-            </button>
-          </div>
-        </form>
+          ))}
+        </div>
       </div>
-    </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <label className="text-sm text-text-secondary">
+            Examen <span className="text-text-primary">*</span>
+          </label>
+          <select
+            required
+            value={tipoSeleccionado}
+            onChange={(e) => setTipoSeleccionado(e.target.value)}
+            className="input"
+          >
+            <option value="" disabled>
+              Elegir examen...
+            </option>
+            {GRUPOS_CARGA.map((t) => (
+              <option key={t.nombre} value={t.nombre}>
+                {t.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm text-text-secondary">
+            Fecha <span className="text-text-primary">*</span>
+          </label>
+          <input
+            type="date"
+            required
+            value={fecha}
+            onChange={(e) => setFecha(e.target.value)}
+            className="input"
+          />
+        </div>
+      </div>
+
+      {examen && (
+        <ExamenCampo
+          examen={examen}
+          valor={valor}
+          onSimpleChange={handleSimpleChange}
+          onCampoChange={handleCampoChange}
+        />
+      )}
+
+      {error && <p className="text-base text-text-primary">{error}</p>}
+
+      <div className="flex justify-end gap-3">
+        <button type="button" onClick={onClose} className="btn-secondary">
+          Cancelar
+        </button>
+        <button type="submit" disabled={loading} className="btn-primary">
+          {loading ? 'Guardando...' : 'Guardar resultado'}
+        </button>
+      </div>
+    </form>
   )
 }
 

@@ -3,11 +3,11 @@ import { Link, useLocation, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import ConsultaEntryForm from '@/components/ConsultaEntryForm'
 import DocumentosConsulta from '@/components/DocumentosConsulta'
-import AntecedenteFormModal from '@/components/AntecedenteFormModal'
-import PatologiaFormModal from '@/components/PatologiaFormModal'
-import MedicacionFormModal from '@/components/MedicacionFormModal'
+import AntecedenteEntryForm from '@/components/AntecedenteEntryForm'
+import PatologiaEntryForm from '@/components/PatologiaEntryForm'
+import MedicacionEntryForm from '@/components/MedicacionEntryForm'
 import PacienteFormModal from '@/components/PacienteFormModal'
-import LaboratorioFormModal from '@/components/LaboratorioFormModal'
+import LaboratorioEntryForm from '@/components/LaboratorioEntryForm'
 import EditarResultadoLaboratorioModal from '@/components/EditarResultadoLaboratorioModal'
 import ConfirmarConProfesionalModal from '@/components/ConfirmarConProfesionalModal'
 import ExportarPdfModal from '@/components/ExportarPdfModal'
@@ -55,6 +55,7 @@ export default function HistoriaClinica() {
   const { id } = useParams()
   const location = useLocation()
   const nuevaConsultaRef = useRef(null)
+  const nuevaMedicacionRef = useRef(null)
   const [paciente, setPaciente] = useState(null)
   const [antecedentes, setAntecedentes] = useState([])
   const [patologias, setPatologias] = useState([])
@@ -68,11 +69,11 @@ export default function HistoriaClinica() {
   // ConsultaEntryForm.jsx. `editingConsulta` (más abajo) sigue abriendo un modal, eso no
   // cambió: solo el alta se integró al flujo de la página.
   const [mostrandoNuevaConsulta, setMostrandoNuevaConsulta] = useState(false)
-  const [showAntecedenteModal, setShowAntecedenteModal] = useState(false)
-  const [showPatologiaModal, setShowPatologiaModal] = useState(false)
-  const [showMedicacionModal, setShowMedicacionModal] = useState(false)
+  const [mostrandoNuevoAntecedente, setMostrandoNuevoAntecedente] = useState(false)
+  const [mostrandoNuevaPatologia, setMostrandoNuevaPatologia] = useState(false)
+  const [mostrandoNuevaMedicacion, setMostrandoNuevaMedicacion] = useState(false)
+  const [mostrandoNuevoResultado, setMostrandoNuevoResultado] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
-  const [showLabModal, setShowLabModal] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
   const [editingConsulta, setEditingConsulta] = useState(null)
   const [editingAntecedente, setEditingAntecedente] = useState(null)
@@ -180,6 +181,15 @@ export default function HistoriaClinica() {
     }
   }, [mostrandoNuevaConsulta])
 
+  // Mismo motivo que el scroll de arriba: el atajo "+ Agregar a medicación habitual" de una
+  // consulta abre esta sección desde otro lugar de la página, no un modal aparte — sin esto
+  // la entrada nueva podía abrirse fuera de la vista
+  useEffect(() => {
+    if (mostrandoNuevaMedicacion) {
+      nuevaMedicacionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [mostrandoNuevaMedicacion])
+
   function handlePacienteGuardado(pacienteActualizado) {
     setPaciente(pacienteActualizado)
     setShowEditModal(false)
@@ -192,7 +202,7 @@ export default function HistoriaClinica() {
         ? prev.map((a) => (a.id === antecedenteGuardado.id ? antecedenteGuardado : a))
         : [...prev, antecedenteGuardado]
     })
-    setShowAntecedenteModal(false)
+    setMostrandoNuevoAntecedente(false)
     setEditingAntecedente(null)
   }
 
@@ -234,7 +244,7 @@ export default function HistoriaClinica() {
         : [...prev, patologiaGuardada]
       return ordenarPatologias(siguiente)
     })
-    setShowPatologiaModal(false)
+    setMostrandoNuevaPatologia(false)
     setEditingPatologia(null)
   }
 
@@ -276,11 +286,14 @@ export default function HistoriaClinica() {
         : [...prev, medicacionGuardada]
       return ordenarMedicacion(siguiente)
     })
-    setShowMedicacionModal(false)
+    setMostrandoNuevaMedicacion(false)
     setEditingMedicacion(null)
     setMedicacionValoresIniciales(null)
   }
 
+  // El atajo vive en Consultas pero abre la entrada en línea de la sección "Medicación
+  // habitual" (ver el scroll más arriba) — ya no un modal aparte, mismo componente y mismo
+  // camino que "+ Agregar medicación" de esa sección, solo que precargado
   function abrirMedicacionDesdeConsulta(consulta) {
     setEditingMedicacion(null)
     setMedicacionValoresIniciales({
@@ -288,7 +301,7 @@ export default function HistoriaClinica() {
       fechaInicio: consulta.fecha.slice(0, 10),
       profesionalId: consulta.profesional_id,
     })
-    setShowMedicacionModal(true)
+    setMostrandoNuevaMedicacion(true)
   }
 
   async function confirmarEliminarMedicacion(profesionalId) {
@@ -369,7 +382,7 @@ export default function HistoriaClinica() {
     setResultadosLab((prev) =>
       [...prev, ...nuevosResultados].sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
     )
-    setShowLabModal(false)
+    setMostrandoNuevoResultado(false)
   }
 
   function handleResultadoActualizado(resultadoActualizado) {
@@ -562,209 +575,225 @@ export default function HistoriaClinica() {
           </div>
         </section>
 
+        {/* Mismo concepto y mismo estilo visual que Consultas (ver CLAUDE.md): el alta se
+            integra en línea al final de la lista, sin modal, con el mismo acento a la
+            izquierda en las entradas ya cargadas y el mismo recuadro punteado para la que
+            se está escribiendo. */}
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-text-primary">Antecedentes</h2>
-            <button
-              onClick={() => {
-                setEditingAntecedente(null)
-                setShowAntecedenteModal(true)
-              }}
-              className="btn-secondary px-3 py-1.5"
-            >
-              + Agregar antecedente
-            </button>
-          </div>
-          {antecedentes.length === 0 ? (
-            <p className="text-base text-text-secondary">No hay antecedentes registrados.</p>
-          ) : (
-            <ul className="space-y-2">
-              {antecedentes.map((a) => (
-                <li key={a.id} className="text-base flex items-start justify-between gap-2">
-                  <div className="flex gap-2">
-                    <span className="shrink-0 bg-border/50 text-text-primary rounded-md px-2 py-0.5 text-sm font-medium">
-                      {TIPOS_ANTECEDENTE[a.tipo] || a.tipo}
-                    </span>
-                    <span className="text-text-primary">
-                      {a.descripcion}
-                      {a.profesionales?.nombre && (
-                        <span className="block text-text-secondary text-sm">
-                          Cargado por {a.profesionales.nombre}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex gap-3 shrink-0">
-                    <button
-                      onClick={() => {
-                        setEditingAntecedente(a)
-                        setShowAntecedenteModal(true)
-                      }}
-                      className="text-sm text-text-secondary hover:text-text-primary underline"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => setAntecedenteAEliminar(a)}
-                      className="text-sm text-text-primary underline"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+          <h2 className="text-lg font-semibold text-text-primary mb-4">Antecedentes</h2>
+
+          {antecedentes.length === 0 && !mostrandoNuevoAntecedente && (
+            <p className="text-base text-text-secondary mb-4">No hay antecedentes registrados.</p>
           )}
+
+          <div className="space-y-4">
+            {antecedentes.map((a) => (
+              <div
+                key={a.id}
+                className="border-l-4 border-primary rounded-r-lg bg-surface pl-4 py-3 text-base flex items-start justify-between gap-2"
+              >
+                <div className="flex gap-2">
+                  <span className="shrink-0 bg-border/50 text-text-primary rounded-md px-2 py-0.5 text-sm font-medium">
+                    {TIPOS_ANTECEDENTE[a.tipo] || a.tipo}
+                  </span>
+                  <span className="text-text-primary">
+                    {a.descripcion}
+                    {a.profesionales?.nombre && (
+                      <span className="block text-text-secondary text-sm">
+                        Cargado por {a.profesionales.nombre}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex gap-3 shrink-0">
+                  <button
+                    onClick={() => setEditingAntecedente(a)}
+                    className="text-sm text-text-secondary hover:text-text-primary underline"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => setAntecedenteAEliminar(a)}
+                    className="text-sm text-text-primary underline"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {mostrandoNuevoAntecedente ? (
+              <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6">
+                <AntecedenteEntryForm
+                  pacienteId={id}
+                  onClose={() => setMostrandoNuevoAntecedente(false)}
+                  onSaved={handleAntecedenteGuardado}
+                />
+              </div>
+            ) : (
+              <button onClick={() => setMostrandoNuevoAntecedente(true)} className="btn-secondary">
+                + Agregar antecedente
+              </button>
+            )}
+          </div>
         </section>
 
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-text-primary">Patologías</h2>
-            <button
-              onClick={() => {
-                setEditingPatologia(null)
-                setShowPatologiaModal(true)
-              }}
-              className="btn-secondary px-3 py-1.5"
-            >
-              + Agregar patología
-            </button>
-          </div>
-          {patologias.length === 0 ? (
-            <p className="text-base text-text-secondary">No hay patologías registradas.</p>
-          ) : (
-            <ul className="space-y-2">
-              {patologias.map((p) => (
-                <li key={p.id} className="text-base flex items-start justify-between gap-2">
-                  <div className="flex gap-2 flex-wrap">
-                    <span
-                      className={
-                        'shrink-0 rounded-md px-2 py-0.5 text-sm border ' + claseEstadoPatologia(p.estado)
-                      }
-                    >
-                      {p.estado}
-                    </span>
-                    <span className="text-text-primary">
-                      {p.nombre}
-                      {p.fecha_diagnostico && (
-                        <span className="text-text-secondary">
-                          {' '}
-                          — diagnosticada {formatFecha(p.fecha_diagnostico)}
-                        </span>
-                      )}
-                      {p.observaciones && (
-                        <span className="block text-text-secondary text-sm">{p.observaciones}</span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex gap-3 shrink-0">
-                    <button
-                      onClick={() => {
-                        setEditingPatologia(p)
-                        setShowPatologiaModal(true)
-                      }}
-                      className="text-sm text-text-secondary hover:text-text-primary underline"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => setPatologiaAEliminar(p)}
-                      className="text-sm text-text-primary underline"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+          <h2 className="text-lg font-semibold text-text-primary mb-4">Patologías</h2>
+
+          {patologias.length === 0 && !mostrandoNuevaPatologia && (
+            <p className="text-base text-text-secondary mb-4">No hay patologías registradas.</p>
           )}
+
+          <div className="space-y-4">
+            {patologias.map((p) => (
+              <div
+                key={p.id}
+                className="border-l-4 border-primary rounded-r-lg bg-surface pl-4 py-3 text-base flex items-start justify-between gap-2"
+              >
+                <div className="flex gap-2 flex-wrap">
+                  <span
+                    className={
+                      'shrink-0 rounded-md px-2 py-0.5 text-sm border ' + claseEstadoPatologia(p.estado)
+                    }
+                  >
+                    {p.estado}
+                  </span>
+                  <span className="text-text-primary">
+                    {p.nombre}
+                    {p.fecha_diagnostico && (
+                      <span className="text-text-secondary">
+                        {' '}
+                        — diagnosticada {formatFecha(p.fecha_diagnostico)}
+                      </span>
+                    )}
+                    {p.observaciones && (
+                      <span className="block text-text-secondary text-sm">{p.observaciones}</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex gap-3 shrink-0">
+                  <button
+                    onClick={() => setEditingPatologia(p)}
+                    className="text-sm text-text-secondary hover:text-text-primary underline"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => setPatologiaAEliminar(p)}
+                    className="text-sm text-text-primary underline"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {mostrandoNuevaPatologia ? (
+              <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6">
+                <PatologiaEntryForm
+                  pacienteId={id}
+                  onClose={() => setMostrandoNuevaPatologia(false)}
+                  onSaved={handlePatologiaGuardada}
+                />
+              </div>
+            ) : (
+              <button onClick={() => setMostrandoNuevaPatologia(true)} className="btn-secondary">
+                + Agregar patología
+              </button>
+            )}
+          </div>
         </section>
 
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-text-primary">Medicación habitual</h2>
-            <button
-              onClick={() => {
-                setEditingMedicacion(null)
-                setMedicacionValoresIniciales(null)
-                setShowMedicacionModal(true)
-              }}
-              className="btn-secondary px-3 py-1.5"
-            >
-              + Agregar medicación
-            </button>
-          </div>
-          {medicacionHabitual.length === 0 ? (
-            <p className="text-base text-text-secondary">No hay medicación habitual registrada.</p>
-          ) : (
-            <>
-              {medicacionActiva.length > 0 ? (
-                <ul className="space-y-2">
-                  {medicacionActiva.map((m) => (
-                    <MedicacionItem
-                      key={m.id}
-                      medicacion={m}
-                      onEditar={() => {
-                        setEditingMedicacion(m)
-                        setMedicacionValoresIniciales(null)
-                        setShowMedicacionModal(true)
-                      }}
-                      onEliminar={() => setMedicacionAEliminar(m)}
-                    />
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-base text-text-secondary">No hay medicación activa.</p>
-              )}
+          <h2 className="text-lg font-semibold text-text-primary mb-4">Medicación habitual</h2>
 
-              {medicacionSuspendida.length > 0 && (
-                <details className="mt-3">
-                  <summary className="text-sm text-text-secondary cursor-pointer hover:text-text-primary">
-                    Medicación suspendida ({medicacionSuspendida.length})
-                  </summary>
-                  <ul className="space-y-2 mt-2">
-                    {medicacionSuspendida.map((m) => (
-                      <MedicacionItem
-                        key={m.id}
-                        medicacion={m}
-                        onEditar={() => {
-                          setEditingMedicacion(m)
-                          setMedicacionValoresIniciales(null)
-                          setShowMedicacionModal(true)
-                        }}
-                        onEliminar={() => setMedicacionAEliminar(m)}
-                      />
-                    ))}
-                  </ul>
-                </details>
-              )}
-            </>
+          {medicacionHabitual.length === 0 && !mostrandoNuevaMedicacion && (
+            <p className="text-base text-text-secondary mb-4">No hay medicación habitual registrada.</p>
           )}
+
+          {medicacionHabitual.length > 0 &&
+            (medicacionActiva.length > 0 ? (
+              <ul className="space-y-4 mb-4">
+                {medicacionActiva.map((m) => (
+                  <MedicacionItem
+                    key={m.id}
+                    medicacion={m}
+                    onEditar={() => {
+                      setEditingMedicacion(m)
+                      setMedicacionValoresIniciales(null)
+                    }}
+                    onEliminar={() => setMedicacionAEliminar(m)}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <p className="text-base text-text-secondary mb-4">No hay medicación activa.</p>
+            ))}
+
+          {medicacionSuspendida.length > 0 && (
+            <details className="mb-4">
+              <summary className="text-sm text-text-secondary cursor-pointer hover:text-text-primary">
+                Medicación suspendida ({medicacionSuspendida.length})
+              </summary>
+              <ul className="space-y-4 mt-3">
+                {medicacionSuspendida.map((m) => (
+                  <MedicacionItem
+                    key={m.id}
+                    medicacion={m}
+                    onEditar={() => {
+                      setEditingMedicacion(m)
+                      setMedicacionValoresIniciales(null)
+                    }}
+                    onEliminar={() => setMedicacionAEliminar(m)}
+                  />
+                ))}
+              </ul>
+            </details>
+          )}
+
+          <div ref={nuevaMedicacionRef}>
+            {mostrandoNuevaMedicacion ? (
+              <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6">
+                <MedicacionEntryForm
+                  pacienteId={id}
+                  valoresIniciales={medicacionValoresIniciales}
+                  onClose={() => {
+                    setMostrandoNuevaMedicacion(false)
+                    setMedicacionValoresIniciales(null)
+                  }}
+                  onSaved={handleMedicacionGuardada}
+                />
+              </div>
+            ) : (
+              <button onClick={() => setMostrandoNuevaMedicacion(true)} className="btn-secondary">
+                + Agregar medicación
+              </button>
+            )}
+          </div>
         </section>
 
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-text-primary">Laboratorio</h2>
-            <button onClick={() => setShowLabModal(true)} className="btn-secondary px-3 py-1.5">
-              + Cargar resultados
-            </button>
-          </div>
-          {resultadosLab.length === 0 ? (
-            <p className="text-base text-text-secondary">No hay resultados de laboratorio cargados.</p>
-          ) : (
-            <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-text-primary mb-4">Laboratorio</h2>
+
+          {resultadosLab.length === 0 && !mostrandoNuevoResultado && (
+            <p className="text-base text-text-secondary mb-4">No hay resultados de laboratorio cargados.</p>
+          )}
+
+          {resultadosLab.length > 0 && (
+            <div className="space-y-4 mb-4">
               {TIPOS_EXAMEN.filter(({ nombre }) =>
                 resultadosLab.some((r) => r.tipo_examen === nombre)
               ).map(({ nombre }) => (
                 <div key={nombre}>
                   <h3 className="text-base font-semibold text-text-primary mb-1">{nombre}</h3>
-                  <ul className="space-y-0.5">
+                  <ul className="space-y-2">
                     {resultadosLab
                       .filter((r) => r.tipo_examen === nombre)
                       .map((r) => (
                         <li
                           key={r.id}
-                          className="text-base text-text-primary flex flex-wrap items-start justify-between gap-2"
+                          className="border-l-4 border-primary rounded-r-lg bg-surface pl-3 py-2 text-base text-text-primary flex flex-wrap items-start justify-between gap-2"
                         >
                           <span className="flex gap-2">
                             <span className="text-text-secondary shrink-0">
@@ -793,6 +822,20 @@ export default function HistoriaClinica() {
               ))}
             </div>
           )}
+
+          {mostrandoNuevoResultado ? (
+            <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6">
+              <LaboratorioEntryForm
+                pacienteId={id}
+                onClose={() => setMostrandoNuevoResultado(false)}
+                onCreated={handleResultadosCreados}
+              />
+            </div>
+          ) : (
+            <button onClick={() => setMostrandoNuevoResultado(true)} className="btn-secondary">
+              + Cargar resultados
+            </button>
+          )}
         </section>
       </main>
 
@@ -805,40 +848,29 @@ export default function HistoriaClinica() {
         />
       )}
 
-      {showAntecedenteModal && (
-        <AntecedenteFormModal
+      {editingAntecedente && (
+        <AntecedenteEntryForm
           pacienteId={id}
           antecedente={editingAntecedente}
-          onClose={() => {
-            setShowAntecedenteModal(false)
-            setEditingAntecedente(null)
-          }}
+          onClose={() => setEditingAntecedente(null)}
           onSaved={handleAntecedenteGuardado}
         />
       )}
 
-      {showPatologiaModal && (
-        <PatologiaFormModal
+      {editingPatologia && (
+        <PatologiaEntryForm
           pacienteId={id}
           patologia={editingPatologia}
-          onClose={() => {
-            setShowPatologiaModal(false)
-            setEditingPatologia(null)
-          }}
+          onClose={() => setEditingPatologia(null)}
           onSaved={handlePatologiaGuardada}
         />
       )}
 
-      {showMedicacionModal && (
-        <MedicacionFormModal
+      {editingMedicacion && (
+        <MedicacionEntryForm
           pacienteId={id}
           medicacion={editingMedicacion}
-          valoresIniciales={medicacionValoresIniciales}
-          onClose={() => {
-            setShowMedicacionModal(false)
-            setEditingMedicacion(null)
-            setMedicacionValoresIniciales(null)
-          }}
+          onClose={() => setEditingMedicacion(null)}
           onSaved={handleMedicacionGuardada}
         />
       )}
@@ -863,14 +895,6 @@ export default function HistoriaClinica() {
             documentos,
           }}
           onClose={() => setShowExportModal(false)}
-        />
-      )}
-
-      {showLabModal && (
-        <LaboratorioFormModal
-          pacienteId={id}
-          onClose={() => setShowLabModal(false)}
-          onCreated={handleResultadosCreados}
         />
       )}
 
@@ -1025,7 +1049,7 @@ function ConsultaCard({
 // mismas acciones (Editar/Eliminar), solo cambia qué grupo las contiene
 function MedicacionItem({ medicacion: m, onEditar, onEliminar }) {
   return (
-    <li className="text-base flex items-start justify-between gap-2">
+    <li className="border-l-4 border-primary rounded-r-lg bg-surface pl-4 py-3 text-base flex items-start justify-between gap-2">
       <div className="flex gap-2 flex-wrap">
         <span className={'shrink-0 rounded-md px-2 py-0.5 text-sm border ' + claseEstadoMedicacion(m.estado)}>
           {m.estado}

@@ -69,11 +69,11 @@ Historia clínica (`schema-historia-clinica.sql`):
   `patologias` y `medicacion` más abajo, que los reemplazaron por completo. Tiene
   `usuario_id` (FK a `profesionales`,
   **`NOT NULL`**, agregado después de la migración inicial) — quién CARGÓ el
-  antecedente. Se fija una sola vez al dar de alta (`AntecedenteFormModal.jsx`, selector
+  antecedente. Se fija una sola vez al dar de alta (`AntecedenteEntryForm.jsx`, selector
   "¿Quién carga?", siempre visible) y **nunca se vuelve a tocar en ediciones
   posteriores** — el selector "¿Quién edita?" que aparece al editar alimenta
   únicamente la fila de `auditoria` de ese cambio puntual, no pisa `usuario_id`. Mismo
-  criterio que `resultados_laboratorio.usuario_id` (`LaboratorioFormModal.jsx` lo fija
+  criterio que `resultados_laboratorio.usuario_id` (`LaboratorioEntryForm.jsx` lo fija
   al crear, `EditarResultadoLaboratorioModal.jsx` jamás lo actualiza) — **distinto** del
   de `consultas.profesional_id`, que si se reescribe en cada edición porque ahí "quién
   atendió" es dato clínico editable, no metadato de auditoría. Como `antecedentes` ya
@@ -120,9 +120,9 @@ Historia clínica (`schema-historia-clinica.sql`):
   Resuelta va apagada (sin fondo/borde de color, `text-text-secondary`) — así se
   distingue qué está vigente hoy sin leer cada fila.
 
-  `PatologiaFormModal.jsx` (alta y edición, "+ Agregar patología"/"Editar" en
+  `PatologiaEntryForm.jsx` (alta y edición, "+ Agregar patología"/"Editar" en
   `HistoriaClinica.jsx`) es estructuralmente más parecido a `ConsultaEntryForm.jsx`
-  (en su modo edición, que sigue siendo modal) que a `AntecedenteFormModal.jsx`,
+  (en su modo edición, que sigue siendo modal) que a `AntecedenteEntryForm.jsx`,
   justamente por el selector de profesional
   siempre visible (obligatorio por `usuario_id NOT NULL`) — incluye la misma
   lógica de agregar igual a la lista un profesional ya dado de baja si la
@@ -148,11 +148,11 @@ Historia clínica (`schema-historia-clinica.sql`):
   constraint` que lo exija), `usuario_id` (FK a `profesionales`, obligatorio,
   **inmutable tras la carga** — mismo patrón que `antecedentes.usuario_id`, NO el
   de `patologias`/`consultas` que se reescribe en cada edición: el selector de
-  `MedicacionFormModal.jsx` dice "¿Quién carga?" al dar de alta y "¿Quién edita?"
+  `MedicacionEntryForm.jsx` dice "¿Quién carga?" al dar de alta y "¿Quién edita?"
   al editar, pero solo el primero se guarda en la columna), `observaciones` (texto,
   existe en la base pero **no se expone en el formulario** — no se pidió, no hay
   ningún lugar que la muestre ni la edite; si hace falta en el futuro, agregar el
-  campo a `MedicacionFormModal.jsx` es directo), `eliminado_en`/`eliminado_por`
+  campo a `MedicacionEntryForm.jsx` es directo), `eliminado_en`/`eliminado_por`
   (mismo patrón de baja lógica + auditoría que el resto — ver "CRUD de las tablas
   clínicas" más abajo). Como `medicacion` también tiene `eliminado_por` además de
   `usuario_id`, cualquier embed de `profesionales` necesita `!usuario_id` o
@@ -186,12 +186,17 @@ Historia clínica (`schema-historia-clinica.sql`):
 
   1. **Desde la consulta ya guardada** (`ConsultaCard`, en `HistoriaClinica.jsx`):
      si la consulta tiene algo escrito en su campo `medicacion`, aparece un link
-     "+ Agregar a medicación habitual" al lado de esa etiqueta. Abre
-     `MedicacionFormModal.jsx` en modo alta (un modal aparte, la página de fondo)
-     con `valoresIniciales` — `nombre` con el texto completo tal cual estaba en
-     `consulta.medicacion` (sin separar automáticamente nombre de dosis),
-     `fecha_inicio` con la fecha de esa consulta, profesional preseleccionado el
-     que atendió (`consulta.profesional_id`).
+     "+ Agregar a medicación habitual" al lado de esa etiqueta. Dispara
+     `abrirMedicacionDesdeConsulta()`, que arma `valoresIniciales` — `nombre`
+     con el texto completo tal cual estaba en `consulta.medicacion` (sin
+     separar automáticamente nombre de dosis), `fecha_inicio` con la fecha de
+     esa consulta, profesional preseleccionado el que atendió
+     (`consulta.profesional_id`) — y abre la entrada en línea de la sección
+     "Medicación habitual" (`mostrandoNuevaMedicacion`, `MedicacionEntryForm.jsx`
+     en modo alta), con un `scrollIntoView` hasta ahí (`nuevaMedicacionRef`) —
+     **ya no un modal aparte**, desde que ese formulario también se integró a
+     la línea de tiempo de su propia sección (ver el punto sobre las otras
+     cuatro secciones más abajo).
   2. **Desde el formulario de Nueva/Editar consulta** (`ConsultaEntryForm.jsx`,
      pedido explícito del cliente): un apartado colapsable "+ Agregar a
      medicación habitual" — mismo patrón visual que "+ Agregar medicamento
@@ -208,16 +213,16 @@ Historia clínica (`schema-historia-clinica.sql`):
      las dos tablas no hace falta que una exista para que la otra se guarde,
      pero si el insert de medicación falla se corta ahí (no se toca la consulta
      todavía), para no dejar al usuario sin saber si algo se guardó a medias.
-     A diferencia del atajo 1, este vive DENTRO del mismo formulario/bloque (no
-     abre nada aparte) — sigue siendo así después del rediseño de "línea de
-     tiempo" (ver más abajo): al dar de alta, `ConsultaEntryForm.jsx` se
-     renderiza en línea (sin overlay), así que este apartado de medicación
-     habitual queda embebido en ese mismo bloque en línea, no dentro de un
-     modal. Cuando se abre desde EDITAR (que sigue siendo modal), este
-     apartado queda dentro de ese modal, igual que siempre — abrir
-     `MedicacionFormModal.jsx` encima tanto del modal de edición como del
-     bloque en línea de alta se descartó a propósito, sin precedente de modal
-     sobre modal ni de modal sobre un formulario en línea en esta app.
+     A diferencia del atajo 1, este vive DENTRO del mismo formulario/bloque de
+     `ConsultaEntryForm.jsx` (no abre nada aparte, ni un modal ni la sección
+     "Medicación habitual") — campos propios, insert directo a `medicacion`
+     en el mismo `handleSubmit`, sin pasar por `MedicacionEntryForm.jsx` para
+     nada. Se mantuvo así a propósito incluso después de que
+     `MedicacionEntryForm.jsx` empezara a poder renderizarse en línea:
+     delegarle este apartado hubiera significado montar un formulario dentro
+     de otro formulario (`ConsultaEntryForm.jsx` puede ser modal o en línea
+     según el modo), más complejidad de la que resuelve — el apartado interno
+     ya es chico y autocontenido.
 - `consultas` — núcleo del sistema, incluye signos vitales como columnas directas
   (siempre van pegados a una consulta, nunca sueltos). El campo `medicacion` (texto
   libre) es lo que se indicó en esa visita puntual — ver la aclaración de arriba en
@@ -439,9 +444,9 @@ esa asunción vieja y se corrigió:
 - **`EntradaStockModal.jsx`** no tenía selector de profesional (el RF original decía que no
   hacía falta trazabilidad explícita ahí) — usaba `session.user.id` para `usuario_id`. Se
   le agregó el mismo selector "¿Quién...?" que ya tenían las salidas y las consultas.
-- **`LaboratorioFormModal.jsx`** tampoco tenía selector — usaba `session.user.id` para
-  `usuario_id` en las dos rutas de inserción (fila única y "separarEnFilas" del atajo de
-  perfil lipídico). Mismo agregado.
+- **`LaboratorioEntryForm.jsx`** (entonces `LaboratorioFormModal.jsx`) tampoco tenía
+  selector — usaba `session.user.id` para `usuario_id` en las dos rutas de inserción
+  (fila única y "separarEnFilas" del atajo de perfil lipídico). Mismo agregado.
 - **`CorregirMovimientoModal.jsx`** solo pedía profesional cuando la compensación era una
   `salida` (porque ahí la base lo exige por `paciente_id` obligatorio); cuando compensaba
   con una `entrada` usaba `session.user.id` directo. Ahora pide el profesional siempre,
@@ -614,6 +619,66 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
     ninguno de los tres casos. No se guardó ninguna consulta de prueba contra
     datos reales — la verificación fue de layout/interacción, sin escribir en
     la base.
+
+- **El mismo concepto (alta en línea, sin modal, mismo acento visual) se
+  extendió a las otras cuatro secciones de la ficha — pedido explícito del
+  cliente ("que se aplique a los otros formularios dentro de cada paciente...
+  manteniendo el mismo estilo visual")**: Antecedentes, Patologías, Medicación
+  habitual y Laboratorio. Editar sigue siendo modal en las cuatro, mismo
+  criterio que Consultas — no se pidió cambiar eso y sería un cambio de
+  interacción bastante más grande (el registro que se edita no está
+  necesariamente al final de la lista).
+
+  - **Renombres** (mismo motivo que `NuevaConsultaModal.jsx` →
+    `ConsultaEntryForm.jsx`: ya no son *solo* modales): `AntecedenteFormModal.jsx`
+    → `AntecedenteEntryForm.jsx`, `PatologiaFormModal.jsx` →
+    `PatologiaEntryForm.jsx`, `MedicacionFormModal.jsx` →
+    `MedicacionEntryForm.jsx`, `LaboratorioFormModal.jsx` →
+    `LaboratorioEntryForm.jsx`. `EditarResultadoLaboratorioModal.jsx` no se tocó
+    — sigue siendo siempre modal, es un componente aparte que nunca fue de alta.
+  - Los tres primeros son dual: mismo componente, `esEdicion = Boolean(x)`
+    decide el armazón (overlay centrado si hay un registro existente, en línea
+    sin overlay si no) — idéntico patrón a `ConsultaEntryForm.jsx`.
+    `LaboratorioEntryForm.jsx` es alta únicamente (como ya era
+    `LaboratorioFormModal.jsx`), así que no tiene ninguna rama: se sacó el
+    overlay entero y listo.
+  - **Los botones "+ Agregar X"/"+ Cargar resultados" se movieron del header de
+    cada sección al final de su lista**, mismo lugar que "+ Nueva consulta" —
+    el header de las cuatro secciones quedó solo con el título, sin botón.
+    Siguen siendo `.btn-secondary` (no `.btn-primary`): la regla de "un solo
+    botón primario por pantalla" (RNF-01) ya la ocupa "+ Nueva consulta", que
+    sigue siendo la única acción primaria de toda la ficha del paciente — un
+    error real durante la implementación fue ponerlos en `.btn-primary` por
+    calcarlos de Consultas sin pensar en esa regla, corregido antes de commitear.
+  - **Mismo acento visual que las consultas** (ver el detalle de arriba) en
+    cada ítem de lista: `border-l-4 border-primary rounded-r-lg bg-surface`,
+    con `pl-4 py-3` en Antecedentes/Patologías/Medicación y `pl-3 py-2` en
+    Laboratorio (ítems más chicos y más numerosos ahí — una línea por
+    resultado bajo un título de tipo de examen compartido — así que se achicó
+    el padding a propósito para no alargar la sección de más; sigue siendo el
+    mismo lenguaje visual, no una excepción). Listas que antes usaban
+    `space-y-2`/`space-y-0.5` pasaron a `space-y-4` (Laboratorio a
+    `space-y-2`, mismo criterio de tamaño de arriba). La entrada en curso usa
+    el mismo `border-2 border-dashed border-primary rounded-lg bg-primary/10`
+    en las cuatro.
+  - **Medicación habitual, un caso particular**: como el atajo
+    "+ Agregar a medicación habitual" de una consulta (ver más arriba en el
+    modelo de datos de `medicacion`) abre esta misma sección con
+    `valoresIniciales` precargados, y ese atajo NUNCA pasa un `medicacion`
+    existente, `MedicacionEntryForm.jsx` lo trata igual que cualquier otra
+    alta — se abre en línea dentro de la sección "Medicación habitual" (no un
+    modal aparte, como antes de este cambio) y un `nuevaMedicacionRef` +
+    `scrollIntoView` (mismo mecanismo que `nuevaConsultaRef` para el atajo
+    `abrirNuevaConsulta` de `Pacientes.jsx`) lleva la vista hasta ahí — sin
+    esto, la entrada precargada podía abrirse fuera de la pantalla si el
+    médico estaba leyendo Consultas, más arriba en la página.
+  - **Verificado en el navegador** con el mismo método que Consultas
+    (Playwright temporal contra `pnpm dev`, cuenta real, desinstalado
+    después): las cuatro entradas nuevas abren sin ningún `.fixed.inset-0`
+    (cero overlays), el atajo de medicación desde una consulta hace scroll y
+    precarga correctamente (nombre, fecha, profesional), y no hay errores de
+    consola en ningún caso. No se guardó ningún registro de prueba contra
+    datos reales.
 
 - Cartel de alergias visible al abrir la ficha del paciente (RF-17)
 - Sistema de diseño con modo claro/oscuro (`design-system.md`)
@@ -1105,7 +1170,7 @@ Supabase, ver el resultado en pantalla) se siguen probando a mano, como siempre.
 La razón de por qué se empezó por acá: es donde vive la lógica con más historial real de
 bugs sutiles — en particular, el atajo de "Perfil lipídico" (`GRUPOS_CARGA` en
 `laboratorio.js`) que separa una carga en 4 filas con tipos reales de la base. Se
-extrajeron `combinarCampos`/`combinarSimple` de `LaboratorioFormModal.jsx` a
+extrajeron `combinarCampos`/`combinarSimple` de `LaboratorioEntryForm.jsx` a
 `laboratorio.js` como funciones puras exportadas específicamente para poder testearlas — si
 alguna vez se renombra un campo de `TIPOS_EXAMEN` sin actualizar el atajo, un test lo nota
 acá en vez de fallar como un `CHECK constraint` en producción.
@@ -1262,8 +1327,8 @@ compartido: `registrarAuditoria()` en `src/lib/auditoria.js`.
 **Orden de operaciones, a propósito — auditoría primero, cambio real después**: si el
 insert en `auditoria` falla, se corta ahí (se muestra el error y no se hace el UPDATE) en
 vez de dejar pasar un cambio sin auditar. Ver el patrón repetido en
-`ConsultaEntryForm.jsx`, `AntecedenteFormModal.jsx`, `PatologiaFormModal.jsx`,
-`MedicacionFormModal.jsx`, `EditarResultadoLaboratorioModal.jsx` y los cinco
+`ConsultaEntryForm.jsx`, `AntecedenteEntryForm.jsx`, `PatologiaEntryForm.jsx`,
+`MedicacionEntryForm.jsx`, `EditarResultadoLaboratorioModal.jsx` y los cinco
 `confirmarEliminar*` de `HistoriaClinica.jsx`.
 
 **`usuario_id` de la auditoría es siempre el profesional elegido en el selector de la
@@ -1280,9 +1345,9 @@ auditoría.
   `resultados_laboratorio.usuario_id`): el selector aparece siempre (alta y edición), pero
   solo el de ALTA se guarda en la columna del registro — el de edición alimenta
   ÚNICAMENTE la fila de `auditoria` de ese cambio puntual, la columna original nunca se
-  reescribe. `AntecedenteFormModal.jsx`/`MedicacionFormModal.jsx` muestran el mismo
+  reescribe. `AntecedenteEntryForm.jsx`/`MedicacionEntryForm.jsx` muestran el mismo
   selector con label dinámico ("¿Quién carga?" al dar de alta, "¿Quién edita?" al editar)
-  para dejar claro el rol distinto; `LaboratorioFormModal.jsx` (alta) y
+  para dejar claro el rol distinto; `LaboratorioEntryForm.jsx` (alta) y
   `EditarResultadoLaboratorioModal.jsx` (edición) son directamente dos componentes
   separados que logran lo mismo.
 - **Se reescribe en cada edición** (`consultas.profesional_id`, `patologias.usuario_id`):
@@ -1290,14 +1355,14 @@ auditoría.
   realmente), no solo metadato de auditoría — el mismo valor sirve para las dos cosas: se
   guarda como columna del registro (pisando el anterior) Y se reutiliza como `usuario_id`
   de la fila de auditoría cuando la operación es una edición. `ConsultaEntryForm.jsx` y
-  `PatologiaFormModal.jsx` siguen este patrón.
+  `PatologiaEntryForm.jsx` siguen este patrón.
 
   Cuál usar para una tabla nueva: si la columna representa **contenido clínico** que
   puede necesitar corrección (como "quién atendió"), reescribir. Si es **metadato de
   quién cargó el dato originalmente** (más parecido a una firma de alta), inmutable.
 
 **Edición de `resultados_laboratorio`, una simplificación deliberada**: a diferencia de
-`LaboratorioFormModal.jsx` (que arma el resultado combinando varios campos — ver
+`LaboratorioEntryForm.jsx` (que arma el resultado combinando varios campos — ver
 `combinarCampos`/`combinarSimple` en `src/lib/laboratorio.js` — según el tipo de examen),
 `EditarResultadoLaboratorioModal.jsx` edita directo el texto YA combinado que quedó
 guardado (`tipo_examen` de solo lectura, `fecha` y `resultado` editables). No reconstruye
