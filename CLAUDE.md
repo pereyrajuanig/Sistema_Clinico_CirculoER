@@ -1386,13 +1386,31 @@ rechazado por GitHub. Si alguna sesión anterior de este mismo documento (o el h
 la conversación) sugiere "commit + push a main", esa parte quedó desactualizada por este
 cambio — el flujo correcto de acá en adelante es:
 
-1. Crear una rama nueva (`git checkout -b nombre-de-la-rama`), commitear ahí.
+1. Crear una rama nueva con nombre descriptivo del cambio (`git checkout -b
+   feature/nombre-del-cambio` o `fix/nombre-del-bug`, según corresponda —
+   partiendo siempre de `main` actualizado), commitear ahí.
 2. Pushear esa rama (`git push -u origin nombre-de-la-rama`).
 3. Abrir un Pull Request hacia `main` (`gh pr create` si `gh` está instalado y
    autenticado, si no, el link que devuelve `git push` o directo en GitHub).
 4. Esperar a que el check `ci` (el job de `.github/workflows/ci.yml` — lint + test +
    build, ver esa sección más abajo) quede en verde.
 5. Mergear el PR (desde GitHub, o `gh pr merge` si está disponible).
+
+**Nunca dar un cambio por "terminado" con solo pushear la rama** — hasta que el PR se
+mergea a `main` con el check `ci` en verde, el cambio no llega a Vercel (que solo
+despliega lo que hay en `main`). Al cerrar cualquier tarea que haya tocado código, decir
+explícitamente que el cambio quedó en una rama esperando el PR/merge, no desplegado
+todavía — y si no se pudo crear el PR (ver el gotcha de `gh` más abajo), dejar el link o
+los pasos exactos para que el usuario lo abra a mano, no asumir que alguien más se va a
+ocupar de eso.
+
+**`gh` — instalado (`winget install -e --id GitHub.cli`) pero sin autenticar**: crear el
+PR yo mismo con `gh pr create` requiere `gh auth login`, que pide un flujo interactivo
+por navegador o un token — ninguna de las dos cosas es algo que deba iniciar por mi
+cuenta (generar o pedir un token es una acción de credenciales que le corresponde
+decidir al usuario). Mientras `gh auth status` siga sin loguear a nadie, el paso 3 cae en
+el fallback: el link que imprime `git push` al pushear una rama nueva, o crear el PR a
+mano desde GitHub.
 
 **Por qué existe esto**: Vercel (donde se despliega la app) no tiene "Deployment
 Checks" en el plan gratuito — sin esto, un push a `main` con el build roto se
@@ -1402,8 +1420,8 @@ sin pasar antes por un PR con el check `ci` en verde, código roto nunca llega a
 ahí para empezar.
 
 **Configuración exacta de la regla** (GitHub → Settings → Branches → regla para
-`main`, configurada a mano por el usuario, no por mí — no tengo `gh` instalado ni
-autenticado en este entorno para aplicarlo por API):
+`main`, configurada a mano por el usuario, no por mí — ni siquiera con `gh` instalado
+tengo forma de autenticarlo para aplicar esto por API, ver el gotcha de arriba):
 - **Require a pull request before merging**, con **0 aprobaciones requeridas** — el
   repo tiene un solo desarrollador, exigir aprobaciones dejaría todo bloqueado sin
   nadie que pueda aprobar. Alcanza con que el PR exista.
