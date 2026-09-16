@@ -69,8 +69,11 @@ export default function HistoriaClinica() {
   // ConsultaEntryForm.jsx. `editingConsulta` (más abajo) sigue abriendo un modal, eso no
   // cambió: solo el alta se integró al flujo de la página.
   const [mostrandoNuevaConsulta, setMostrandoNuevaConsulta] = useState(false)
-  const [mostrandoNuevoAntecedente, setMostrandoNuevoAntecedente] = useState(false)
-  const [mostrandoNuevaPatologia, setMostrandoNuevaPatologia] = useState(false)
+  // Antecedentes y Patologías comparten un solo botón/formulario de alta (pedido explícito
+  // del cliente) — `tipoAlta` decide cuál de los dos formularios existentes
+  // (AntecedenteEntryForm/PatologiaEntryForm, sin tocar) se renderiza debajo del selector.
+  const [mostrandoAltaAntecedentePatologia, setMostrandoAltaAntecedentePatologia] = useState(false)
+  const [tipoAlta, setTipoAlta] = useState('antecedente')
   const [mostrandoNuevaMedicacion, setMostrandoNuevaMedicacion] = useState(false)
   const [mostrandoNuevoResultado, setMostrandoNuevoResultado] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -194,6 +197,14 @@ export default function HistoriaClinica() {
     setShowEditModal(false)
   }
 
+  // Cierra el alta compartida de Antecedentes/Patologías y resetea el tipo seleccionado —
+  // así la próxima vez que se abre arranca siempre en "Antecedente" (el orden en que
+  // aparecen los dos botones del selector).
+  function cerrarAltaAntecedentePatologia() {
+    setMostrandoAltaAntecedentePatologia(false)
+    setTipoAlta('antecedente')
+  }
+
   function handleAntecedenteGuardado(antecedenteGuardado) {
     setAntecedentes((prev) => {
       const existe = prev.some((a) => a.id === antecedenteGuardado.id)
@@ -201,7 +212,7 @@ export default function HistoriaClinica() {
         ? prev.map((a) => (a.id === antecedenteGuardado.id ? antecedenteGuardado : a))
         : [...prev, antecedenteGuardado]
     })
-    setMostrandoNuevoAntecedente(false)
+    cerrarAltaAntecedentePatologia()
     setEditingAntecedente(null)
   }
 
@@ -243,7 +254,7 @@ export default function HistoriaClinica() {
         : [...prev, patologiaGuardada]
       return ordenarPatologias(siguiente)
     })
-    setMostrandoNuevaPatologia(false)
+    cerrarAltaAntecedentePatologia()
     setEditingPatologia(null)
   }
 
@@ -560,21 +571,21 @@ export default function HistoriaClinica() {
         </section>
 
         {/* Antecedentes y Patologías comparten un solo recuadro (pedido explícito del
-            cliente) — dos subsecciones independientes (cada una con su propia lista y su
-            propio alta en línea), no una lista combinada: son datos distintos (historia
-            pasada vs. diagnósticos activos), solo la caja visual se unificó. Mismo
-            concepto y estilo visual que Consultas (ver CLAUDE.md): el alta se integra en
-            línea al final de cada lista, sin modal, con el mismo acento a la izquierda en
-            las entradas ya cargadas y el mismo recuadro punteado para la que se está
-            escribiendo. */}
+            cliente) — dos subsecciones de solo lectura (cada una con su propia lista) más
+            UN SOLO alta compartida al final, con un selector Antecedente/Patología (mismo
+            estilo que "¿Quién carga?") que decide cuál de los dos formularios existentes
+            (AntecedenteEntryForm/PatologiaEntryForm, sin tocar su lógica interna) se
+            muestra debajo. Mismo concepto y estilo visual que Consultas (ver CLAUDE.md):
+            sin modal, con el mismo acento a la izquierda en las entradas ya cargadas y el
+            mismo recuadro punteado para la que se está escribiendo. */}
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6 space-y-6">
           <h2 className="text-lg font-semibold text-text-primary">Antecedentes y Patologías</h2>
 
           <div>
             <h3 className="text-base font-semibold text-text-primary mb-3">Antecedentes</h3>
 
-            {antecedentes.length === 0 && !mostrandoNuevoAntecedente && (
-              <p className="text-base text-text-secondary mb-4">No hay antecedentes registrados.</p>
+            {antecedentes.length === 0 && (
+              <p className="text-base text-text-secondary">No hay antecedentes registrados.</p>
             )}
 
             <div className="space-y-4">
@@ -612,28 +623,14 @@ export default function HistoriaClinica() {
                   </div>
                 </div>
               ))}
-
-              {mostrandoNuevoAntecedente ? (
-                <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6">
-                  <AntecedenteEntryForm
-                    pacienteId={id}
-                    onClose={() => setMostrandoNuevoAntecedente(false)}
-                    onSaved={handleAntecedenteGuardado}
-                  />
-                </div>
-              ) : (
-                <button onClick={() => setMostrandoNuevoAntecedente(true)} className="btn-secondary">
-                  + Agregar antecedente
-                </button>
-              )}
             </div>
           </div>
 
           <div>
             <h3 className="text-base font-semibold text-text-primary mb-3">Patologías</h3>
 
-            {patologias.length === 0 && !mostrandoNuevaPatologia && (
-              <p className="text-base text-text-secondary mb-4">No hay patologías registradas.</p>
+            {patologias.length === 0 && (
+              <p className="text-base text-text-secondary">No hay patologías registradas.</p>
             )}
 
             <div className="space-y-4">
@@ -679,22 +676,60 @@ export default function HistoriaClinica() {
                   </div>
                 </div>
               ))}
-
-              {mostrandoNuevaPatologia ? (
-                <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6">
-                  <PatologiaEntryForm
-                    pacienteId={id}
-                    onClose={() => setMostrandoNuevaPatologia(false)}
-                    onSaved={handlePatologiaGuardada}
-                  />
-                </div>
-              ) : (
-                <button onClick={() => setMostrandoNuevaPatologia(true)} className="btn-secondary">
-                  + Agregar patología
-                </button>
-              )}
             </div>
           </div>
+
+          {mostrandoAltaAntecedentePatologia ? (
+            <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm text-text-secondary">
+                  ¿Qué querés agregar? <span className="text-text-primary">*</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    ['antecedente', 'Antecedente'],
+                    ['patologia', 'Patología'],
+                  ].map(([valor, etiqueta]) => (
+                    <button
+                      key={valor}
+                      type="button"
+                      onClick={() => setTipoAlta(valor)}
+                      className={
+                        'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
+                        (tipoAlta === valor
+                          ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
+                          : 'bg-surface text-text-primary border-border hover:bg-background')
+                      }
+                      style={{ minHeight: '44px' }}
+                    >
+                      {etiqueta}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {tipoAlta === 'antecedente' ? (
+                <AntecedenteEntryForm
+                  pacienteId={id}
+                  onClose={cerrarAltaAntecedentePatologia}
+                  onSaved={handleAntecedenteGuardado}
+                />
+              ) : (
+                <PatologiaEntryForm
+                  pacienteId={id}
+                  onClose={cerrarAltaAntecedentePatologia}
+                  onSaved={handlePatologiaGuardada}
+                />
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => setMostrandoAltaAntecedentePatologia(true)}
+              className="btn-secondary"
+            >
+              + Agregar antecedente o patología
+            </button>
+          )}
         </section>
 
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">

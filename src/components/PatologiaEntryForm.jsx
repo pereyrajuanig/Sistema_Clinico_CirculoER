@@ -13,7 +13,6 @@ export default function PatologiaEntryForm({ pacienteId, patologia, onClose, onS
   const [profesionalId, setProfesionalId] = useState(patologia?.usuario_id || null)
   const [nombre, setNombre] = useState(patologia?.nombre || '')
   const [estado, setEstado] = useState(patologia?.estado || 'Activa')
-  const [fechaDiagnostico, setFechaDiagnostico] = useState(patologia?.fecha_diagnostico || '')
   const [observaciones, setObservaciones] = useState(patologia?.observaciones || '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -83,10 +82,14 @@ export default function PatologiaEntryForm({ pacienteId, patologia, onClose, onS
       }
     }
 
+    // fecha_diagnostico se sacó del formulario a pedido del cliente (ver CLAUDE.md) — la
+    // columna sigue existiendo en la base sin tocar, HistoriaClinica.jsx la sigue mostrando
+    // si una patología vieja ya la tenía cargada, pero no se pide más acá. Al no incluirla
+    // en el payload, editar una patología vieja con el dato cargado no lo borra — Supabase
+    // deja esa columna tal como estaba.
     const payload = {
       nombre,
       estado,
-      fecha_diagnostico: fechaDiagnostico || null,
       observaciones: observaciones || null,
       usuario_id: profesionalId,
     }
@@ -158,16 +161,6 @@ export default function PatologiaEntryForm({ pacienteId, patologia, onClose, onS
             </option>
           ))}
         </select>
-      </div>
-
-      <div className="space-y-1">
-        <label className="text-sm text-text-secondary">Fecha de diagnóstico</label>
-        <input
-          type="date"
-          value={fechaDiagnostico}
-          onChange={(e) => setFechaDiagnostico(e.target.value)}
-          className="input"
-        />
       </div>
 
       <div className="space-y-1">

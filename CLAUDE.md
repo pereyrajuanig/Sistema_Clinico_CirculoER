@@ -718,14 +718,52 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
     del cliente, cambio posterior a todo lo de arriba): un único `<section>`
     con el título "Antecedentes y Patologías", con las dos listas como
     subsecciones internas (`<h3>` "Antecedentes" / `<h3>` "Patologías") — **no**
-    se fusionó en una sola lista, cada una conserva su propia lista, su propio
-    alta en línea (`AntecedenteEntryForm.jsx`/`PatologiaEntryForm.jsx` sin
-    tocar) y sus propios botones de Editar/Eliminar; solo la caja visual
-    exterior (`bg-surface border border-border rounded-lg`) se unificó, porque
-    siguen siendo datos distintos (historia pasada vs. diagnósticos activos
-    del paciente hoy — ver el modelo de datos más abajo). Medicación habitual y
+    se fusionó en una sola lista, cada una conserva su propia lista y sus
+    propios botones de Editar/Eliminar; solo la caja visual exterior
+    (`bg-surface border border-border rounded-lg`) se unificó, porque siguen
+    siendo datos distintos (historia pasada vs. diagnósticos activos del
+    paciente hoy — ver el modelo de datos más abajo). Medicación habitual y
     Laboratorio quedaron como secciones aparte, sin tocar — no se pidió
     unificarlas también.
+  - **El alta también se unificó a un solo botón, en una segunda vuelta sobre
+    este mismo cambio** (pedido explícito del cliente: "quiero que sea un solo
+    botón para las dos cosas... se pueda seleccionar si antecedente o
+    patología y desp[ués] texto libre"): "+ Agregar antecedente" y
+    "+ Agregar patología" (dos botones, uno al final de cada lista) se
+    reemplazaron por un único "+ Agregar antecedente o patología" al final de
+    la sección completa. Al abrirlo, el mismo recuadro punteado muestra un
+    selector "¿Qué querés agregar?" — dos botones "Antecedente"/"Patología"
+    con el mismo estilo visual que "¿Quién carga?" (`bg-accent-marino` cuando
+    está elegido) —, y debajo, según lo elegido, exactamente el mismo
+    `AntecedenteEntryForm.jsx` o `PatologiaEntryForm.jsx` de siempre, **sin
+    tocar su lógica interna** (mismos campos, mismo submit, misma auditoría) —
+    el selector nuevo solo decide cuál de los dos componentes renderizar,
+    `HistoriaClinica.jsx` no ganó ninguna tabla ni lógica de guardado nueva.
+    Estado inicial `tipoAlta = 'antecedente'` (primer botón de la fila), se
+    resetea a ese valor cada vez que se cierra el alta (`cerrarAltaAntecedentePatologia()`)
+    para que la próxima vez arranque siempre igual.
+
+    **Por qué NO se unificaron los campos de los dos formularios** (aclarado
+    explícitamente con el cliente antes de implementar, por el riesgo de
+    seguridad clínica que tenía la lectura más literal del pedido): el campo
+    `tipo` de Antecedentes (alergia/quirúrgico/familiar/hábito/vacuna) es lo
+    que arma el cartel de alergias (RF-17) al abrir la ficha — si se
+    reemplazaba por un "Estado" genérico compartido con Patologías, se perdía
+    la forma de detectar alergias automáticamente. Se confirmó con el cliente
+    y quedó así: **Antecedente** sigue pidiendo Tipo + Descripción (sin
+    Estado, no aplica a historia pasada); **Patología** sigue pidiendo
+    Nombre + Estado + Observaciones, **sin Fecha de diagnóstico** (ese campo
+    sí se sacó, pedido explícito y sin ambigüedad) — mismo criterio que
+    `examen_fisico`/`diagnostico`/`medicacion` en `ConsultaEntryForm.jsx` más
+    arriba: la columna `fecha_diagnostico` sigue existiendo en la base sin
+    tocar, y el bloque que la muestra en la lista de Patologías
+    (`HistoriaClinica.jsx`) sigue ahí por si una patología vieja ya tenía el
+    dato cargado, pero no se pide más al cargar o editar.
+  - **Verificado en el navegador** (mismo método Playwright temporal de
+    siempre): el selector por defecto muestra Tipo+Descripción (Antecedente),
+    cambiar a Patología muestra Estado+Observaciones y confirma que "Fecha de
+    diagnóstico" NO aparece, volver a Antecedente restaura sus campos, y
+    cancelar devuelve el botón único — sin errores de consola en ningún paso.
 
 - Cartel de alergias visible al abrir la ficha del paciente (RF-17)
 - Sistema de diseño con modo claro/oscuro (`design-system.md`)
