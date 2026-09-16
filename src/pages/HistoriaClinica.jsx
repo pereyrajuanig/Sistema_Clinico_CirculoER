@@ -559,133 +559,141 @@ export default function HistoriaClinica() {
           </div>
         </section>
 
-        {/* Mismo concepto y mismo estilo visual que Consultas (ver CLAUDE.md): el alta se
-            integra en línea al final de la lista, sin modal, con el mismo acento a la
-            izquierda en las entradas ya cargadas y el mismo recuadro punteado para la que
-            se está escribiendo. */}
-        <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Antecedentes</h2>
+        {/* Antecedentes y Patologías comparten un solo recuadro (pedido explícito del
+            cliente) — dos subsecciones independientes (cada una con su propia lista y su
+            propio alta en línea), no una lista combinada: son datos distintos (historia
+            pasada vs. diagnósticos activos), solo la caja visual se unificó. Mismo
+            concepto y estilo visual que Consultas (ver CLAUDE.md): el alta se integra en
+            línea al final de cada lista, sin modal, con el mismo acento a la izquierda en
+            las entradas ya cargadas y el mismo recuadro punteado para la que se está
+            escribiendo. */}
+        <section className="bg-surface border border-border rounded-lg p-4 sm:p-6 space-y-6">
+          <h2 className="text-lg font-semibold text-text-primary">Antecedentes y Patologías</h2>
 
-          {antecedentes.length === 0 && !mostrandoNuevoAntecedente && (
-            <p className="text-base text-text-secondary mb-4">No hay antecedentes registrados.</p>
-          )}
+          <div>
+            <h3 className="text-base font-semibold text-text-primary mb-3">Antecedentes</h3>
 
-          <div className="space-y-4">
-            {antecedentes.map((a) => (
-              <div
-                key={a.id}
-                className="border-l-4 border-primary rounded-r-lg bg-surface pl-4 py-3 text-base flex items-start justify-between gap-2"
-              >
-                <div className="flex gap-2">
-                  <span className="shrink-0 bg-border/50 text-text-primary rounded-md px-2 py-0.5 text-sm font-medium">
-                    {TIPOS_ANTECEDENTE[a.tipo] || a.tipo}
-                  </span>
-                  <span className="text-text-primary">
-                    {a.descripcion}
-                    {a.profesionales?.nombre && (
-                      <span className="block text-text-secondary text-sm">
-                        Cargado por {a.profesionales.nombre}
-                      </span>
-                    )}
-                  </span>
-                </div>
-                <div className="flex gap-3 shrink-0">
-                  <button
-                    onClick={() => setEditingAntecedente(a)}
-                    className="text-sm text-text-secondary hover:text-text-primary underline"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => setAntecedenteAEliminar(a)}
-                    className="text-sm text-text-primary underline"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {mostrandoNuevoAntecedente ? (
-              <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6">
-                <AntecedenteEntryForm
-                  pacienteId={id}
-                  onClose={() => setMostrandoNuevoAntecedente(false)}
-                  onSaved={handleAntecedenteGuardado}
-                />
-              </div>
-            ) : (
-              <button onClick={() => setMostrandoNuevoAntecedente(true)} className="btn-secondary">
-                + Agregar antecedente
-              </button>
+            {antecedentes.length === 0 && !mostrandoNuevoAntecedente && (
+              <p className="text-base text-text-secondary mb-4">No hay antecedentes registrados.</p>
             )}
+
+            <div className="space-y-4">
+              {antecedentes.map((a) => (
+                <div
+                  key={a.id}
+                  className="border-l-4 border-primary rounded-r-lg bg-surface pl-4 py-3 text-base flex items-start justify-between gap-2"
+                >
+                  <div className="flex gap-2">
+                    <span className="shrink-0 bg-border/50 text-text-primary rounded-md px-2 py-0.5 text-sm font-medium">
+                      {TIPOS_ANTECEDENTE[a.tipo] || a.tipo}
+                    </span>
+                    <span className="text-text-primary">
+                      {a.descripcion}
+                      {a.profesionales?.nombre && (
+                        <span className="block text-text-secondary text-sm">
+                          Cargado por {a.profesionales.nombre}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex gap-3 shrink-0">
+                    <button
+                      onClick={() => setEditingAntecedente(a)}
+                      className="text-sm text-text-secondary hover:text-text-primary underline"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => setAntecedenteAEliminar(a)}
+                      className="text-sm text-text-primary underline"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {mostrandoNuevoAntecedente ? (
+                <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6">
+                  <AntecedenteEntryForm
+                    pacienteId={id}
+                    onClose={() => setMostrandoNuevoAntecedente(false)}
+                    onSaved={handleAntecedenteGuardado}
+                  />
+                </div>
+              ) : (
+                <button onClick={() => setMostrandoNuevoAntecedente(true)} className="btn-secondary">
+                  + Agregar antecedente
+                </button>
+              )}
+            </div>
           </div>
-        </section>
 
-        <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Patologías</h2>
+          <div>
+            <h3 className="text-base font-semibold text-text-primary mb-3">Patologías</h3>
 
-          {patologias.length === 0 && !mostrandoNuevaPatologia && (
-            <p className="text-base text-text-secondary mb-4">No hay patologías registradas.</p>
-          )}
-
-          <div className="space-y-4">
-            {patologias.map((p) => (
-              <div
-                key={p.id}
-                className="border-l-4 border-primary rounded-r-lg bg-surface pl-4 py-3 text-base flex items-start justify-between gap-2"
-              >
-                <div className="flex gap-2 flex-wrap">
-                  <span
-                    className={
-                      'shrink-0 rounded-md px-2 py-0.5 text-sm border ' + claseEstadoPatologia(p.estado)
-                    }
-                  >
-                    {p.estado}
-                  </span>
-                  <span className="text-text-primary">
-                    {p.nombre}
-                    {p.fecha_diagnostico && (
-                      <span className="text-text-secondary">
-                        {' '}
-                        — diagnosticada {formatFecha(p.fecha_diagnostico)}
-                      </span>
-                    )}
-                    {p.observaciones && (
-                      <span className="block text-text-secondary text-sm">{p.observaciones}</span>
-                    )}
-                  </span>
-                </div>
-                <div className="flex gap-3 shrink-0">
-                  <button
-                    onClick={() => setEditingPatologia(p)}
-                    className="text-sm text-text-secondary hover:text-text-primary underline"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => setPatologiaAEliminar(p)}
-                    className="text-sm text-text-primary underline"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {mostrandoNuevaPatologia ? (
-              <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6">
-                <PatologiaEntryForm
-                  pacienteId={id}
-                  onClose={() => setMostrandoNuevaPatologia(false)}
-                  onSaved={handlePatologiaGuardada}
-                />
-              </div>
-            ) : (
-              <button onClick={() => setMostrandoNuevaPatologia(true)} className="btn-secondary">
-                + Agregar patología
-              </button>
+            {patologias.length === 0 && !mostrandoNuevaPatologia && (
+              <p className="text-base text-text-secondary mb-4">No hay patologías registradas.</p>
             )}
+
+            <div className="space-y-4">
+              {patologias.map((p) => (
+                <div
+                  key={p.id}
+                  className="border-l-4 border-primary rounded-r-lg bg-surface pl-4 py-3 text-base flex items-start justify-between gap-2"
+                >
+                  <div className="flex gap-2 flex-wrap">
+                    <span
+                      className={
+                        'shrink-0 rounded-md px-2 py-0.5 text-sm border ' + claseEstadoPatologia(p.estado)
+                      }
+                    >
+                      {p.estado}
+                    </span>
+                    <span className="text-text-primary">
+                      {p.nombre}
+                      {p.fecha_diagnostico && (
+                        <span className="text-text-secondary">
+                          {' '}
+                          — diagnosticada {formatFecha(p.fecha_diagnostico)}
+                        </span>
+                      )}
+                      {p.observaciones && (
+                        <span className="block text-text-secondary text-sm">{p.observaciones}</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex gap-3 shrink-0">
+                    <button
+                      onClick={() => setEditingPatologia(p)}
+                      className="text-sm text-text-secondary hover:text-text-primary underline"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => setPatologiaAEliminar(p)}
+                      className="text-sm text-text-primary underline"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {mostrandoNuevaPatologia ? (
+                <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6">
+                  <PatologiaEntryForm
+                    pacienteId={id}
+                    onClose={() => setMostrandoNuevaPatologia(false)}
+                    onSaved={handlePatologiaGuardada}
+                  />
+                </div>
+              ) : (
+                <button onClick={() => setMostrandoNuevaPatologia(true)} className="btn-secondary">
+                  + Agregar patología
+                </button>
+              )}
+            </div>
           </div>
         </section>
 
@@ -703,10 +711,7 @@ export default function HistoriaClinica() {
                   <MedicacionItem
                     key={m.id}
                     medicacion={m}
-                    onEditar={() => {
-                      setEditingMedicacion(m)
-                      setMedicacionValoresIniciales(null)
-                    }}
+                    onEditar={() => setEditingMedicacion(m)}
                     onEliminar={() => setMedicacionAEliminar(m)}
                   />
                 ))}
@@ -725,10 +730,7 @@ export default function HistoriaClinica() {
                   <MedicacionItem
                     key={m.id}
                     medicacion={m}
-                    onEditar={() => {
-                      setEditingMedicacion(m)
-                      setMedicacionValoresIniciales(null)
-                    }}
+                    onEditar={() => setEditingMedicacion(m)}
                     onEliminar={() => setMedicacionAEliminar(m)}
                   />
                 ))}
