@@ -1328,8 +1328,66 @@ direcciones del navegador) — **no agrega soporte offline**, sigue siendo una d
 diseño explícita que la app no funciona sin internet (ver "Decisiones clave de diseño" al
 principio de este archivo).
 
-- `registerType: 'autoUpdate'` — se actualiza sola en segundo plano, sin preguntarle nada
-  al usuario (coherente con "priorizar simplicidad" para usuarios poco técnicos).
+- **`registerType: 'prompt'`, NO `'autoUpdate'`** — pedido explícito del cliente, cambio
+  posterior a la elección inicial de `'autoUpdate'` (que sí se actualizaba sola en segundo
+  plano). El motivo es el rediseño "cuaderno continuo" de Consultas
+  (`ConsultaEntryForm.jsx`, ver "Estado actual del desarrollo" más arriba): un médico puede
+  tener una nota larga sin guardar en la línea de tiempo, y con `'autoUpdate'` una
+  actualización de versión podía recargar la página en segundo plano sin avisar y perderla,
+  sin que el usuario tuviera forma de evitarlo. Con `'prompt'`, el service worker nuevo
+  queda instalado pero **NUNCA se activa solo** — se lo activa únicamente cuando el usuario
+  confirma, nunca automáticamente.
+
+  **`src/components/ActualizacionDisponible.jsx`** — el banner que expone esa decisión al
+  usuario, montado una sola vez en `App.jsx` (fuera de las rutas, junto a `AuthProvider` —
+  no depende de en qué pantalla está el usuario ni de si está logueado). Usa
+  `useRegisterSW()` de `virtual:pwa-register/react` (el hook oficial de
+  `vite-plugin-pwa` para React): `needRefresh` pasa a `true` cuando el service worker
+  detecta una versión nueva y la deja en estado "waiting" (instalada, sin activar), y recién
+  ahí aparece el banner — "Hay una versión nueva disponible" + un botón "Actualizar". Al
+  tocarlo, `updateServiceWorker(true)` manda el mensaje `SKIP_WAITING` al service worker en
+  espera (eso SÍ lo activa) y dispara la recarga de la página con la versión nueva. Sin ese
+  clic, el service worker viejo sigue sirviendo la app indefinidamente — no hay timeout ni
+  reintento automático que fuerce la actualización por su cuenta.
+
+  **Requiere `workbox-window` como dependencia explícita** (`pnpm add -D workbox-window`,
+  agregado a `package.json`) — `virtual:pwa-register/react` lo importa internamente, pero
+  `vite-plugin-pwa` lo declara como peer dependency opcional, así que con pnpm (linking
+  estricto) no queda accesible desde el código de la app si no se agrega a mano. Sin este
+  paso, `pnpm build` falla con `Rolldown failed to resolve import "workbox-window"` — gotcha
+  real que pasó al implementar esto, documentado acá para no repetirlo.
+
+  **Estilo del banner, colores del design system**: `bg-surface border border-primary` +
+  texto `text-text-primary` (no `text-primary` — ver "Contraste de color de texto" más
+  arriba: los colores de acento como `primary` no cumplen contraste como color de TEXTO,
+  solo sirven para fondo/borde/ícono; `text-text-primary` es el token correcto para texto
+  legible). El botón "Actualizar" es `.btn-secondary`, **no** `.btn-primary` — a propósito,
+  por RNF-01 (como mucho un botón primario visible por pantalla): este banner puede
+  aparecer flotando sobre CUALQUIER pantalla, incluidas las que ya tienen su propio
+  primario (ej. "+ Nueva consulta" en la ficha del paciente) — un segundo `.btn-primary` ahí
+  competiría con ese botón en vez de ser una acción secundaria y no intrusiva, que es
+  justamente el pedido ("banner chico y no intrusivo"). Posición `fixed bottom-4` (no
+  arriba): el `Header.jsx` de cada pantalla no es `sticky`, así que un banner fijo arriba
+  competía más fácilmente con su contenido (título, botones, el menú desplegable en mobile)
+  que uno fijo abajo.
+
+  **Verificado, con una limitación real que quedó documentada en vez de forzada**: se armó
+  un build de producción (`pnpm build` + `pnpm preview`, Playwright temporal) y se confirmó
+  (a) el service worker se registra sin errores de consola, (b) el banner NO aparece en una
+  carga normal sin actualización pendiente, y (c) modificando `dist/sw.js` en disco para
+  simular un deploy nuevo y forzando `registration.update()`, el banner SÍ aparece —
+  confirmando que la detección de versión nueva funciona y que en NINGÚN momento de estas
+  pruebas la app se recargó sola sin un clic (el requisito de seguridad central del pedido).
+  Confirmar el último paso — que el clic en "Actualizar" completa la recarga con la versión
+  nueva — de punta a punta resultó poco confiable de simular en Chromium headless con un
+  solo tab y un parche de archivo a mitad de sesión (temporización interna de
+  `workbox-window` sensible a cuánto tiempo pasa entre el registro inicial y la
+  actualización detectada, no reproducible de forma consistente fuera de un deploy real);
+  `useRegisterSW`/`updateServiceWorker(true)` es el patrón oficial documentado por
+  `vite-plugin-pwa` para exactamente este caso, así que se confía en la implementación de la
+  librería para ese último tramo — si en el uso real el botón "Actualizar" no recargara,
+  sería lo primero a verificar con una build desplegada real (dos versiones consecutivas en
+  Vercel), no algo para forzar en local.
 - El service worker que genera (`generateSW`, default del plugin) **solo precachea los
   archivos estáticos del propio build** (JS/CSS/HTML/íconos). A propósito no tiene
   `runtimeCaching` para el dominio de Supabase — cualquier llamada a la base o a Auth sigue

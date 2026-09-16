@@ -10,7 +10,14 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt', no 'autoUpdate' — pedido explícito del cliente, ver CLAUDE.md
+      // (sección PWA). Con 'autoUpdate' el service worker se activa solo en segundo plano
+      // y la próxima recarga de ruta usa la versión nueva sin avisar; con el rediseño
+      // "cuaderno continuo" (ConsultaEntryForm.jsx) un médico puede tener una nota larga
+      // sin guardar en la línea de tiempo, y una recarga silenciosa la perdía sin ningún
+      // aviso. `src/components/ActualizacionDisponible.jsx` muestra el banner que deja la
+      // decisión de cuándo actualizar en manos del usuario.
+      registerType: 'prompt',
       includeAssets: ['favicon-96x96.png', 'apple-touch-icon.png'],
       // No hay soporte offline (decisión de diseño en CLAUDE.md: el consultorio tiene
       // internet estable) — este manifest existe para poder "instalar" la app como
