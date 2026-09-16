@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from '@/lib/AuthContext'
 import { ThemeProvider } from '@/lib/ThemeContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import ActualizacionDisponible from '@/components/ActualizacionDisponible'
 
 // Code splitting por ruta: cada pantalla se pide recién cuando se navega a ella, en vez de
 // sumarse todas al bundle inicial — el peso real de esta app está en las pantallas, no en
@@ -26,6 +27,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
+        <ActualizacionDisponible />
         <BrowserRouter>
           <Suspense fallback={<CargandoPantalla />}>
             <Routes>
