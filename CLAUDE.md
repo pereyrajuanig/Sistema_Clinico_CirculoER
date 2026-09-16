@@ -808,26 +808,37 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
     (`border-l-4` + fondo 15% del color elegido, en vez del `border-primary`
     neutro de siempre — `claseColorResaltado()` en `resaltado.js` devuelve
     `null` si no hay color, y quien la llama cae al estilo por defecto en ese
-    caso): a pedido del cliente, también aparecen en el panel resumen de
+    caso): a pedido del cliente, también aparece en el panel resumen de
     arriba de la ficha (el mismo que ya mostraba Patologías activas +
-    Medicación activa), en una subsección nueva "Antecedentes y patologías
-    resaltados" — **sin filtrar por estado** (`antecedentesResaltados`/
-    `patologiasResaltadas` en `HistoriaClinica.jsx` solo filtran por
-    `color` truthy, no por `tipo`/`estado`): el color es una marca del
-    profesional, independiente de si el antecedente/patología está
-    activo/resuelto o de qué tipo es — una patología ya resuelta pero
-    resaltada sigue apareciendo ahí. Ese panel entero (que antes solo se
-    mostraba si había patologías activas o medicación activa) ahora también
-    se muestra si hay algo resaltado, aunque no haya nada activo.
+    Medicación activa).
+
+    **Una sola fila por patología, nunca duplicada — corregido tras un primer
+    intento que sí las duplicaba** (pedido explícito del cliente: "si se
+    resalta, que se resalte esa línea, no que aparezca de nuevo abajo"): la
+    primera versión de esto agregaba una subsección aparte "Antecedentes y
+    patologías resaltados" con su propia lista, así que una patología Activa
+    Y resaltada aparecía dos veces en el panel (una en "Patologías activas",
+    otra en "resaltados"). Se unificó en una sola lista bajo el título
+    **"Patologías y Antecedentes"** — `patologiasParaResumen` en
+    `HistoriaClinica.jsx` filtra `estado === 'Activa' || color` (una sola
+    entrada por patología, sea por estar activa, por tener color, o las dos
+    cosas a la vez) y el color se aplica directamente sobre esa fila
+    (`claseColorResaltado(p.color) || 'border-transparent'` — sin color,
+    borde transparente, mismo alto/padding que las resaltadas para que la
+    lista quede prolija). Antecedentes no tienen estado "activo", así que
+    `antecedentesResaltados` sigue filtrando solo por `color` — un
+    antecedente sin color puesto nunca aparece en este panel, con o sin este
+    cambio.
   - **Verificado en el navegador, con una limitación real por la base
     todavía sin la columna `color`**: se confirmó con Playwright temporal que
     los 4 círculos de color aparecen en los dos formularios (Antecedente y
     Patología), que elegir uno lo marca visualmente (anillo
-    `border-accent-marino`) y que se ve bien en modo claro y oscuro — sin
-    errores de consola. **No se probó un alta/edición real contra la base**
-    porque la columna todavía no existe en producción (correrla es una
-    acción manual del usuario, ver arriba) — probarlo hubiera fallado a
-    propósito, no por un bug del código.
+    `border-accent-marino`), que se ve bien en modo claro y oscuro, y que el
+    título viejo "Antecedentes y patologías resaltados" ya no aparece en
+    ningún lado — sin errores de consola. **No se probó un alta/edición real
+    contra la base** porque la columna todavía no existe en producción
+    (correrla es una acción manual del usuario, ver arriba) — probarlo
+    hubiera fallado a propósito, no por un bug del código.
 
 - Cartel de alergias visible al abrir la ficha del paciente (RF-17)
 - Sistema de diseño con modo claro/oscuro (`design-system.md`)

@@ -440,15 +440,15 @@ export default function HistoriaClinica() {
 
   const alergias = antecedentes.filter((a) => a.tipo === 'alergia')
   const edad = calcularEdad(paciente.fecha_nacimiento)
-  const patologiasActivas = patologias.filter((p) => p.estado === 'Activa')
   const medicacionActiva = medicacionHabitual.filter((m) => m.estado === 'Activa')
   const medicacionSuspendida = medicacionHabitual.filter((m) => m.estado === 'Suspendida')
-  // Resaltado de color (pedido explícito del cliente, ver src/lib/resaltado.js) — entran
-  // acá sin importar su estado (activo/resuelto, suspendido/etc.): el color es una marca
-  // del profesional, independiente de la lógica clínica de estado.
+  // Panel resumen de arriba: una patología entra si está Activa y/o si tiene color puesto
+  // (resaltado, ver src/lib/resaltado.js) — una sola fila por patología en los dos casos, el
+  // color se aplica SOBRE esa fila en vez de repetirla en una lista aparte de "resaltados"
+  // (pedido explícito del cliente, corrigiendo una primera versión que sí la duplicaba).
+  // Antecedentes no tienen un estado "activo", así que solo entran acá si tienen color.
+  const patologiasParaResumen = patologias.filter((p) => p.estado === 'Activa' || p.color)
   const antecedentesResaltados = antecedentes.filter((a) => a.color)
-  const patologiasResaltadas = patologias.filter((p) => p.color)
-  const hayResaltados = antecedentesResaltados.length > 0 || patologiasResaltadas.length > 0
 
   return (
     <div className="min-h-screen bg-background">
@@ -480,14 +480,32 @@ export default function HistoriaClinica() {
           </div>
         )}
 
-        {(patologiasActivas.length > 0 || medicacionActiva.length > 0 || hayResaltados) && (
+        {(patologiasParaResumen.length > 0 || medicacionActiva.length > 0 || antecedentesResaltados.length > 0) && (
           <div className="bg-surface border border-border rounded-lg p-4 space-y-3">
-            {patologiasActivas.length > 0 && (
+            {(patologiasParaResumen.length > 0 || antecedentesResaltados.length > 0) && (
               <div>
-                <p className="font-semibold text-text-primary">Patologías activas</p>
-                <ul className="text-text-primary text-base list-disc list-inside">
-                  {patologiasActivas.map((p) => (
-                    <li key={p.id}>{p.nombre}</li>
+                <p className="font-semibold text-text-primary">Patologías y Antecedentes</p>
+                <ul className="text-base space-y-1">
+                  {patologiasParaResumen.map((p) => (
+                    <li
+                      key={`patologia-${p.id}`}
+                      className={
+                        'rounded-md px-2 py-1 border-l-4 text-text-primary ' +
+                        (claseColorResaltado(p.color) || 'border-transparent')
+                      }
+                    >
+                      {p.nombre}
+                    </li>
+                  ))}
+                  {antecedentesResaltados.map((a) => (
+                    <li
+                      key={`antecedente-${a.id}`}
+                      className={
+                        'rounded-md px-2 py-1 border-l-4 text-text-primary ' + claseColorResaltado(a.color)
+                      }
+                    >
+                      {a.descripcion}
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -501,34 +519,6 @@ export default function HistoriaClinica() {
                     <li key={m.id}>
                       {m.nombre}
                       {m.dosis ? ` — ${m.dosis}` : ''}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {hayResaltados && (
-              <div>
-                <p className="font-semibold text-text-primary">Antecedentes y patologías resaltados</p>
-                <ul className="text-base space-y-1">
-                  {antecedentesResaltados.map((a) => (
-                    <li
-                      key={`antecedente-${a.id}`}
-                      className={
-                        'rounded-md px-2 py-1 border-l-4 text-text-primary ' + claseColorResaltado(a.color)
-                      }
-                    >
-                      {a.descripcion}
-                    </li>
-                  ))}
-                  {patologiasResaltadas.map((p) => (
-                    <li
-                      key={`patologia-${p.id}`}
-                      className={
-                        'rounded-md px-2 py-1 border-l-4 text-text-primary ' + claseColorResaltado(p.color)
-                      }
-                    >
-                      {p.nombre}
                     </li>
                   ))}
                 </ul>
