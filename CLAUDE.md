@@ -714,6 +714,18 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
     también verificó el atajo de medicación desde una consulta — precargaba y
     hacía scroll correctamente —, pero ese atajo ya no existe, ver el punto de
     arriba.)
+  - **Antecedentes y Patologías comparten un solo recuadro** (pedido explícito
+    del cliente, cambio posterior a todo lo de arriba): un único `<section>`
+    con el título "Antecedentes y Patologías", con las dos listas como
+    subsecciones internas (`<h3>` "Antecedentes" / `<h3>` "Patologías") — **no**
+    se fusionó en una sola lista, cada una conserva su propia lista, su propio
+    alta en línea (`AntecedenteEntryForm.jsx`/`PatologiaEntryForm.jsx` sin
+    tocar) y sus propios botones de Editar/Eliminar; solo la caja visual
+    exterior (`bg-surface border border-border rounded-lg`) se unificó, porque
+    siguen siendo datos distintos (historia pasada vs. diagnósticos activos
+    del paciente hoy — ver el modelo de datos más abajo). Medicación habitual y
+    Laboratorio quedaron como secciones aparte, sin tocar — no se pidió
+    unificarlas también.
 
 - Cartel de alergias visible al abrir la ficha del paciente (RF-17)
 - Sistema de diseño con modo claro/oscuro (`design-system.md`)
