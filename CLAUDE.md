@@ -764,6 +764,105 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
     cambiar a Patología muestra Estado+Observaciones y confirma que "Fecha de
     diagnóstico" NO aparece, volver a Antecedente restaura sus campos, y
     cancelar devuelve el botón único — sin errores de consola en ningún paso.
+  - **Resaltado de color, tercera vuelta sobre esta misma sección** (pedido
+    explícito del cliente: "eso hacían los médicos en las fichas de papel con
+    un resaltador"): tanto `AntecedenteEntryForm.jsx` como
+    `PatologiaEntryForm.jsx` suman un selector de color opcional
+    (`SelectorColorResaltado.jsx`, compartido entre los dos), con una paleta
+    fija (`src/lib/resaltado.js`: `COLORES_RESALTADO` — Amarillo, Naranja,
+    Rosa, Púrpura, Turquesa, Verde; arrancó en 4 y se amplió a 6 a pedido del
+    cliente, "agregá más colores") más un círculo "×" para sacar el color.
+    **A propósito NO se reusan `primary`/`alert`/`success`** para esto — cada
+    uno ya tiene un significado propio en el resto de la app (`primary` es el
+    acento neutro de toda la ficha, `alert` es EXCLUSIVO de alergias/errores/
+    eliminar según `design-system.md`, `success` son confirmaciones) y pisar
+    cualquiera de los tres con "resaltado genérico" diluiría esa señal —
+    `verde`/`turquesa` comparten familia de color con `success`/`primary`
+    pero se eligieron en tonos bien distintos (más saturados/de matiz
+    diferente) para no confundirse con esos dos significados. Los 6 tonos
+    viven como tokens propios en `src/index.css`
+    (`--color-highlight-amarillo/naranja/rosa/purpura/turquesa/verde`), con
+    su propia variante de modo oscuro, mismo patrón que el resto de la
+    paleta.
+
+    **Columna `color` (text, nullable) en `antecedentes` y `patologias`** —
+    corrida a mano en el SQL Editor de Supabase, no versionada, mismo
+    criterio que el resto de las migraciones ad-hoc de este proyecto (ver
+    `droga text` en `medicamentos` más arriba). Versión actual (6 colores):
+    ```sql
+    alter table antecedentes add column color text;
+    alter table antecedentes add constraint antecedentes_color_check
+      check (color is null or color in ('amarillo', 'naranja', 'rosa', 'purpura', 'turquesa', 'verde'));
+
+    alter table patologias add column color text;
+    alter table patologias add constraint patologias_color_check
+      check (color is null or color in ('amarillo', 'naranja', 'rosa', 'purpura', 'turquesa', 'verde'));
+    ```
+    **Si ya se había corrido la primera versión (4 colores)**, hay que
+    actualizar el `CHECK constraint` en vez de repetir el `ALTER TABLE ADD
+    COLUMN` completo (la columna ya existe):
+    ```sql
+    alter table antecedentes drop constraint antecedentes_color_check;
+    alter table antecedentes add constraint antecedentes_color_check
+      check (color is null or color in ('amarillo', 'naranja', 'rosa', 'purpura', 'turquesa', 'verde'));
+
+    alter table patologias drop constraint patologias_color_check;
+    alter table patologias add constraint patologias_color_check
+      check (color is null or color in ('amarillo', 'naranja', 'rosa', 'purpura', 'turquesa', 'verde'));
+    ```
+    Pasó exactamente esto en la práctica: la primera versión (4 colores) se
+    corrió en producción antes de que el cliente pidiera ampliar la paleta a
+    6 — si en el futuro se agregan más colores todavía, hay que repetir este
+    mismo patrón (actualizar el `CHECK`, no tocar la columna).
+
+    **Orden de despliegue obligatorio**: cualquier versión de este ALTER
+    TABLE tiene que correr ANTES de mergear la rama con el cambio
+    correspondiente a `main` — el código manda `color` en el `insert`/
+    `update` de las dos tablas sin excepción (no es un campo opcional a
+    nivel de columnas del payload, aunque el VALOR pueda ser `null`), así que
+    sin la columna en la base, cualquier alta o edición de un antecedente o
+    patología falla con un error de Postgres ("column color does not
+    exist"); y si el `CHECK constraint` quedó desactualizado (menos colores
+    que los que ofrece el selector), guardar uno de los colores nuevos falla
+    con una violación de constraint. No se pudo correr esto yo mismo (no
+    tengo acceso a la base) — el usuario lo corre a mano, mismo patrón que
+    siempre.
+
+    **Dónde se ve el color, además de en su propio ítem de lista**
+    (`border-l-4` + fondo 15% del color elegido, en vez del `border-primary`
+    neutro de siempre — `claseColorResaltado()` en `resaltado.js` devuelve
+    `null` si no hay color, y quien la llama cae al estilo por defecto en ese
+    caso): a pedido del cliente, también aparece en el panel resumen de
+    arriba de la ficha (el mismo que ya mostraba Patologías activas +
+    Medicación activa).
+
+    **Una sola fila por patología, nunca duplicada — corregido tras un primer
+    intento que sí las duplicaba** (pedido explícito del cliente: "si se
+    resalta, que se resalte esa línea, no que aparezca de nuevo abajo"): la
+    primera versión de esto agregaba una subsección aparte "Antecedentes y
+    patologías resaltados" con su propia lista, así que una patología Activa
+    Y resaltada aparecía dos veces en el panel (una en "Patologías activas",
+    otra en "resaltados"). Se unificó en una sola lista bajo el título
+    **"Patologías y Antecedentes"** — `patologiasParaResumen` en
+    `HistoriaClinica.jsx` filtra `estado === 'Activa' || color` (una sola
+    entrada por patología, sea por estar activa, por tener color, o las dos
+    cosas a la vez) y el color se aplica directamente sobre esa fila
+    (`claseColorResaltado(p.color) || 'border-transparent'` — sin color,
+    borde transparente, mismo alto/padding que las resaltadas para que la
+    lista quede prolija). Antecedentes no tienen estado "activo", así que
+    `antecedentesResaltados` sigue filtrando solo por `color` — un
+    antecedente sin color puesto nunca aparece en este panel, con o sin este
+    cambio.
+  - **Verificado en el navegador, con una limitación real por la base
+    todavía sin la columna `color`**: se confirmó con Playwright temporal que
+    los 4 círculos de color aparecen en los dos formularios (Antecedente y
+    Patología), que elegir uno lo marca visualmente (anillo
+    `border-accent-marino`), que se ve bien en modo claro y oscuro, y que el
+    título viejo "Antecedentes y patologías resaltados" ya no aparece en
+    ningún lado — sin errores de consola. **No se probó un alta/edición real
+    contra la base** porque la columna todavía no existe en producción
+    (correrla es una acción manual del usuario, ver arriba) — probarlo
+    hubiera fallado a propósito, no por un bug del código.
 
 - Cartel de alergias visible al abrir la ficha del paciente (RF-17)
 - Sistema de diseño con modo claro/oscuro (`design-system.md`)

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { ESTADOS_PATOLOGIA } from '@/lib/patologias'
 import { registrarAuditoria } from '@/lib/auditoria'
+import SelectorColorResaltado from '@/components/SelectorColorResaltado'
 
 // Mismo concepto que ConsultaEntryForm.jsx (ver CLAUDE.md — experimento de "cuaderno
 // continuo" pedido por los médicos, extendido al resto de la ficha): el alta se renderiza en
@@ -14,6 +15,7 @@ export default function PatologiaEntryForm({ pacienteId, patologia, onClose, onS
   const [nombre, setNombre] = useState(patologia?.nombre || '')
   const [estado, setEstado] = useState(patologia?.estado || 'Activa')
   const [observaciones, setObservaciones] = useState(patologia?.observaciones || '')
+  const [color, setColor] = useState(patologia?.color || null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -91,6 +93,7 @@ export default function PatologiaEntryForm({ pacienteId, patologia, onClose, onS
       nombre,
       estado,
       observaciones: observaciones || null,
+      color,
       usuario_id: profesionalId,
     }
 
@@ -172,6 +175,8 @@ export default function PatologiaEntryForm({ pacienteId, patologia, onClose, onS
           className="input"
         />
       </div>
+
+      <SelectorColorResaltado value={color} onChange={setColor} />
     </>
   )
 

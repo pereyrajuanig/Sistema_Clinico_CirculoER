@@ -14,6 +14,7 @@ import ExportarPdfModal from '@/components/ExportarPdfModal'
 import Header from '@/components/Header'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
 import { ordenarPatologias, claseEstadoPatologia } from '@/lib/patologias'
+import { claseColorResaltado } from '@/lib/resaltado'
 import { ordenarMedicacion, claseEstadoMedicacion } from '@/lib/medicacion'
 import { TIPOS_EXAMEN } from '@/lib/laboratorio'
 import { formatearDni } from '@/lib/dni'
@@ -439,9 +440,15 @@ export default function HistoriaClinica() {
 
   const alergias = antecedentes.filter((a) => a.tipo === 'alergia')
   const edad = calcularEdad(paciente.fecha_nacimiento)
-  const patologiasActivas = patologias.filter((p) => p.estado === 'Activa')
   const medicacionActiva = medicacionHabitual.filter((m) => m.estado === 'Activa')
   const medicacionSuspendida = medicacionHabitual.filter((m) => m.estado === 'Suspendida')
+  // Panel resumen de arriba: una patología entra si está Activa y/o si tiene color puesto
+  // (resaltado, ver src/lib/resaltado.js) — una sola fila por patología en los dos casos, el
+  // color se aplica SOBRE esa fila en vez de repetirla en una lista aparte de "resaltados"
+  // (pedido explícito del cliente, corrigiendo una primera versión que sí la duplicaba).
+  // Antecedentes no tienen un estado "activo", así que solo entran acá si tienen color.
+  const patologiasParaResumen = patologias.filter((p) => p.estado === 'Activa' || p.color)
+  const antecedentesResaltados = antecedentes.filter((a) => a.color)
 
   return (
     <div className="min-h-screen bg-background">
@@ -473,14 +480,32 @@ export default function HistoriaClinica() {
           </div>
         )}
 
-        {(patologiasActivas.length > 0 || medicacionActiva.length > 0) && (
+        {(patologiasParaResumen.length > 0 || medicacionActiva.length > 0 || antecedentesResaltados.length > 0) && (
           <div className="bg-surface border border-border rounded-lg p-4 space-y-3">
-            {patologiasActivas.length > 0 && (
+            {(patologiasParaResumen.length > 0 || antecedentesResaltados.length > 0) && (
               <div>
-                <p className="font-semibold text-text-primary">Patologías activas</p>
-                <ul className="text-text-primary text-base list-disc list-inside">
-                  {patologiasActivas.map((p) => (
-                    <li key={p.id}>{p.nombre}</li>
+                <p className="font-semibold text-text-primary">Patologías y Antecedentes</p>
+                <ul className="text-base space-y-1">
+                  {patologiasParaResumen.map((p) => (
+                    <li
+                      key={`patologia-${p.id}`}
+                      className={
+                        'rounded-md px-2 py-1 border-l-4 text-text-primary ' +
+                        (claseColorResaltado(p.color) || 'border-transparent')
+                      }
+                    >
+                      {p.nombre}
+                    </li>
+                  ))}
+                  {antecedentesResaltados.map((a) => (
+                    <li
+                      key={`antecedente-${a.id}`}
+                      className={
+                        'rounded-md px-2 py-1 border-l-4 text-text-primary ' + claseColorResaltado(a.color)
+                      }
+                    >
+                      {a.descripcion}
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -592,7 +617,10 @@ export default function HistoriaClinica() {
               {antecedentes.map((a) => (
                 <div
                   key={a.id}
-                  className="border-l-4 border-primary rounded-r-lg bg-surface pl-4 py-3 text-base flex items-start justify-between gap-2"
+                  className={
+                    'border-l-4 rounded-r-lg pl-4 py-3 text-base flex items-start justify-between gap-2 ' +
+                    (claseColorResaltado(a.color) || 'border-primary bg-surface')
+                  }
                 >
                   <div className="flex gap-2">
                     <span className="shrink-0 bg-border/50 text-text-primary rounded-md px-2 py-0.5 text-sm font-medium">
@@ -637,7 +665,10 @@ export default function HistoriaClinica() {
               {patologias.map((p) => (
                 <div
                   key={p.id}
-                  className="border-l-4 border-primary rounded-r-lg bg-surface pl-4 py-3 text-base flex items-start justify-between gap-2"
+                  className={
+                    'border-l-4 rounded-r-lg pl-4 py-3 text-base flex items-start justify-between gap-2 ' +
+                    (claseColorResaltado(p.color) || 'border-primary bg-surface')
+                  }
                 >
                   <div className="flex gap-2 flex-wrap">
                     <span

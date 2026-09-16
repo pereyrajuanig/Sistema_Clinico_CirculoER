@@ -42,6 +42,25 @@ de fondo o de botón, y forzarlos ahí rompería el criterio minimalista.
 Nada de gradientes ni sombras difusas tipo tarjeta-SaaS — la separación entre elementos se
 resuelve con bordes finos de 1px, más honesto y más liviano visualmente.
 
+**Resaltado de color** (Antecedentes/Patologías, pedido del cliente — "como un resaltador de
+papel"): tonos pastel adicionales, exclusivos para esta función, que NO reemplazan ni se
+mezclan con `primary`/`alert`/`success` de arriba (cada uno de esos tres ya tiene un
+significado propio en el resto de la app):
+
+| Token | Hex | Uso |
+|---|---|---|
+| `highlight-amarillo` | `#E3C65E` | Resaltado — antecedentes/patologías |
+| `highlight-naranja` | `#E3A856` | Resaltado — antecedentes/patologías |
+| `highlight-rosa` | `#DBA3B8` | Resaltado — antecedentes/patologías |
+| `highlight-purpura` | `#B79BC9` | Resaltado — antecedentes/patologías |
+| `highlight-turquesa` | `#6FB8B0` | Resaltado — antecedentes/patologías |
+| `highlight-verde` | `#8FBF6F` | Resaltado — antecedentes/patologías |
+
+`highlight-turquesa`/`highlight-verde` comparten familia de color con `primary`/`success`
+pero en tonos bien distintos a propósito, para no confundirse con esos dos significados ya
+establecidos. Mismo criterio que el resto de la paleta: solo fondo/borde, nunca color de
+texto directo.
+
 ## Tipografía
 
 **Atkinson Hyperlegible** para todo (títulos, texto, formularios) — no es una elección
