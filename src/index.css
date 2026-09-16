@@ -15,6 +15,15 @@
   --color-success: #9bc2a6;
   --color-border: #e8e1d3;
 
+  /* Resaltado de color para Antecedentes/Patologías (ver src/lib/resaltado.js) — cuatro
+     tonos pastel nuevos, elegidos para no superponerse con primary/alert/success, que ya
+     tienen un significado propio en el resto de la app. Solo se usan como fondo/borde
+     (nunca como color de texto), mismo criterio que el resto de la paleta. */
+  --color-highlight-amarillo: #e3c65e;
+  --color-highlight-rosa: #dba3b8;
+  --color-highlight-naranja: #e3a856;
+  --color-highlight-purpura: #b79bc9;
+
   /* Texto sobre fondo `primary`: NO se redefine en modo oscuro a propósito.
      `primary` es un celeste pastel claro en ambos temas, así que el texto que va
      encima necesita quedarse siempre oscuro — a diferencia de text-primary, que
@@ -38,6 +47,11 @@
   --color-alert: #e08a73;
   --color-success: #7fb893;
   --color-border: #333d4a;
+
+  --color-highlight-amarillo: #eddb8f;
+  --color-highlight-rosa: #e0b8c8;
+  --color-highlight-naranja: #eab77e;
+  --color-highlight-purpura: #c9b3da;
 }
 
 @layer base {

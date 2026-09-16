@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
 import { registrarAuditoria } from '@/lib/auditoria'
+import SelectorColorResaltado from '@/components/SelectorColorResaltado'
 
 // Mismo concepto que ConsultaEntryForm.jsx (ver CLAUDE.md — experimento de "cuaderno
 // continuo" pedido por los médicos, extendido al resto de la ficha): el alta se renderiza en
@@ -11,6 +12,7 @@ export default function AntecedenteEntryForm({ pacienteId, antecedente, onClose,
   const esEdicion = Boolean(antecedente)
   const [tipo, setTipo] = useState(antecedente?.tipo || '')
   const [descripcion, setDescripcion] = useState(antecedente?.descripcion || '')
+  const [color, setColor] = useState(antecedente?.color || null)
   const [profesionales, setProfesionales] = useState([])
   const [profesionalId, setProfesionalId] = useState(null)
   const [error, setError] = useState('')
@@ -60,10 +62,10 @@ export default function AntecedenteEntryForm({ pacienteId, antecedente, onClose,
     }
 
     const query = esEdicion
-      ? supabase.from('antecedentes').update({ tipo, descripcion }).eq('id', antecedente.id)
+      ? supabase.from('antecedentes').update({ tipo, descripcion, color }).eq('id', antecedente.id)
       : supabase
           .from('antecedentes')
-          .insert({ paciente_id: pacienteId, tipo, descripcion, usuario_id: profesionalId })
+          .insert({ paciente_id: pacienteId, tipo, descripcion, color, usuario_id: profesionalId })
 
     const { data, error } = await query.select('*, profesionales!usuario_id(nombre)').single()
 
@@ -132,6 +134,8 @@ export default function AntecedenteEntryForm({ pacienteId, antecedente, onClose,
           className="input"
         />
       </div>
+
+      <SelectorColorResaltado value={color} onChange={setColor} />
     </>
   )
 
