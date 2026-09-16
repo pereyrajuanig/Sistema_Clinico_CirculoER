@@ -769,39 +769,63 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
     un resaltador"): tanto `AntecedenteEntryForm.jsx` como
     `PatologiaEntryForm.jsx` suman un selector de color opcional
     (`SelectorColorResaltado.jsx`, compartido entre los dos), con una paleta
-    fija de 4 tonos pastel nuevos (`src/lib/resaltado.js`:
-    `COLORES_RESALTADO` — Amarillo/Rosa/Naranja/Púrpura) más un círculo "×"
-    para sacar el color. **A propósito NO se reusan `primary`/`alert`/
-    `success`** para esto — cada uno ya tiene un significado propio en el
-    resto de la app (`primary` es el acento neutro de toda la ficha, `alert`
-    es EXCLUSIVO de alergias/errores/eliminar según `design-system.md`,
-    `success` son confirmaciones) y pisar cualquiera de los tres con
-    "resaltado genérico" diluiría esa señal — los 4 tonos nuevos viven como
-    tokens propios en `src/index.css` (`--color-highlight-amarillo/rosa/
-    naranja/purpura`, con su propia variante de modo oscuro, mismo patrón que
-    el resto de la paleta).
+    fija (`src/lib/resaltado.js`: `COLORES_RESALTADO` — Amarillo, Naranja,
+    Rosa, Púrpura, Turquesa, Verde; arrancó en 4 y se amplió a 6 a pedido del
+    cliente, "agregá más colores") más un círculo "×" para sacar el color.
+    **A propósito NO se reusan `primary`/`alert`/`success`** para esto — cada
+    uno ya tiene un significado propio en el resto de la app (`primary` es el
+    acento neutro de toda la ficha, `alert` es EXCLUSIVO de alergias/errores/
+    eliminar según `design-system.md`, `success` son confirmaciones) y pisar
+    cualquiera de los tres con "resaltado genérico" diluiría esa señal —
+    `verde`/`turquesa` comparten familia de color con `success`/`primary`
+    pero se eligieron en tonos bien distintos (más saturados/de matiz
+    diferente) para no confundirse con esos dos significados. Los 6 tonos
+    viven como tokens propios en `src/index.css`
+    (`--color-highlight-amarillo/naranja/rosa/purpura/turquesa/verde`), con
+    su propia variante de modo oscuro, mismo patrón que el resto de la
+    paleta.
 
     **Columna `color` (text, nullable) en `antecedentes` y `patologias`** —
     corrida a mano en el SQL Editor de Supabase, no versionada, mismo
     criterio que el resto de las migraciones ad-hoc de este proyecto (ver
-    `droga text` en `medicamentos` más arriba):
+    `droga text` en `medicamentos` más arriba). Versión actual (6 colores):
     ```sql
     alter table antecedentes add column color text;
     alter table antecedentes add constraint antecedentes_color_check
-      check (color is null or color in ('amarillo', 'rosa', 'naranja', 'purpura'));
+      check (color is null or color in ('amarillo', 'naranja', 'rosa', 'purpura', 'turquesa', 'verde'));
 
     alter table patologias add column color text;
     alter table patologias add constraint patologias_color_check
-      check (color is null or color in ('amarillo', 'rosa', 'naranja', 'purpura'));
+      check (color is null or color in ('amarillo', 'naranja', 'rosa', 'purpura', 'turquesa', 'verde'));
     ```
-    **Orden de despliegue obligatorio**: este ALTER TABLE tiene que correr
-    ANTES de mergear la rama con este cambio a `main` — el código manda
-    `color` en el `insert`/`update` de las dos tablas sin excepción (no es un
-    campo opcional a nivel de columnas del payload, aunque el VALOR pueda ser
-    `null`), así que sin la columna en la base, cualquier alta o edición de
-    un antecedente o patología falla con un error de Postgres ("column color
-    does not exist") apenas se despliegue. No se pudo correr esto yo mismo
-    (no tengo acceso a la base) — el usuario lo corre a mano, mismo patrón que
+    **Si ya se había corrido la primera versión (4 colores)**, hay que
+    actualizar el `CHECK constraint` en vez de repetir el `ALTER TABLE ADD
+    COLUMN` completo (la columna ya existe):
+    ```sql
+    alter table antecedentes drop constraint antecedentes_color_check;
+    alter table antecedentes add constraint antecedentes_color_check
+      check (color is null or color in ('amarillo', 'naranja', 'rosa', 'purpura', 'turquesa', 'verde'));
+
+    alter table patologias drop constraint patologias_color_check;
+    alter table patologias add constraint patologias_color_check
+      check (color is null or color in ('amarillo', 'naranja', 'rosa', 'purpura', 'turquesa', 'verde'));
+    ```
+    Pasó exactamente esto en la práctica: la primera versión (4 colores) se
+    corrió en producción antes de que el cliente pidiera ampliar la paleta a
+    6 — si en el futuro se agregan más colores todavía, hay que repetir este
+    mismo patrón (actualizar el `CHECK`, no tocar la columna).
+
+    **Orden de despliegue obligatorio**: cualquier versión de este ALTER
+    TABLE tiene que correr ANTES de mergear la rama con el cambio
+    correspondiente a `main` — el código manda `color` en el `insert`/
+    `update` de las dos tablas sin excepción (no es un campo opcional a
+    nivel de columnas del payload, aunque el VALOR pueda ser `null`), así que
+    sin la columna en la base, cualquier alta o edición de un antecedente o
+    patología falla con un error de Postgres ("column color does not
+    exist"); y si el `CHECK constraint` quedó desactualizado (menos colores
+    que los que ofrece el selector), guardar uno de los colores nuevos falla
+    con una violación de constraint. No se pudo correr esto yo mismo (no
+    tengo acceso a la base) — el usuario lo corre a mano, mismo patrón que
     siempre.
 
     **Dónde se ve el color, además de en su propio ítem de lista**
