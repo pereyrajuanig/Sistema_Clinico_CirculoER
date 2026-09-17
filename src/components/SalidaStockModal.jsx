@@ -20,8 +20,9 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
   const [profesionales, setProfesionales] = useState([])
   const [profesionalId, setProfesionalId] = useState(null)
   const [medicamentoId, setMedicamentoId] = useState('')
-  const [loteSugerido, setLoteSugerido] = useState(null)
-  const [buscandoLote, setBuscandoLote] = useState(false)
+  const [lotesDisponibles, setLotesDisponibles] = useState([])
+  const [loteId, setLoteId] = useState('')
+  const [buscandoLotes, setBuscandoLotes] = useState(false)
   const [dniBusqueda, setDniBusqueda] = useState('')
   const [pacienteEncontrado, setPacienteEncontrado] = useState(null)
   const [buscandoPaciente, setBuscandoPaciente] = useState(false)
@@ -37,6 +38,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
   const [loading, setLoading] = useState(false)
 
   const medicamentoSeleccionado = medicamentos.find((m) => m.id === medicamentoId)
+  const loteSeleccionado = lotesDisponibles.find((l) => l.lote_id === loteId) || null
 
   useEffect(() => {
     supabase
@@ -50,14 +52,21 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
       })
   }, [])
 
+  // Trae TODOS los lotes con stock disponible, no solo el que corresponde por FEFO — pedido
+  // explícito del cliente: en la práctica, quien administra saca del lote que tiene físicamente
+  // a mano, no siempre el que vence antes, y antes no había forma de reflejar eso en el
+  // sistema (se descontaba siempre del lote sugerido, sin poder elegir otro). Se preselecciona
+  // el primero (el de FEFO) como default razonable, pero queda editable.
   useEffect(() => {
     if (!medicamentoId) {
-      setLoteSugerido(null)
+      setLotesDisponibles([])
+      setLoteId('')
       return
     }
 
-    setBuscandoLote(true)
-    setLoteSugerido(null)
+    setBuscandoLotes(true)
+    setLotesDisponibles([])
+    setLoteId('')
 
     supabase
       .from('stock_por_lote')
@@ -65,14 +74,14 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
       .eq('medicamento_id', medicamentoId)
       .gt('stock_actual', 0)
       .order('fecha_vencimiento', { ascending: true })
-      .limit(1)
       .then(({ data, error }) => {
-        setBuscandoLote(false)
+        setBuscandoLotes(false)
         if (error) {
           setError(error.message)
           return
         }
-        setLoteSugerido(data[0] || null)
+        setLotesDisponibles(data)
+        if (data.length > 0) setLoteId(data[0].lote_id)
       })
   }, [medicamentoId])
 
@@ -151,7 +160,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
       setError('No se encontró el paciente por DNI — cargá nombre y apellido para registrarlo.')
       return
     }
-    const errorCantidad = validarCantidadSalida(loteSugerido, cantidad)
+    const errorCantidad = validarCantidadSalida(loteSeleccionado, cantidad)
     if (errorCantidad) {
       setError(errorCantidad)
       return
@@ -186,7 +195,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
     }
 
     const { error } = await supabase.from('movimientos_stock').insert({
-      lote_id: loteSugerido.lote_id,
+      lote_id: loteSeleccionado.lote_id,
       usuario_id: profesionalId,
       paciente_id: pacienteId,
       consulta_id: consultaId || null,
@@ -269,30 +278,45 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
                     .join(' · ') || 'Sin presentación ni concentración cargadas.'}
                 </p>
               )}
-              {medicamentoId && !buscandoLote && !loteSugerido && (
+              {medicamentoId && buscandoLotes && (
+                <p className="text-sm text-text-secondary">Buscando lotes disponibles...</p>
+              )}
+              {medicamentoId && !buscandoLotes && lotesDisponibles.length === 0 && (
                 <p className="text-sm text-text-primary font-semibold">
                   No hay stock disponible en ningún lote de este medicamento.
                 </p>
               )}
-              {medicamentoId && buscandoLote && (
-                <p className="text-sm text-text-secondary">Buscando lote disponible...</p>
-              )}
-              {medicamentoId && !buscandoLote && loteSugerido && (
-                <p
-                  className={
-                    'text-sm ' +
-                    (estaProximoAVencer(loteSugerido.fecha_vencimiento)
-                      ? 'text-text-primary font-semibold'
-                      : 'text-text-secondary')
-                  }
-                >
-                  Se va a descontar del lote {loteSugerido.numero_lote || '(sin número)'} — vence{' '}
-                  {formatFecha(loteSugerido.fecha_vencimiento)} — {loteSugerido.stock_actual}{' '}
-                  disponibles.
-                  {estaProximoAVencer(loteSugerido.fecha_vencimiento) && ' Está próximo a vencer.'}
-                </p>
-              )}
             </div>
+
+            {medicamentoId && !buscandoLotes && lotesDisponibles.length > 0 && (
+              <div className="space-y-1">
+                <label className="text-sm text-text-secondary">
+                  Lote <span className="text-text-primary">*</span>
+                </label>
+                <select
+                  required
+                  value={loteId}
+                  onChange={(e) => setLoteId(e.target.value)}
+                  className="input"
+                >
+                  {lotesDisponibles.map((l) => (
+                    <option key={l.lote_id} value={l.lote_id}>
+                      Lote {l.numero_lote || '(sin número)'} — vence {formatFecha(l.fecha_vencimiento)} —{' '}
+                      {l.stock_actual} disponibles
+                    </option>
+                  ))}
+                </select>
+                {/* Sugerencia por FEFO: el lote preseleccionado es el que vence antes (primero
+                    de la lista), pero queda editable a propósito — en la práctica quien
+                    administra saca del lote que tiene físicamente a mano, no siempre el que
+                    corresponde por vencimiento, y antes no había forma de reflejar eso acá. */}
+                {loteSeleccionado && estaProximoAVencer(loteSeleccionado.fecha_vencimiento) && (
+                  <p className="text-sm text-text-primary font-semibold">
+                    Este lote está próximo a vencer.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-1">
               <label className="text-sm text-text-secondary">
@@ -403,7 +427,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancelar
             </button>
-            <button type="submit" disabled={loading || buscandoLote} className="btn-primary">
+            <button type="submit" disabled={loading || buscandoLotes} className="btn-primary">
               {loading ? 'Guardando...' : 'Registrar salida'}
             </button>
           </div>

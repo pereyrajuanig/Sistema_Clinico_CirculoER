@@ -1273,10 +1273,35 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
   (`medicamentoCreado`, `medicamentoIdParaEntrada` en `Medicamentos.jsx`) se
   borraron, no quedaron ahí sin usar.
 - Registrar salida/administración (`SalidaStockModal.jsx`): selector de "quién
-  administra" (mismo patrón que consultas), sugerencia automática de lote por FEFO
-  (el que vence antes, entre los que tienen stock) con aviso si ese lote está por vencer
-  o si no hay stock, paciente identificado por búsqueda de DNI (no un `<select>` con
-  todos los pacientes — no escala), consulta opcional.
+  administra" (mismo patrón que consultas), paciente identificado por búsqueda de
+  DNI (no un `<select>` con todos los pacientes — no escala), consulta opcional.
+
+  **El lote se elige a mano, ya no es 100% automático — pedido explícito del
+  cliente**: "los médicos sacan de cualquier lote [el que tienen físicamente a
+  mano], y después al registrar la salida no se puede especificar". Antes, el
+  modal solo mostraba el lote sugerido por FEFO (el que vence antes entre los
+  que tienen stock) como texto informativo, y ese era el único lote posible —
+  no había forma de descontar de otro aunque en la realidad la administración
+  hubiera salido de un lote distinto. Ahora la misma query (`stock_por_lote`
+  filtrado `gt('stock_actual', 0)`, ordenado por `fecha_vencimiento` ascendente)
+  trae TODOS los lotes con stock, no solo el primero (se sacó el `.limit(1)`), y
+  se muestran en un `<select>` (`lotesDisponibles`/`loteId`) con "Lote {número} —
+  vence {fecha} — {stock} disponibles" por opción. **Sigue preseleccionando el
+  de FEFO** (el primero de la lista, ya viene ordenada) como default razonable
+  — la sugerencia no desapareció, solo dejó de ser la única opción posible. El
+  aviso de "está próximo a vencer" ahora se calcula sobre el lote que esté
+  seleccionado en cada momento (`loteSeleccionado`), no fijo sobre el sugerido
+  original. `validarCantidadSalida()` (`src/lib/stock.js`, ver la auditoría de
+  FEFO más abajo) sigue usándose igual, ahora contra `loteSeleccionado` en vez
+  del lote único que antes se guardaba en el estado — no hizo falta tocar esa
+  función ni sus tests, la firma no cambió.
+
+  **Verificado en el navegador, sin escribir contra datos reales**: Playwright
+  temporal contra `pnpm dev` con la cuenta institucional real — se confirmó que
+  un medicamento con un solo lote muestra el selector con esa única opción, que
+  uno con varios lotes (probado con 3, fechas de vencimiento distintas) los
+  lista en orden ascendente de vencimiento y permite cambiar la selección sin
+  errores de consola. No se guardó ninguna salida de prueba.
 
   **Paciente no registrado (pedido explícito del cliente)**: como toda salida exige
   `paciente_id` por el constraint `salida_requiere_paciente` de la base (ver reglas
@@ -1508,6 +1533,14 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
   de datos de stock desactualizados de verdad (no solo este reporte puntual),
   es el primer punto a confirmar con el usuario mirando el dashboard de
   Supabase.
+
+  **Nota posterior**: esta sección describe el estado de cuando el lote era
+  100% automático (un único lote sugerido, sin poder elegir otro). Después se
+  agregó la posibilidad de elegir el lote a mano — ver "El lote se elige a
+  mano" en la sección de Medicamentos y stock más arriba —, pero el mecanismo
+  de fondo que describe este párrafo (la query en vivo, el `gt` que saca los
+  lotes en 0) sigue siendo exactamente el mismo, ahora aplicado a la lista
+  completa de lotes con stock en vez de a uno solo.
 
   **Bug real encontrado y corregido, aunque no se pudo confirmar que sea LA
   causa del reporte** (no hay logs ni forma de reproducirlo contra datos
