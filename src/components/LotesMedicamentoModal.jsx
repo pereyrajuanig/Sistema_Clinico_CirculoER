@@ -10,6 +10,7 @@ function formatFecha(value) {
 export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre, onClose, onCambio }) {
   const [lotes, setLotes] = useState([])
   const [loteIdsConSalidas, setLoteIdsConSalidas] = useState(new Set())
+  const [entradaPorLote, setEntradaPorLote] = useState(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [editingLote, setEditingLote] = useState(null)
@@ -44,15 +45,35 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
               .in('lote_id', loteIds)
           : { data: [], error: null }
 
+      if (salidasError) {
+        setLoading(false)
+        setError(salidasError.message)
+        return
+      }
+
+      // EntradaStockModal.jsx siempre crea el lote junto con su único movimiento de entrada
+      // en el mismo submit — nunca hay más de uno por lote. Se necesita el id de esa fila
+      // (no alcanza con stock_actual) para poder corregir la cantidad sin pisarla con un
+      // UPDATE (ver LoteFormModal.jsx).
+      const { data: entradas, error: entradasError } =
+        loteIds.length > 0
+          ? await supabase
+              .from('movimientos_stock')
+              .select('id, lote_id, cantidad')
+              .eq('tipo', 'entrada')
+              .in('lote_id', loteIds)
+          : { data: [], error: null }
+
       setLoading(false)
 
-      if (salidasError) {
-        setError(salidasError.message)
+      if (entradasError) {
+        setError(entradasError.message)
         return
       }
 
       setLotes(stockLotes)
       setLoteIdsConSalidas(new Set(salidas.map((m) => m.lote_id)))
+      setEntradaPorLote(new Map(entradas.map((m) => [m.lote_id, m])))
     }
 
     fetchLotes()
@@ -66,6 +87,7 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
               ...l,
               numero_lote: loteActualizado.numero_lote,
               fecha_vencimiento: loteActualizado.fecha_vencimiento,
+              stock_actual: loteActualizado.cantidad,
             }
           : l
       )
@@ -167,6 +189,7 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
             numero_lote: editingLote.numero_lote,
             fecha_vencimiento: editingLote.fecha_vencimiento,
           }}
+          entradaMovimiento={entradaPorLote.get(editingLote.lote_id) || null}
           onClose={() => setEditingLote(null)}
           onSaved={handleLoteGuardado}
         />
