@@ -245,8 +245,29 @@ Historia clínica (`schema-historia-clinica.sql`):
 Medicamentos y stock (`migracion-02-medicamentos-stock.sql`, RF-21 a RF-26):
 - `medicamentos` — catálogo (nombre, `droga` opcional — texto libre, el principio
   activo/genérico, ej. "Ibuprofeno", distinto de `nombre` que es la marca comercial
-  del producto —, presentación, concentración, stock_minimo opcional, `activo`
-  boolean default true — baja lógica). No tiene `unidad_medida`: se sacó por
+  del producto —, presentación, concentración, `activo` boolean default true — baja
+  lógica). **Ya NO tiene `stock_minimo`** — pedido explícito del cliente: en la
+  práctica nunca varió de un medicamento a otro, así que se sacó la columna y el
+  campo del formulario (`MedicamentoFormModal.jsx` y el alta inline de
+  `EntradaStockModal.jsx`), y la alerta de stock bajo (RF-25, ver más abajo) pasó a
+  usar un único valor fijo para todos — `STOCK_MINIMO = 10` en
+  `src/lib/medicamentos.js`, definido una sola vez en el código, no en la base.
+  **Orden de despliegue, al revés del criterio ya documentado para la columna
+  `color` de antecedentes/patologías**: ahí el código empezaba a MANDAR una columna
+  nueva, así que el `ALTER TABLE` tenía que correr ANTES del merge. Acá es lo
+  opuesto — el código deja de LEER una columna existente, así que primero se
+  mergea/despliega este cambio (con `STOCK_MINIMO` fijo, sin pedir `stock_minimo`
+  en ningún `select`/`insert`/`update`) y **recién después**, ya confirmado el
+  deploy en Vercel, el usuario corre a mano en el SQL Editor de Supabase:
+  ```sql
+  alter table medicamentos drop column stock_minimo;
+  ```
+  Si se hiciera al revés (borrar la columna antes de que el código nuevo esté en
+  producción), el código VIEJO todavía desplegado (que sigue pidiendo
+  `stock_minimo` en sus `select`) rompería con "column does not exist" hasta que
+  el deploy nuevo termine de propagarse. No tengo acceso a la base — lo corre el
+  usuario, mismo patrón que el resto de las migraciones ad-hoc de este proyecto.
+  No tiene `unidad_medida`: se sacó por
   redundante con `presentacion` (si la presentación es "comprimidos", la unidad
   para contar stock ya es obvia). `presentacion` es un selector fijo (Comprimidos,
   Cápsulas, Jarabe, Ampolla/Inyectable, Crema/Pomada, Gotas, Supositorio, Parche,
@@ -1237,7 +1258,9 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
   cargado nombre/apellido, los dos campos se limpian solos (mismo `useEffect` que
   dispara la búsqueda) — evita el riesgo de registrar a alguien con el DNI de otra
   persona por quedar nombre/apellido viejos en pantalla.
-- Alertas de stock bajo mínimo (RF-25) y lotes a 30 días o menos de vencer (RF-26)
+- Alertas de stock bajo mínimo (RF-25, umbral fijo `STOCK_MINIMO = 10` en
+  `src/lib/medicamentos.js` — ya no por medicamento, ver el modelo de datos de
+  `medicamentos` más arriba) y lotes a 30 días o menos de vencer (RF-26)
 - Historial de movimientos **global**, todos los medicamentos juntos
   (`HistorialMovimientos.jsx`, `/medicamentos/historial`, botón al lado del
   título en el header de `/medicamentos`, mismo estilo que "Medicamentos" en el
@@ -1416,13 +1439,101 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
   PDF" en el modal, no se descarga nada automáticamente al hacer clic en el
   link.
 
+- **Auditoría de "registrar salida" — reporte real de los médicos: "no pudimos
+  registrar una segunda salida para el mismo paciente"**. Se revisó el flujo
+  completo (`SalidaStockModal.jsx`) y la hipótesis de que hubiera alguna
+  restricción sobre `paciente_id` en el código o en la base:
+
+  **No hay ninguna restricción de unicidad sobre `paciente_id`, ni en el
+  código ni documentada en el esquema** — `movimientos_stock` no tiene (ni
+  debería tener) ningún constraint que limite cuántas filas de tipo `salida`
+  puede haber para el mismo paciente; cada salida es una fila independiente,
+  sin relación con las anteriores del mismo paciente más allá de compartir la
+  columna. Se descartó esta hipótesis por revisión de código, no se pudo
+  correr una consulta directa contra `information_schema` (no tengo acceso a
+  la base, solo la anon key — ver "Ping anti-pausa" más abajo sobre por qué
+  ni siquiera con la anon key se puede introspeccionar el esquema completo).
+
+  **La sugerencia de lote por FEFO sí avanza correctamente al siguiente lote
+  cuando el anterior se agota**: `SalidaStockModal` vuelve a montarse de cero
+  cada vez que se abre (`{showSalidaModal && <SalidaStockModal .../>}` —
+  `Medicamentos.jsx` cierra el modal después de cada salida exitosa,
+  `handleMovimientoRegistrado` llama `cerrarModal(false)`), así que la query
+  de sugerencia (`stock_por_lote` filtrado `gt('stock_actual', 0)`, ordenado
+  por `fecha_vencimiento` ascendente) se dispara de nuevo, en vivo, contra la
+  base — nunca reusa un valor viejo de una salida anterior. Un lote que llegó
+  a stock exactamente 0 queda automáticamente afuera de esa sugerencia por el
+  `gt` (no `gte`). Esto asume que `stock_por_lote`/`stock_por_medicamento` son
+  vistas normales de Postgres (recalculan en cada consulta), no vistas
+  materializadas — no se pudo confirmar cuál de las dos son porque no hay
+  acceso a la base para revisar el esquema; si en algún momento se sospecha
+  de datos de stock desactualizados de verdad (no solo este reporte puntual),
+  es el primer punto a confirmar con el usuario mirando el dashboard de
+  Supabase.
+
+  **Bug real encontrado y corregido, aunque no se pudo confirmar que sea LA
+  causa del reporte** (no hay logs ni forma de reproducirlo contra datos
+  reales): el botón "Registrar salida" solo se deshabilitaba con
+  `disabled={loading}` — no contemplaba `buscandoLote` (el estado que cubre
+  la consulta asíncrona a `stock_por_lote` disparada al elegir el
+  medicamento). Si alguien completaba el resto del formulario y confirmaba
+  antes de que esa consulta terminara, `loteSugerido` todavía valía `null` en
+  ese instante y el submit fallaba con "Este medicamento no tiene stock
+  disponible en ningún lote" — un falso negativo, con stock real disponible.
+  Corregido: `disabled={loading || buscandoLote}`.
+
+  **Extraída a `src/lib/stock.js` la lógica pura detrás de la sugerencia FEFO
+  y la validación de cantidad**, mismo criterio que
+  `combinarCampos`/`combinarSimple` en `laboratorio.js` — permite testear el
+  ALGORITMO sin mockear Supabase, aunque en producción la sugerencia de lote
+  sigue saliendo de la consulta en vivo a la vista `stock_por_lote` (no de
+  esta función — la vista SQL no está versionada, así que esta es la forma de
+  tener el comportamiento esperado bajo test):
+  - `calcularStockPorLote(movimientos)` — dado un array de filas tipo
+    `movimientos_stock` (`lote_id`/`tipo`/`cantidad`), sea la misma cuenta que
+    hace la vista (suma de entradas menos suma de salidas, por lote).
+  - `elegirLoteFEFO(lotes)` — mismo filtro/orden que la query real
+    (`stock_actual > 0`, `fecha_vencimiento` ascendente, primero); devuelve
+    `null` si ningún lote tiene stock.
+  - `validarCantidadSalida(loteSugerido, cantidad)` — extraída de
+    `handleSubmit` en `SalidaStockModal.jsx` (que ahora la llama en vez de
+    tener las dos validaciones inline) para poder testearla.
+
+  **Decisión del cliente sobre el caso "la cantidad pedida supera el lote
+  FEFO sugerido"**: se consultó explícitamente antes de tocar nada (no había
+  ningún auto-split implementado, y no se iba a asumir cuál de las dos
+  alternativas — dividir automáticamente entre dos lotes, o rechazar con un
+  mensaje claro). El cliente eligió **mantener el rechazo** (ya era el
+  comportamiento existente) pero con un mensaje más accionable: pasó de "El
+  lote sugerido solo tiene X unidades disponibles." a "Este lote solo tiene X
+  unidades disponibles — registrá el resto en una segunda salida." — le dice
+  al usuario qué hacer, no solo por qué falló. **No se implementó ninguna
+  división automática entre lotes** — si una salida real necesita más
+  unidades de las que tiene el lote FEFO, hay que registrarla en dos
+  operaciones separadas (la segunda va a sugerir el lote siguiente sola, una
+  vez que la primera deja al anterior en 0 o por debajo de lo pedido).
+
+  **Tests agregados** (`src/lib/stock.test.js`, sumados a la suite
+  existente): cobertura de `calcularStockPorLote`/`elegirLoteFEFO`/
+  `validarCantidadSalida` por separado, más dos tests de flujo completo que
+  reproducen exactamente los escenarios pedidos — "dos salidas seguidas para
+  el mismo paciente con stock suficiente" (funciona sin problema, sin
+  ninguna restricción cruzada entre ambas) y "una salida que deja un lote en
+  stock exactamente 0" (el lote desaparece de la sugerencia FEFO
+  automáticamente, la siguiente salida recae sola en el próximo lote por
+  vencer, sin que nadie tenga que elegirlo a mano) — que es también la
+  cobertura del punto (a) de "qué pasa cuando un lote llega a 0" pedido en la
+  auditoría de FEFO.
+
 ### Tests automatizados (Vitest)
 
 `pnpm test` (o `pnpm test:watch`). Alcance **deliberadamente acotado**, no confundir con
 "la app está testeada": solo cubre lógica pura de `src/lib/*.js` (sin DOM, sin mocks de
-Supabase) — `dni.test.js`, `medicamentos.test.js`, `laboratorio.test.js`. No hay tests de
-componentes ni end-to-end; los flujos completos (llenar un formulario, guardar contra
-Supabase, ver el resultado en pantalla) se siguen probando a mano, como siempre.
+Supabase) — `dni.test.js`, `medicamentos.test.js`, `laboratorio.test.js`, `stock.test.js`
+(FEFO y validación de cantidad de `SalidaStockModal.jsx`, ver la auditoría de "registrar
+salida" más arriba). No hay tests de componentes ni end-to-end; los flujos completos
+(llenar un formulario, guardar contra Supabase, ver el resultado en pantalla) se siguen
+probando a mano, como siempre.
 
 La razón de por qué se empezó por acá: es donde vive la lógica con más historial real de
 bugs sutiles — en particular, el atajo de "Perfil lipídico" (`GRUPOS_CARGA` en
@@ -1876,7 +1987,7 @@ necesidad real.
    - `Medicamentos.jsx` (`fetchTodo`): los tres `select('*')` de esa pantalla
      quedaron acotados — `medicamentos` a
      `id, nombre, droga, concentracion, presentacion, presentacion_detalle,
-     stock_minimo, activo` (exactamente los campos que usan la tabla, las alertas
+     activo` (exactamente los campos que usan la tabla, las alertas
      de stock bajo, y los modales que reciben esta lista como prop —
      `EntradaStockModal`/`SalidaStockModal`/`MedicamentoFormModal`/
      `LotesMedicamentoModal` —, verificado grepeando cada uno antes de acotar, no

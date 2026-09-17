@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { limpiarDni, formatearDni } from '@/lib/dni'
 import { capitalizarPalabras } from '@/lib/pacientes'
 import { formatearPresentacion, identificarMedicamento } from '@/lib/medicamentos'
+import { validarCantidadSalida } from '@/lib/stock'
 
 function formatFecha(value) {
   if (!value) return ''
@@ -150,12 +151,9 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
       setError('No se encontró el paciente por DNI — cargá nombre y apellido para registrarlo.')
       return
     }
-    if (!loteSugerido) {
-      setError('Este medicamento no tiene stock disponible en ningún lote.')
-      return
-    }
-    if (Number(cantidad) > loteSugerido.stock_actual) {
-      setError(`El lote sugerido solo tiene ${loteSugerido.stock_actual} unidades disponibles.`)
+    const errorCantidad = validarCantidadSalida(loteSugerido, cantidad)
+    if (errorCantidad) {
+      setError(errorCantidad)
       return
     }
 
@@ -405,7 +403,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancelar
             </button>
-            <button type="submit" disabled={loading} className="btn-primary">
+            <button type="submit" disabled={loading || buscandoLote} className="btn-primary">
               {loading ? 'Guardando...' : 'Registrar salida'}
             </button>
           </div>
