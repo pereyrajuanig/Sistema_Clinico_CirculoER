@@ -1560,6 +1560,41 @@ principio de este archivo).
   librería para ese último tramo — si en el uso real el botón "Actualizar" no recargara,
   sería lo primero a verificar con una build desplegada real (dos versiones consecutivas en
   Vercel), no algo para forzar en local.
+
+  **Chequeo periódico cada 30 minutos, pedido explícito del cliente** — problema real que
+  motivó esto: por default, el navegador solo revisa si `sw.js` cambió cuando la página se
+  recarga o navega; si alguien deja la PWA abierta sin cerrarla nunca (el caso normal en el
+  consultorio — la computadora queda prendida con la app abierta todo el día), el banner de
+  "hay una versión nueva" no aparece hasta que la cierre y la vuelva a abrir, aunque haga
+  días que se desplegó un cambio. `ActualizacionDisponible.jsx` arma un chequeo manual en
+  `onRegisteredSW` (**no** `onRegistered`, que está deprecado en `vite-plugin-pwa`) — patrón
+  oficial que documenta la librería para este caso exacto, con los mismos resguardos:
+  `setInterval` cada `INTERVALO_CHEQUEO_MS` (30 min = `30 * 60 * 1000`) que:
+  1. No hace nada si `registration.installing` ya está en verdadero — no pisa una
+     instalación en curso con otro chequeo superpuesto.
+  2. No hace nada si `!navigator.onLine` — sin conexión el `fetch` de abajo fallaría igual,
+     esto solo evita un error de red de más en la consola sin necesidad.
+  3. Pide `sw.js` con `fetch(swUrl, { cache: 'no-store', headers: { cache: 'no-store',
+     'cache-control': 'no-cache' } })` — sin esto, el propio navegador podría devolver una
+     copia cacheada del archivo y el chequeo creería que no cambió nada aunque el servidor
+     ya tenga una versión nueva.
+  4. Solo si la respuesta da `200`, llama a `registration.update()` — recién ahí el
+     navegador compara bytes contra el service worker instalado; si difiere, dispara
+     exactamente el mismo camino de siempre (`onNeedRefresh` → `needRefresh` → el banner
+     aparece), nunca activa nada solo. **Esto no cambia el comportamiento "prompt" ya
+     pedido antes** — el chequeo periódico solo repite la pregunta "¿hay algo nuevo?" cada
+     30 minutos en vez de depender de un cierre/apertura de pestaña; la decisión de
+     activar sigue siendo 100% del usuario, tocando "Actualizar".
+
+  **Verificado en el navegador**: build de producción + `pnpm preview` + Playwright
+  temporal, espiando `window.setInterval` antes de que cargara cualquier script de la app
+  para confirmar sin ambigüedad que se registra un intervalo de `1800000` ms (30 min) — sin
+  alterar su comportamiento real, solo observándolo — y que el service worker se sigue
+  registrando sin errores de consola. No se simuló el paso de 30 minutos reales (ni tenía
+  sentido esperar eso en una verificación local) — el código del callback en sí es
+  suficientemente simple (cuatro condicionales + un `fetch`) como para revisarlo por
+  lectura con confianza, una vez confirmado que el `setInterval` se arma con el delay
+  correcto y sin errores al montar.
 - El service worker que genera (`generateSW`, default del plugin) **solo precachea los
   archivos estáticos del propio build** (JS/CSS/HTML/íconos). A propósito no tiene
   `runtimeCaching` para el dominio de Supabase — cualquier llamada a la base o a Auth sigue
