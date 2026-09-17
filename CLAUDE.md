@@ -1308,8 +1308,39 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
   mínimo. Buscador por marca comercial (`nombre`) o `droga`
   (`medicamentosFiltrados`, client-side sobre lo ya cargado — mismo patrón que el
   buscador de `Pacientes.jsx`) — solo filtra la tabla, las alertas de stock
-  bajo/vencimiento de arriba siguen mirando todos los medicamentos activos sin importar
-  la búsqueda.
+  bajo/vencimiento (ver el layout de dos columnas más abajo) siguen mirando todos
+  los medicamentos activos sin importar la búsqueda.
+
+  **Layout de dos columnas en desktop, alertas a la izquierda y sticky — pedido
+  explícito del cliente** ("las alertas de medicamentos de lado izquierdo, que
+  sigan el scroll, como en el detalle de pacientes"): mismo patrón que la
+  columna izquierda de `HistoriaClinica.jsx` (cartel de alergias + datos del
+  paciente) — `lg:grid lg:grid-cols-[280px_1fr] lg:gap-6 lg:items-start` con
+  `lg:sticky lg:top-4` en el `<aside>` de la izquierda, que agrupa las tres
+  alertas (stock bajo mínimo, lotes vencidos, lotes por vencer) en un solo
+  cartel `bg-alert/10`. La columna de 280px **solo se reserva si hay alguna
+  alerta activa** (`hayAlertas`, mismo criterio que `mostrarResumen` en
+  `HistoriaClinica.jsx`) — sin nada que avisar, la tabla ocupa el ancho
+  completo en vez de dejar un hueco vacío a la izquierda. Por debajo de `lg`
+  se apila en una sola columna (alerta arriba, tabla abajo), sin sticky —
+  mismo criterio de corte que el resto de la app. `max-w-4xl` del contenedor
+  pasó a `max-w-7xl` (igual que en `HistoriaClinica.jsx`) — de más a
+  propósito, pensando en la columna derecha pendiente del punto siguiente,
+  para no tener que volver a ensanchar el contenedor cuando se agregue.
+
+  **Columna derecha, pendiente — a definir con el cliente qué va ahí**: el
+  pedido fue específicamente mover las alertas a la izquierda "como en
+  paciente", dejando la derecha para "alguna ventana" todavía sin decidir.
+  No se agregó ningún `<aside>` vacío del lado derecho a propósito —un
+  placeholder sin contenido real se vería roto, no "pendiente"—, así que hoy
+  el grid es de dos columnas (`[280px_1fr]`), no de tres. Cuando se decida
+  qué va en esa columna, agregarla es extender el mismo patrón que ya usa
+  `HistoriaClinica.jsx` (`mostrarResumen` → `lg:grid-cols-[280px_1fr_320px]`).
+
+  **Verificado en el navegador**: Playwright temporal, cuenta institucional
+  real — confirmado `position: sticky` en el aside a 1440px (se mantiene
+  visible al scrollear), `position: static` (apilado) a 390px, y que el aside
+  queda a la izquierda de la tabla — sin errores de consola.
 - `/medicamentos/inactivos` (`MedicamentosInactivos.jsx`, link "Medicamentos dados de
   baja" en las acciones del header de `/medicamentos`): pantalla aparte con **solo**
   los medicamentos dados de baja (`eq('activo', false)` en su propio fetch, no
