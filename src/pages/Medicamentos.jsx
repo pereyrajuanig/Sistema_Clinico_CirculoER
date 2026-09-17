@@ -150,11 +150,13 @@ export default function Medicamentos() {
           <div className="bg-alert/10 border border-alert rounded-lg p-4 space-y-3">
             {medicamentosBajoMinimo.length > 0 && (
               <div>
-                <p className="font-semibold text-text-primary">Stock por debajo del mínimo</p>
+                <p className="font-semibold text-text-primary">
+                  Stock por debajo del mínimo ({STOCK_MINIMO}u.)
+                </p>
                 <ul className="text-text-primary text-base list-disc list-inside">
                   {medicamentosBajoMinimo.map((m) => (
                     <li key={m.id}>
-                      {identificarMedicamento(m)}: {stockPorMedicamento[m.id] || 0} (mínimo {STOCK_MINIMO})
+                      {identificarMedicamento(m)}: {stockPorMedicamento[m.id] || 0}
                     </li>
                   ))}
                 </ul>
