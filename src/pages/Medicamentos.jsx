@@ -79,6 +79,7 @@ export default function Medicamentos() {
   // de esa ventana de 30 días.
   const lotesVencidos = lotesPorVencer.filter((l) => loteVencido(l.fecha_vencimiento))
   const lotesProximosAVencer = lotesPorVencer.filter((l) => !loteVencido(l.fecha_vencimiento))
+  const hayAlertas = medicamentosBajoMinimo.length > 0 || lotesPorVencer.length > 0
 
   // Busca por marca comercial (nombre) o droga — las alertas de arriba siguen mirando
   // TODOS los medicamentos, esto solo filtra lo que se ve en la tabla. La tabla principal
@@ -147,146 +148,163 @@ export default function Medicamentos() {
         ]}
       />
 
-      <main className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto">
-        {error && <p className="text-base text-text-primary">{error}</p>}
+      <main className="p-4 sm:p-6 max-w-7xl mx-auto">
+        <div
+          className={
+            'lg:grid lg:gap-6 lg:items-start ' + (hayAlertas ? 'lg:grid-cols-[280px_1fr]' : '')
+          }
+        >
+          {/* Columna izquierda, sticky — pedido explícito del cliente ("las alertas de
+              medicamentos del lado izquierdo, que sigan el scroll, como en el detalle de
+              pacientes"), mismo criterio que el cartel de alergias + datos del paciente en
+              HistoriaClinica.jsx. Se reserva la columna solo si hay algo que mostrar — sin
+              alertas, la tabla ocupa el ancho completo en vez de dejar un hueco vacío a la
+              izquierda (mismo criterio que `mostrarResumen` en HistoriaClinica.jsx). La
+              columna derecha queda pendiente para otro panel a definir — se dejó `max-w-7xl`
+              (en vez del `max-w-4xl` que tenía antes) pensando en agregarla después sin tener
+              que volver a ensanchar el contenedor. */}
+          {hayAlertas && (
+            <aside className="lg:sticky lg:top-4 bg-alert/10 border border-alert rounded-lg p-4 space-y-3">
+              {medicamentosBajoMinimo.length > 0 && (
+                <div>
+                  <p className="font-semibold text-text-primary">
+                    Stock por debajo del mínimo ({STOCK_MINIMO}u.)
+                  </p>
+                  <ul className="text-text-primary text-base list-disc list-inside">
+                    {medicamentosBajoMinimo.map((m) => (
+                      <li key={m.id}>
+                        {identificarMedicamento(m)}: {stockPorMedicamento[m.id] || 0}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
-        {(medicamentosBajoMinimo.length > 0 || lotesPorVencer.length > 0) && (
-          <div className="bg-alert/10 border border-alert rounded-lg p-4 space-y-3">
-            {medicamentosBajoMinimo.length > 0 && (
-              <div>
-                <p className="font-semibold text-text-primary">
-                  Stock por debajo del mínimo ({STOCK_MINIMO}u.)
-                </p>
-                <ul className="text-text-primary text-base list-disc list-inside">
-                  {medicamentosBajoMinimo.map((m) => (
-                    <li key={m.id}>
-                      {identificarMedicamento(m)}: {stockPorMedicamento[m.id] || 0}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+              {lotesVencidos.length > 0 && (
+                <div>
+                  <p className="font-semibold text-text-primary">Lotes vencidos — sacar del stock</p>
+                  <ul className="text-text-primary text-base list-disc list-inside">
+                    {lotesVencidos.map((l) => (
+                      <li key={l.lote_id}>
+                        {nombreMedicamento(l.medicamento_id)}
+                        {l.numero_lote ? ` — Lote ${l.numero_lote}` : ' — sin número de lote'} — venció{' '}
+                        {formatFecha(l.fecha_vencimiento)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
-            {lotesVencidos.length > 0 && (
-              <div>
-                <p className="font-semibold text-text-primary">Lotes vencidos — sacar del stock</p>
-                <ul className="text-text-primary text-base list-disc list-inside">
-                  {lotesVencidos.map((l) => (
-                    <li key={l.lote_id}>
-                      {nombreMedicamento(l.medicamento_id)}
-                      {l.numero_lote ? ` — Lote ${l.numero_lote}` : ' — sin número de lote'} — venció{' '}
-                      {formatFecha(l.fecha_vencimiento)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {lotesProximosAVencer.length > 0 && (
-              <div>
-                <p className="font-semibold text-text-primary">Lotes a 30 días o menos de vencer</p>
-                <ul className="text-text-primary text-base list-disc list-inside">
-                  {lotesProximosAVencer.map((l) => (
-                    <li key={l.lote_id}>
-                      {nombreMedicamento(l.medicamento_id)}
-                      {l.numero_lote ? ` — Lote ${l.numero_lote}` : ' — sin número de lote'} — vence{' '}
-                      {formatFecha(l.fecha_vencimiento)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-          <input
-            type="text"
-            placeholder="Buscar por marca comercial o droga..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            className="input sm:max-w-xs"
-          />
-          <div className="flex flex-wrap gap-3">
-            <button onClick={() => setShowEntradaModal(true)} className="btn-primary">
-              + Nuevo medicamento
-            </button>
-            <button onClick={() => setShowSalidaModal(true)} className="btn-secondary">
-              + Registrar salida
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-surface border border-border rounded-lg overflow-hidden">
-          {loading ? (
-            <p className="p-10 text-center text-text-secondary text-base">Cargando...</p>
-          ) : medicamentosFiltrados.length === 0 ? (
-            <p className="p-10 text-center text-text-secondary text-base">
-              {medicamentosActivos.length === 0
-                ? 'Todavía no hay medicamentos cargados.'
-                : 'No se encontraron medicamentos con esa búsqueda.'}
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-base">
-                <thead>
-                  <tr className="border-b border-border text-left text-text-secondary">
-                    <th className="px-4 py-3 font-medium">Marca Comercial</th>
-                    <th className="px-4 py-3 font-medium">Concentración</th>
-                    <th className="px-4 py-3 font-medium">Droga</th>
-                    <th className="px-4 py-3 font-medium">Presentación</th>
-                    <th className="px-4 py-3 font-medium">Stock total</th>
-                    <th className="px-4 py-3 font-medium">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {medicamentosFiltrados.map((m) => {
-                    const stock = stockPorMedicamento[m.id] || 0
-                    const bajoMinimo = stock < STOCK_MINIMO
-
-                    return (
-                      <tr key={m.id} className="border-b border-border last:border-0">
-                        <td className="px-4 py-3 text-text-primary">{m.nombre}</td>
-                        <td className="px-4 py-3 text-text-primary">{m.concentracion || '—'}</td>
-                        <td className="px-4 py-3 text-text-primary">{m.droga || '—'}</td>
-                        <td className="px-4 py-3 text-text-primary">{formatearPresentacion(m) || '—'}</td>
-                        <td className="px-4 py-3">
-                          <span className={bajoMinimo ? 'text-text-primary font-semibold' : 'text-text-primary'}>
-                            {stock}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-3">
-                            <button
-                              onClick={() => {
-                                setEditingMedicamento(m)
-                                setShowMedicamentoModal(true)
-                              }}
-                              className="text-sm text-text-secondary hover:text-text-primary underline"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => setMedicamentoParaLotes(m)}
-                              className="text-sm text-text-secondary hover:text-text-primary underline"
-                            >
-                              Ver lotes
-                            </button>
-                            <button
-                              onClick={() => handleDarDeBaja(m)}
-                              className="text-sm text-text-primary underline"
-                            >
-                              Dar de baja
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+              {lotesProximosAVencer.length > 0 && (
+                <div>
+                  <p className="font-semibold text-text-primary">Lotes a 30 días o menos de vencer</p>
+                  <ul className="text-text-primary text-base list-disc list-inside">
+                    {lotesProximosAVencer.map((l) => (
+                      <li key={l.lote_id}>
+                        {nombreMedicamento(l.medicamento_id)}
+                        {l.numero_lote ? ` — Lote ${l.numero_lote}` : ' — sin número de lote'} — vence{' '}
+                        {formatFecha(l.fecha_vencimiento)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </aside>
           )}
+
+          <div className={'space-y-6 ' + (hayAlertas ? 'mt-6 lg:mt-0' : '')}>
+            {error && <p className="text-base text-text-primary">{error}</p>}
+
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+              <input
+                type="text"
+                placeholder="Buscar por marca comercial o droga..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="input sm:max-w-xs"
+              />
+              <div className="flex flex-wrap gap-3">
+                <button onClick={() => setShowEntradaModal(true)} className="btn-primary">
+                  + Nuevo medicamento
+                </button>
+                <button onClick={() => setShowSalidaModal(true)} className="btn-secondary">
+                  + Registrar salida
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-surface border border-border rounded-lg overflow-hidden">
+              {loading ? (
+                <p className="p-10 text-center text-text-secondary text-base">Cargando...</p>
+              ) : medicamentosFiltrados.length === 0 ? (
+                <p className="p-10 text-center text-text-secondary text-base">
+                  {medicamentosActivos.length === 0
+                    ? 'Todavía no hay medicamentos cargados.'
+                    : 'No se encontraron medicamentos con esa búsqueda.'}
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-base">
+                    <thead>
+                      <tr className="border-b border-border text-left text-text-secondary">
+                        <th className="px-4 py-3 font-medium">Marca Comercial</th>
+                        <th className="px-4 py-3 font-medium">Concentración</th>
+                        <th className="px-4 py-3 font-medium">Droga</th>
+                        <th className="px-4 py-3 font-medium">Presentación</th>
+                        <th className="px-4 py-3 font-medium">Stock total</th>
+                        <th className="px-4 py-3 font-medium">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {medicamentosFiltrados.map((m) => {
+                        const stock = stockPorMedicamento[m.id] || 0
+                        const bajoMinimo = stock < STOCK_MINIMO
+
+                        return (
+                          <tr key={m.id} className="border-b border-border last:border-0">
+                            <td className="px-4 py-3 text-text-primary">{m.nombre}</td>
+                            <td className="px-4 py-3 text-text-primary">{m.concentracion || '—'}</td>
+                            <td className="px-4 py-3 text-text-primary">{m.droga || '—'}</td>
+                            <td className="px-4 py-3 text-text-primary">{formatearPresentacion(m) || '—'}</td>
+                            <td className="px-4 py-3">
+                              <span className={bajoMinimo ? 'text-text-primary font-semibold' : 'text-text-primary'}>
+                                {stock}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-wrap gap-3">
+                                <button
+                                  onClick={() => {
+                                    setEditingMedicamento(m)
+                                    setShowMedicamentoModal(true)
+                                  }}
+                                  className="text-sm text-text-secondary hover:text-text-primary underline"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={() => setMedicamentoParaLotes(m)}
+                                  className="text-sm text-text-secondary hover:text-text-primary underline"
+                                >
+                                  Ver lotes
+                                </button>
+                                <button
+                                  onClick={() => handleDarDeBaja(m)}
+                                  className="text-sm text-text-primary underline"
+                                >
+                                  Dar de baja
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </main>
 
