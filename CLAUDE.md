@@ -343,8 +343,46 @@ Medicamentos y stock (`migracion-02-medicamentos-stock.sql`, RF-21 a RF-26):
   de la base se lleva puesto también el movimiento de entrada — correcto, porque
   borrar un lote sin salidas es deshacer una carga entera por error, no editar un
   registro contable real.
+
+  **Corregir la CANTIDAD de un lote sin salidas, sin tener que borrarlo entero —
+  pedido explícito del cliente ("un médico cargó mal una cantidad")**: antes,
+  "Editar lote" (`LoteFormModal.jsx`) solo dejaba tocar número de lote y fecha de
+  vencimiento, porque `cantidad` no es una columna de `lotes` — vive en la fila de
+  `movimientos_stock` de tipo `entrada` que se crea junto con el lote. La única
+  forma de corregir una cantidad mal cargada era el camino "pesado": ir a "Ver
+  lotes", eliminar el lote entero (con su movimiento), y volver a cargarlo desde
+  cero con "+ Nuevo medicamento". Se agregó un campo "Cantidad" directo en
+  "Editar lote" — mismo gate que ya usan "Editar"/"Eliminar" (`!tieneSalidas`),
+  `LotesMedicamentoModal.jsx` ahora también trae, junto con las salidas por lote,
+  la fila de `movimientos_stock` de tipo `entrada` de cada lote (`entradaPorLote`,
+  un `Map` — se asume una sola entrada por lote, cierto siempre porque
+  `EntradaStockModal.jsx` las crea juntas en el mismo submit) para poder
+  identificar qué fila corregir.
+
+  **Por qué esto NO viola la regla de "movimientos_stock nunca se edita" de más
+  abajo, es la MISMA excepción que ya existía, aplicada más quirúrgico**: al
+  guardar, si la cantidad cambió, `LoteFormModal.jsx` nunca hace un `UPDATE`
+  sobre la fila de `movimientos_stock` — borra la fila de entrada original
+  (`DELETE .eq('id', entradaMovimiento.id)`) y registra una nueva en su lugar
+  (`motivo: 'Corrección de cantidad cargada por error'`, `fecha` de ahora, no la
+  original). Es el mismo criterio que ya justifica el `DELETE` físico de
+  "Eliminar lote" (un lote sin salidas todavía no es un hecho contable real) —
+  solo que acá se conserva el `lote_id` y sus otros campos en vez de descartar
+  todo. Pide un profesional nuevo ("¿Quién corrige la cantidad?") **solo si la
+  cantidad realmente cambió** — si el usuario entra a "Editar lote" únicamente
+  para arreglar la fecha o el número, no hay ningún selector de más ni fricción
+  extra. **Riesgo aceptado, mismo perfil que el resto de esta app**: el
+  `DELETE` y el `INSERT` son dos llamadas separadas, no una transacción — si el
+  `DELETE` tiene éxito y el `INSERT` falla (ej. corte de red), el lote queda sin
+  ningún movimiento de entrada hasta volver a intentarlo; mismo tipo de riesgo
+  ya aceptado en otros flujos multi-paso de este proyecto (ver
+  `EntradaStockModal.jsx`, que tampoco es atómico entre medicamento/lote/
+  movimiento).
+
 - **`movimientos_stock`**: **nunca se edita ni se borra desde la UI, bajo ningún
-  caso** — es un libro contable, no un dato editable. `HistorialMovimientos.jsx`
+  caso** — es un libro contable, no un dato editable (con la única excepción de
+  arriba: la fila de entrada de un lote SIN salidas, que todavía no es un hecho
+  contable real). `HistorialMovimientos.jsx`
   (`/medicamentos/historial`, botón "Historial de movimientos" en el header de
   `/medicamentos`, al lado del título, con el mismo estilo que el botón
   "Medicamentos" del header de Pacientes; es una vista **global** de todos los
