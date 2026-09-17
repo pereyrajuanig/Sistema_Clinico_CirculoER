@@ -1303,6 +1303,110 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
   lista en orden ascendente de vencimiento y permite cambiar la selección sin
   errores de consola. No se guardó ninguna salida de prueba.
 
+  **Auditoría de fechas de vencimiento, pedido explícito del cliente tras un
+  caso real de un medicamento vencido con stock todavía cargado**: se revisó
+  todo el manejo de `fecha_vencimiento` del módulo de stock y se encontraron
+  varios problemas reales, no solo cosméticos.
+
+  1. **Crítico, ya corregido — un lote vencido podía ser sugerido y elegido
+     para una salida real**: la query de `SalidaStockModal.jsx` solo filtraba
+     `stock_actual > 0`, nunca por fecha. Como se ordena ascendente por
+     vencimiento, un lote YA VENCIDO (la fecha más antigua de todas) quedaba
+     **primero** en la lista y era la opción preseleccionada por default al
+     elegir el medicamento — el sistema ofrecía activamente un lote vencido
+     para administrarlo a un paciente real. Se agregó
+     `.gte('fecha_vencimiento', hoyLocalISO())` a la query — un lote vencido
+     directamente no aparece más como opción, ni como sugerencia ni a mano
+     (no hay ningún caso de uso real para elegirlo ahí). Si el único lote con
+     stock de un medicamento está vencido, el modal muestra "No hay stock
+     disponible en ningún lote" — mismo mensaje que "sin stock real", a
+     propósito: un lote vencido no es stock disponible para administrar.
+
+  2. **"Por vencer" y "vencido" eran el mismo estado, ya corregido**:
+     `estaProximoAVencer()` (la función vieja, ya sacada) hacía `fecha <= hoy
+     + 30 días`, que da `true` tanto para "vence en 2 semanas" como para
+     "venció hace 3 meses" — el aviso "está próximo a vencer" se mostraba
+     igual para un lote ya vencido, subestimando la gravedad. Se separó en dos
+     funciones puras excluyentes en `src/lib/stock.js`: `loteVencido()`
+     (`fecha < hoy`, HOY todavía cuenta como válido — mismo criterio "best
+     before" de la industria) y `loteProximoAVencer()` (devuelve `false` si ya
+     está vencido, nunca se solapan).
+
+  3. **El cartel de alerta de `/medicamentos` mezclaba vencidos y por vencer
+     en una sola lista, ya corregido**: `lotesPorVencer` (el fetch, sigue
+     acotado a `fecha_vencimiento <= hoy + 30 días`) ahora se separa en
+     `lotesVencidos`/`lotesProximosAVencer` con `loteVencido()`, cada uno con
+     su propio título — "Lotes vencidos — sacar del stock" (en pretérito,
+     "venció") arriba, "Lotes a 30 días o menos de vencer" (en presente,
+     "vence") debajo.
+
+  4. **"Ver lotes" no distinguía ningún vencido, ya corregido**:
+     `LotesMedicamentoModal.jsx` mostraba "Vence {fecha}" igual para todos los
+     lotes de un medicamento, sin ninguna marca visual. Ahora un lote vencido
+     se muestra en pretérito ("Venció {fecha}") y en negrita
+     (`text-text-primary font-semibold`, mismo tratamiento que el resto de
+     los avisos de esta pantalla) — el resto sigue en presente y sin negrita.
+
+  5. **(Menor) `EntradaStockModal.jsx` no validaba que la fecha de
+     vencimiento cargada fuera futura, ya corregido**: se podía cargar sin
+     querer un lote ya vencido al registrar una entrada nueva, por un error
+     de tipeo, sin ningún aviso. Se agregó `min={hoyLocalISO()}` al input (day
+     picker nativo) más una validación explícita en `handleSubmit` (defensa
+     en profundidad — el atributo `min` es una ayuda del navegador, no una
+     garantía en todos los casos).
+
+  **`hoyLocalISO()`/`sumarDiasISO()`/`loteVencido()`/`loteProximoAVencer()`,
+  todas en `src/lib/stock.js`**: `hoyLocalISO()` arma la fecha de HOY en
+  `YYYY-MM-DD` a propósito sin pasar por `toISOString().slice(0, 10)` — mismo
+  cuidado que `fechaLocalISO()` en `ConsumoDelMes.jsx`, porque convertir a UTC
+  primero puede devolver la fecha de MAÑANA para cualquier hora de la noche en
+  Argentina (UTC-3), corriendo un día el corte de "vencido" justo en el caso
+  límite que más importa. Se centralizó acá porque ahora la necesitan varios
+  archivos del módulo de stock, no solo una pantalla — de paso,
+  `EntradaStockModal.jsx` reemplazó su `hoyISO()` local (que sí usaba
+  `toISOString()`, con el mismo bug latente pero de bajo impacto ahí porque
+  solo alimentaba `fecha_ingreso`, un dato informativo) por esta versión
+  compartida. `elegirLoteFEFO()` (la función pura de test, no la query real)
+  también se actualizó para excluir vencidos, con el mismo criterio y tests
+  nuevos — no hacía falta tocar `validarCantidadSalida()`, no le compete la
+  fecha.
+
+  **Tests agregados en `stock.test.js`**: `loteVencido`/`loteProximoAVencer`
+  (incluyendo el caso que motivó separarlas: un lote vencido da `false` en
+  las dos, nunca las dos `true`), `sumarDiasISO` (cruzando fin de mes),
+  `hoyLocalISO` (solo el formato, no se puede fijar el reloj real en un test
+  puro), y dos casos nuevos de `elegirLoteFEFO` con un lote vencido con stock
+  — excluido de la sugerencia aunque sea el que "vence antes" de todos, y
+  `null` si el único lote con stock está vencido. Los tests de `elegirLoteFEFO`
+  que ya existían (pensados para probar FEFO por STOCK, no por vencimiento)
+  pasaron a recibir una fecha de referencia fija (`HOY_FIJO = '2026-01-01'`)
+  en vez de depender de la fecha real del sistema — sin este cambio hubieran
+  empezado a fallar solos con el tiempo, en cuanto la fecha real pasara de
+  alguno de los `fecha_vencimiento` hardcodeados en esos tests viejos.
+
+  **Verificado en el navegador contra el caso real que motivó esta
+  auditoría** (Playwright temporal, cuenta institucional real, sin guardar ni
+  modificar nada): con un medicamento que en producción tenía un lote
+  realmente vencido y con stock todavía cargado, se confirmó que (a) el
+  cartel de `/medicamentos` lo lista bajo "Lotes vencidos — sacar del stock",
+  no mezclado con los por vencer, (b) "Ver lotes" de ese medicamento muestra
+  "Venció {fecha}" en negrita, y (c) al abrir "Registrar salida" y elegir ese
+  medicamento, el selector de lote ni siquiera aparece — el modal muestra
+  directamente "No hay stock disponible en ningún lote de este medicamento",
+  sin errores de consola en ningún paso.
+
+  **Pendiente, no implementado en este cambio — a definir con el cliente**:
+  hoy no existe ninguna forma de sacar del stock un lote vencido que no sea
+  registrando una "salida" atribuida a un paciente real (lo cual sería
+  incorrecto — no se le "administró" nada a nadie). Si hace falta poder dar
+  de baja stock vencido/dañado formalmente, hace falta una tercera categoría
+  de movimiento distinta de entrada/salida (algo tipo `'baja'`), sin
+  `paciente_id` obligatorio — implica tocar el `CHECK constraint` de
+  `movimientos_stock.tipo` y probablemente las vistas `stock_por_lote`/
+  `stock_por_medicamento` (para que también resten stock con este tipo nuevo),
+  cuyo SQL no está versionado y no se pudo confirmar sin acceso a la base. Se
+  charla aparte con el cliente antes de tocar nada de esto.
+
   **Paciente no registrado (pedido explícito del cliente)**: como toda salida exige
   `paciente_id` por el constraint `salida_requiere_paciente` de la base (ver reglas
   de CRUD de `movimientos_stock` más abajo), y hay gente que va únicamente a

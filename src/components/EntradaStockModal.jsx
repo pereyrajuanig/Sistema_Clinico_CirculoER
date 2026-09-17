@@ -6,6 +6,7 @@ import {
   identificarMedicamento,
   mensajeErrorMedicamento,
 } from '@/lib/medicamentos'
+import { hoyLocalISO } from '@/lib/stock'
 
 const medicamentoNuevoInicial = {
   nombre: '',
@@ -13,10 +14,6 @@ const medicamentoNuevoInicial = {
   presentacion: '',
   presentacion_detalle: '',
   concentracion: '',
-}
-
-function hoyISO() {
-  return new Date().toISOString().slice(0, 10)
 }
 
 // Es el único punto de entrada para cargar medicamentos ahora — "+ Nuevo medicamento" en
@@ -87,6 +84,10 @@ export default function EntradaStockModal({ medicamentos, onClose, onRegistrado 
       setError('Tenés que especificar la presentación.')
       return
     }
+    if (fechaVencimiento < hoyLocalISO()) {
+      setError('La fecha de vencimiento no puede ser anterior a hoy.')
+      return
+    }
 
     setLoading(true)
 
@@ -122,7 +123,7 @@ export default function EntradaStockModal({ medicamentos, onClose, onRegistrado 
         medicamento_id: medicamentoIdFinal,
         numero_lote: numeroLote || null,
         fecha_vencimiento: fechaVencimiento,
-        fecha_ingreso: hoyISO(),
+        fecha_ingreso: hoyLocalISO(),
       })
       .select()
       .single()
@@ -306,6 +307,7 @@ export default function EntradaStockModal({ medicamentos, onClose, onRegistrado 
                 <input
                   type="date"
                   required
+                  min={hoyLocalISO()}
                   value={fechaVencimiento}
                   onChange={(e) => setFechaVencimiento(e.target.value)}
                   className="input"
