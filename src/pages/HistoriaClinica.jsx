@@ -8,6 +8,7 @@ import PatologiaEntryForm from '@/components/PatologiaEntryForm'
 import PacienteFormModal from '@/components/PacienteFormModal'
 import LaboratorioEntryForm from '@/components/LaboratorioEntryForm'
 import EditarResultadoLaboratorioModal from '@/components/EditarResultadoLaboratorioModal'
+import EditarMedicacionModal from '@/components/EditarMedicacionModal'
 import ConfirmarConProfesionalModal from '@/components/ConfirmarConProfesionalModal'
 import ExportarPdfModal from '@/components/ExportarPdfModal'
 import Header from '@/components/Header'
@@ -79,10 +80,12 @@ export default function HistoriaClinica() {
   const [editingAntecedente, setEditingAntecedente] = useState(null)
   const [editingPatologia, setEditingPatologia] = useState(null)
   const [editingResultado, setEditingResultado] = useState(null)
+  const [editingMedicacion, setEditingMedicacion] = useState(null)
   const [antecedenteAEliminar, setAntecedenteAEliminar] = useState(null)
   const [patologiaAEliminar, setPatologiaAEliminar] = useState(null)
   const [consultaAEliminar, setConsultaAEliminar] = useState(null)
   const [resultadoAEliminar, setResultadoAEliminar] = useState(null)
+  const [medicacionAEliminar, setMedicacionAEliminar] = useState(null)
 
   useEffect(() => {
     async function fetchAll() {
@@ -326,6 +329,47 @@ export default function HistoriaClinica() {
     setConsultas((prev) => prev.filter((c) => c.id !== consulta.id))
     setDocumentos((prev) => prev.filter((d) => d.consulta_id !== consulta.id))
     setConsultaAEliminar(null)
+  }
+
+  // Reintroducido a pedido del cliente después de que la sección "Medicación habitual"
+  // se sacara por completo (ver el modelo de datos de `medicacion` más abajo) — el panel
+  // resumen "Medicación actual" pasó a tener Editar/Eliminar en cada línea, mismo patrón de
+  // baja lógica + auditoría que el resto de las tablas clínicas.
+  function handleMedicacionGuardada(medicacionGuardada) {
+    setMedicacionHabitual((prev) =>
+      prev.map((m) => (m.id === medicacionGuardada.id ? medicacionGuardada : m))
+    )
+    setEditingMedicacion(null)
+  }
+
+  async function confirmarEliminarMedicacion(profesionalId) {
+    const medicacion = medicacionAEliminar
+
+    const { error: auditoriaError } = await registrarAuditoria({
+      tabla: 'medicacion',
+      registroId: medicacion.id,
+      accion: 'eliminar',
+      usuarioId: profesionalId,
+      valoresAnteriores: medicacion,
+    })
+
+    if (auditoriaError) {
+      setError(auditoriaError.message)
+      return
+    }
+
+    const { error } = await supabase
+      .from('medicacion')
+      .update({ eliminado_en: new Date().toISOString(), eliminado_por: profesionalId })
+      .eq('id', medicacion.id)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    setMedicacionHabitual((prev) => prev.filter((m) => m.id !== medicacion.id))
+    setMedicacionAEliminar(null)
   }
 
   function handleResultadosCreados(nuevosResultados) {
@@ -795,11 +839,27 @@ export default function HistoriaClinica() {
               {medicacionActiva.length > 0 && (
                 <div>
                   <p className="font-semibold text-text-primary">Medicación actual</p>
-                  <ul className="text-text-primary text-base list-disc list-inside">
+                  <ul className="space-y-2">
                     {medicacionActiva.map((m) => (
-                      <li key={m.id}>
-                        {m.nombre}
-                        {m.dosis ? ` — ${m.dosis}` : ''}
+                      <li key={m.id} className="text-base">
+                        <div className="text-text-primary">
+                          {m.nombre}
+                          {m.dosis ? ` — ${m.dosis}` : ''}
+                        </div>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setEditingMedicacion(m)}
+                            className="text-sm text-text-secondary hover:text-text-primary underline"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => setMedicacionAEliminar(m)}
+                            className="text-sm text-text-primary underline"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -868,6 +928,14 @@ export default function HistoriaClinica() {
         />
       )}
 
+      {editingMedicacion && (
+        <EditarMedicacionModal
+          medicacion={editingMedicacion}
+          onClose={() => setEditingMedicacion(null)}
+          onSaved={handleMedicacionGuardada}
+        />
+      )}
+
       {antecedenteAEliminar && (
         <ConfirmarConProfesionalModal
           titulo="Eliminar antecedente"
@@ -905,6 +973,16 @@ export default function HistoriaClinica() {
           textoConfirmar="Eliminar"
           onCancelar={() => setResultadoAEliminar(null)}
           onConfirmar={confirmarEliminarResultado}
+        />
+      )}
+
+      {medicacionAEliminar && (
+        <ConfirmarConProfesionalModal
+          titulo="Eliminar medicación"
+          mensaje="Deja de verse en la ficha del paciente. El registro se conserva internamente por la normativa de historia clínica (10 años) — no se puede deshacer desde la aplicación."
+          textoConfirmar="Eliminar"
+          onCancelar={() => setMedicacionAEliminar(null)}
+          onConfirmar={confirmarEliminarMedicacion}
         />
       )}
     </div>
