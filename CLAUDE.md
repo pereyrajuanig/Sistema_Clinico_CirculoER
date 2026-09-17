@@ -183,15 +183,56 @@ Historia clínica (`schema-historia-clinica.sql`):
     dedicada de abajo se refrescaba sola al volver a cargar la ficha; ahora que
     el panel resumen de arriba es la única vista, sin este paso quedaba
     desactualizado hasta el próximo refresh.
-  - **Sin edición ni baja lógica desde la UI, para esta tabla en particular**:
-    una vez cargada, una medicación no se puede editar ni eliminar desde ningún
-    lugar de la aplicación — el dato se mantiene igual hasta que alguien lo
-    corrija a mano en Supabase. Es una excepción real a la regla general de
-    "CRUD de las tablas clínicas" más abajo (que sigue describiendo el patrón
-    completo para `consultas`/`antecedentes`/`patologias`/
-    `resultados_laboratorio`) — `medicacion` conserva las columnas
-    `eliminado_en`/`eliminado_por` en la base por si en algún momento se
-    reintroduce edición/baja, pero hoy no hay ningún botón que las use.
+  - **Edición y baja lógica, reintroducidas después — historia de una vuelta
+    atrás parcial**: la versión inmediatamente anterior de este documento decía
+    que `medicacion` no se podía editar ni eliminar desde la UI (una excepción
+    real a la regla general de "CRUD de las tablas clínicas"). Duró poco: el
+    cliente pidió poder corregir o sacar una medicación cargada por error
+    ("¿cómo se puede hacer?") — se le propuso agregar Editar/Eliminar
+    directamente en cada línea del panel "Medicación actual" (ver
+    "Visualización" arriba), sin volver a exponer "Estado" (si una medicación
+    deja de tomarse, se elimina en vez de marcarla "Suspendida" — ver el punto
+    de abajo). Nuevo componente, `EditarMedicacionModal.jsx` — modal-only (no
+    dual-mode como `AntecedenteEntryForm.jsx`/`PatologiaEntryForm.jsx`, no
+    hace falta: la ÚNICA alta sigue siendo el quick-add de
+    `ConsultaEntryForm.jsx`, este componente es puramente de edición, mismo
+    criterio que `EditarResultadoLaboratorioModal.jsx`) con selector "¿Quién
+    edita?" + Nombre + Dosis — **sin Estado ni fechas**, mismo criterio
+    minimalista que el alta. El `UPDATE` solo manda `nombre`/`dosis`, dejando
+    `estado`/`fecha_inicio`/`fecha_fin` sin tocar (se mantienen con lo que ya
+    tenían). "Eliminar" reutiliza `ConfirmarConProfesionalModal.jsx` +
+    `eliminado_en`/`eliminado_por` + `registrarAuditoria()`, exactamente el
+    mismo patrón que las otras cuatro tablas — con esto, `medicacion` vuelve a
+    seguir de lleno la regla general de "CRUD de las tablas clínicas" más
+    abajo (la nota de que era una excepción quedó obsoleta con este cambio).
+
+    **Sin "Suspendida" como estado intermedio, a propósito**: al no
+    reintroducir el selector de Estado, la única forma de sacar una
+    medicación de "Medicación actual" es "Eliminar" (baja lógica) — deja de
+    verse en el panel pero el registro se conserva igual que el resto de la
+    normativa de historia clínica. Se evaluó explícitamente la alternativa
+    (traer de vuelta Activa/Suspendida) y el cliente prefirió el criterio más
+    simple.
+
+    **Verificado en el navegador, sin escribir contra datos reales**: se
+    confirmó con Playwright temporal (contra un paciente real con medicación
+    activa cargada, sin guardar ni confirmar nada) que los links "Editar"/
+    "Eliminar" aparecen en cada línea, que el modal de edición muestra
+    Nombre/Dosis/¿Quién edita? sin ningún campo de Estado, y que el modal de
+    confirmación de "Eliminar medicación" abre correctamente — sin errores de
+    consola.
+  - **La consulta deja una nota de lo que se agregó, pedido explícito del
+    cliente** ("si es para agregar una nueva medicación... sale la consulta
+    sola y no dice qué fue"): al usar el quick-add, `ConsultaEntryForm.jsx`
+    reusa el campo de texto libre `medicacion` DE LA CONSULTA (el mismo que ya
+    existía, histórico, que `CAMPOS_CONSULTA` en `HistoriaClinica.jsx` sigue
+    mostrando en `ConsultaCard`) para dejar un texto tipo "Losartán 50mg cada
+    12hs (agregado a medicación habitual)". No crea ninguna relación en la
+    base con la fila insertada en `medicacion` (sigue sin haber FK entre las
+    dos tablas) — es solo una nota de texto en la consulta, para que no quede
+    "sola" sin decir qué se cargó. Si la consulta que se edita ya tenía algo
+    en ese campo (una consulta vieja, de antes de que se sacara del
+    formulario activo), se concatena con ` · ` en vez de pisarlo.
 - `consultas` — núcleo del sistema, incluye signos vitales como columnas directas
   (siempre van pegados a una consulta, nunca sueltos). El campo `medicacion` (texto
   libre) es lo que se indicó en esa visita puntual — ver la aclaración de arriba en
@@ -467,20 +508,19 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
 - Historia clínica: datos del paciente, antecedentes (alta/edición/borrado lógico),
   **patologías** (alta/edición/borrado lógico, `/lib/patologias.js`, sección aparte de
   Antecedentes — diagnósticos ACTIVOS del paciente hoy, no historia pasada, ver detalle
-  en el modelo de datos más arriba), **medicación habitual** (solo lectura en un panel
-  resumen arriba de la ficha junto con patologías/antecedentes resaltados; alta única
-  y exclusivamente desde el atajo dentro de `ConsultaEntryForm.jsx` — Nombre y Dosis
-  nomás, siempre queda Activa —, sin edición ni baja lógica desde ningún lugar de la
-  UI; no confundir con el campo `medicacion` de cada consulta puntual — ver detalle
-  completo en el modelo de datos más arriba), consultas (alta/edición/borrado lógico,
-  selector de "quién atiende", signos vitales, documentos adjuntos en bucket privado
-  con URL firmada), resultados de laboratorio (por tipo de examen, con unidades, y
-  ahora también edición/borrado lógico). De estas, consultas/antecedentes/patologías/
-  resultados auditan cada edición y baja en la tabla `auditoria` con el estado
-  anterior completo — ver "CRUD de las tablas clínicas" más abajo. `medicacion`
-  sigue teniendo las columnas de auditoría/baja lógica en la base pero, al no tener
-  edición ni baja desde la UI, hoy no las dispara nada. `pacientes` queda afuera de
-  este patrón a propósito.
+  en el modelo de datos más arriba), **medicación habitual** (se ve en un panel
+  resumen arriba de la ficha junto con patologías/antecedentes resaltados, con Editar/
+  Eliminar en cada línea — `EditarMedicacionModal.jsx`; alta única y exclusivamente
+  desde el atajo dentro de `ConsultaEntryForm.jsx` — Nombre y Dosis nomás, siempre
+  queda Activa, sin un estado "Suspendida" intermedio, ver detalle completo en el
+  modelo de datos más arriba —; no confundir con el campo `medicacion` de cada
+  consulta puntual), consultas (alta/edición/borrado lógico, selector de "quién
+  atiende", signos vitales, documentos adjuntos en bucket privado con URL firmada),
+  resultados de laboratorio (por tipo de examen, con unidades, y ahora también
+  edición/borrado lógico). Las cinco (consultas, antecedentes, patologías, medicación,
+  resultados) auditan cada edición y baja en la tabla `auditoria` con el estado
+  anterior completo — ver "CRUD de las tablas clínicas" más abajo. `pacientes` queda
+  afuera de este patrón a propósito.
 
 - **Consultas — "cuaderno continuo" en vez de formulario con casilleros
   (`ConsultaEntryForm.jsx`), EXPERIMENTO DE UX pedido directo por los médicos que
@@ -853,6 +893,49 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
     contra la base** porque la columna todavía no existe en producción
     (correrla es una acción manual del usuario, ver arriba) — probarlo
     hubiera fallado a propósito, no por un bug del código.
+  - **Layout de la ficha, tres columnas fijas en desktop — pedido explícito
+    del cliente** ("que vayan bajando a medida que se scrollee, cosa de que
+    acompañe y esté siempre visible" para el panel de Patologías/Medicación,
+    y después "lo mismo con los datos del paciente pero del lado izquierdo,
+    quedando las consultas en el medio"): a partir de `lg` (1024px),
+    `HistoriaClinica.jsx` arma un grid de tres columnas —
+    `lg:grid-cols-[280px_1fr_320px]` (o `[280px_1fr]` sin la columna derecha,
+    si `mostrarResumen` es falso — ver `mostrarResumen` en el cuerpo del
+    componente) — con `lg:sticky lg:top-4` en las dos columnas laterales:
+    - **Izquierda (280px)**: cartel de alergias (si hay) + "Datos del
+      paciente". El cartel de alergias se agrupó ACÁ, no en la columna
+      central — es información de identidad/seguridad del paciente, igual
+      que sus datos, no parte de la historia clínica cronológica. La `dl` de
+      "Datos del paciente" pasó de `grid-cols-2 sm:grid-cols-3` a una sola
+      columna (`space-y-4`) — la cuadrícula de varias columnas estaba pensada
+      para el ancho de página completo que tenía antes; en 280px quedaba
+      demasiado apretada para leer "Label: Valor" cómodo.
+    - **Centro (`1fr`, el ancho que sobra)**: Consultas, Antecedentes y
+      Patologías, Laboratorio — la línea de tiempo clínica en sí, sin cambios
+      de contenido, solo de columna.
+    - **Derecha (320px)**: el panel resumen (Patologías y Antecedentes +
+      Medicación actual, ver más arriba) — sin cambios de contenido respecto
+      a como ya estaba, solo se le sumó el sticky.
+    Por debajo de `lg` las tres se apilan en una sola columna, en el mismo
+    orden (izquierda, centro, derecha) — sin `sticky` (no hay espacio para
+    una columna lateral en celular/tablet, mismo criterio que el resto de la
+    app con el corte a `lg`, ver "Responsive" más abajo). `max-w-4xl` pasó a
+    `max-w-7xl` en el contenedor `<main>` para darle más aire a las tres
+    columnas juntas en pantallas grandes.
+
+    **De paso, pedido explícito**: "Medicación habitual activa" (el
+    subtítulo del panel resumen) se renombró a **"Medicación actual"** — sin
+    otro cambio, sigue siendo la misma lista (`medicacionActiva`, filtrada
+    por `estado === 'Activa'`).
+
+    **Verificado en el navegador** (Playwright temporal, cuenta real, contra
+    varios pacientes reales hasta encontrar uno con datos en el panel
+    resumen — no todos los pacientes de prueba tenían patologías/medicación
+    cargada): `position: sticky` confirmado en las dos columnas laterales a
+    1440px, `position: static` (apilado normal) confirmado a 375px, capturas
+    visuales conformes en desktop (scrolleado y sin scrollear) y mobile, sin
+    errores de consola. No se guardó ni modificó ningún dato de paciente
+    real durante la verificación.
 
 - Cartel de alergias visible al abrir la ficha del paciente (RF-17)
 - Sistema de diseño con modo claro/oscuro (`design-system.md`)
@@ -1524,13 +1607,11 @@ Necesita dos secrets en GitHub (Settings → Secrets and variables → Actions �
 
 ### CRUD de las tablas clínicas: editar + baja lógica + auditoría (RNF-09/RNF-10)
 
-**Aplica de lleno a `consultas`, `antecedentes`, `resultados_laboratorio` y
-`patologias`. `medicacion` comparte el mismo esquema de columnas
-(`eliminado_en`/`eliminado_por`) pero, desde que se sacó su sección de gestión
-dedicada (ver el modelo de datos de `medicacion` más arriba), no tiene ningún botón
-de editar/eliminar en la UI que las dispare — el patrón de abajo describe el
-mecanismo tal como sigue existiendo en la base y tal como lo usan las otras cuatro
-tablas. `pacientes` queda explícitamente AFUERA de todo este patrón** — no tiene
+**Aplica a `consultas`, `antecedentes`, `resultados_laboratorio`, `patologias` y
+`medicacion`** (esta última tuvo una vuelta atrás real: perdió y después recuperó su
+edición/baja desde la UI — ver el modelo de datos de `medicacion` más arriba para el
+detalle completo, hoy vuelve a seguir este patrón de lleno). **`pacientes` queda
+explícitamente AFUERA de todo este patrón** — no tiene
 `eliminado_en`/`eliminado_por`, no tiene fila en `auditoria`, y no hay ni va a haber un
 botón de eliminar en el listado de pacientes. Un paciente nunca se borra, bajo ningún
 mecanismo, lógico o físico — es una decisión de diseño explícita, no un olvido.
@@ -1549,7 +1630,7 @@ agrega una tabla clínica nueva en el futuro que necesite baja lógica, usar
 ya establecida.**
 
 **Auditoría (tabla genérica `auditoria`)**: antes de cada UPDATE de edición y antes de
-cada baja lógica en estas cuatro tablas, se inserta una fila en `auditoria` con el estado
+cada baja lógica en estas cinco tablas, se inserta una fila en `auditoria` con el estado
 COMPLETO del registro tal como estaba antes del cambio — `eliminado_en`/`eliminado_por`
 dicen cuándo y quién borró, pero no qué decía el registro antes. Columnas reales de
 `auditoria` (confirmadas por `information_schema.columns`, no asumidas): `id` (uuid, PK),
@@ -1564,26 +1645,23 @@ compartido: `registrarAuditoria()` en `src/lib/auditoria.js`.
 insert en `auditoria` falla, se corta ahí (se muestra el error y no se hace el UPDATE) en
 vez de dejar pasar un cambio sin auditar. Ver el patrón repetido en
 `ConsultaEntryForm.jsx`, `AntecedenteEntryForm.jsx`, `PatologiaEntryForm.jsx`,
-`EditarResultadoLaboratorioModal.jsx` y los cuatro
-`confirmarEliminar*` de `HistoriaClinica.jsx` (antes había un quinto,
-`confirmarEliminarMedicacion` — se borró junto con toda la sección de gestión de
-`medicacion`, ver el modelo de datos más arriba).
+`EditarResultadoLaboratorioModal.jsx`, `EditarMedicacionModal.jsx` y los cinco
+`confirmarEliminar*` de `HistoriaClinica.jsx` (`confirmarEliminarMedicacion` se
+había borrado junto con la sección de gestión de `medicacion` y se volvió a
+agregar cuando se reintrodujo la edición/baja — ver el modelo de datos más
+arriba).
 
 **`usuario_id` de la auditoría es siempre el profesional elegido en el selector de la
 pantalla ("¿quién atiende?"/"¿quién edita?"/"¿quién carga?"), nunca la sesión de Auth** —
 mismo criterio que el resto de la app desde que el login pasó a ser una cuenta compartida
 (ver "Selectores explícitos de profesional" más arriba). `ConsultaEntryForm.jsx` y las
-bajas de las cuatro tablas ya tenían un selector de profesional por otras razones
+bajas de las cinco tablas ya tenían un selector de profesional por otras razones
 (trazabilidad médico-legal de "quién atendió", o el modal compartido
 `ConfirmarConProfesionalModal.jsx`) y ese mismo valor se reutiliza como `usuario_id` de la
 auditoría.
 
-**Dos variantes distintas de "¿quién carga/edita?", no confundir una con otra** (aplica a
-los formularios que todavía tienen edición — `medicacion.usuario_id` sigue siendo
-inmutable a nivel de columna/constraint, pero como ya no hay edición de `medicacion`
-desde la UI, esa inmutabilidad hoy no se "ve" en ningún selector, es solo el valor fijado
-una vez al insertar):
-- **Inmutable tras la carga** (`antecedentes.usuario_id`,
+**Dos variantes distintas de "¿quién carga/edita?", no confundir una con otra**:
+- **Inmutable tras la carga** (`antecedentes.usuario_id`, `medicacion.usuario_id`,
   `resultados_laboratorio.usuario_id`): el selector aparece siempre (alta y edición), pero
   solo el de ALTA se guarda en la columna del registro — el de edición alimenta
   ÚNICAMENTE la fila de `auditoria` de ese cambio puntual, la columna original nunca se
@@ -1591,7 +1669,10 @@ una vez al insertar):
   selector con label dinámico ("¿Quién carga?" al dar de alta, "¿Quién edita?" al editar)
   para dejar claro el rol distinto; `LaboratorioEntryForm.jsx` (alta) y
   `EditarResultadoLaboratorioModal.jsx` (edición) son directamente dos componentes
-  separados que logran lo mismo.
+  separados que logran lo mismo. `medicacion` sigue el mismo criterio pero con el alta en
+  un lugar distinto — vive en el quick-add de `ConsultaEntryForm.jsx`, no en un componente
+  dedicado — y la edición en `EditarMedicacionModal.jsx`, que jamás toca `usuario_id`, solo
+  lo usa para la fila de `auditoria` de ese cambio puntual.
 - **Se reescribe en cada edición** (`consultas.profesional_id`, `patologias.usuario_id`):
   ahí "quién atendió/cargó" es en sí mismo dato clínico editable (corregir quién atendió
   realmente), no solo metadato de auditoría — el mismo valor sirve para las dos cosas: se

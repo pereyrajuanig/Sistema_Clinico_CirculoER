@@ -198,6 +198,21 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
       ])
     )
 
+    // Pedido explícito del cliente: sin este detalle, la consulta quedaba "sola" sin decir
+    // qué se cargó — reusa el campo `medicacion` de la propia consulta (texto libre,
+    // histórico, CAMPOS_CONSULTA en HistoriaClinica.jsx ya lo muestra) para dejar registrado
+    // qué medicación se agregó en esta visita puntual. No crea ninguna relación en la base
+    // con la fila de `medicacion` insertada arriba (sigue sin haber FK entre las dos
+    // tablas) — es solo una nota de texto. Si la consulta ya tenía algo cargado ahí (una
+    // consulta vieja, de antes de este cambio), se concatena en vez de pisarlo.
+    if (medicacionInsertada) {
+      const detalle =
+        `${medicacionInsertada.nombre}` +
+        (medicacionInsertada.dosis ? ` — ${medicacionInsertada.dosis}` : '') +
+        ' (agregado a medicación habitual)'
+      camposClinicos.medicacion = consulta?.medicacion ? `${consulta.medicacion} · ${detalle}` : detalle
+    }
+
     const query = esEdicion
       ? supabase
           .from('consultas')

@@ -8,6 +8,7 @@ import PatologiaEntryForm from '@/components/PatologiaEntryForm'
 import PacienteFormModal from '@/components/PacienteFormModal'
 import LaboratorioEntryForm from '@/components/LaboratorioEntryForm'
 import EditarResultadoLaboratorioModal from '@/components/EditarResultadoLaboratorioModal'
+import EditarMedicacionModal from '@/components/EditarMedicacionModal'
 import ConfirmarConProfesionalModal from '@/components/ConfirmarConProfesionalModal'
 import ExportarPdfModal from '@/components/ExportarPdfModal'
 import Header from '@/components/Header'
@@ -79,10 +80,12 @@ export default function HistoriaClinica() {
   const [editingAntecedente, setEditingAntecedente] = useState(null)
   const [editingPatologia, setEditingPatologia] = useState(null)
   const [editingResultado, setEditingResultado] = useState(null)
+  const [editingMedicacion, setEditingMedicacion] = useState(null)
   const [antecedenteAEliminar, setAntecedenteAEliminar] = useState(null)
   const [patologiaAEliminar, setPatologiaAEliminar] = useState(null)
   const [consultaAEliminar, setConsultaAEliminar] = useState(null)
   const [resultadoAEliminar, setResultadoAEliminar] = useState(null)
+  const [medicacionAEliminar, setMedicacionAEliminar] = useState(null)
 
   useEffect(() => {
     async function fetchAll() {
@@ -328,6 +331,47 @@ export default function HistoriaClinica() {
     setConsultaAEliminar(null)
   }
 
+  // Reintroducido a pedido del cliente después de que la sección "Medicación habitual"
+  // se sacara por completo (ver el modelo de datos de `medicacion` más abajo) — el panel
+  // resumen "Medicación actual" pasó a tener Editar/Eliminar en cada línea, mismo patrón de
+  // baja lógica + auditoría que el resto de las tablas clínicas.
+  function handleMedicacionGuardada(medicacionGuardada) {
+    setMedicacionHabitual((prev) =>
+      prev.map((m) => (m.id === medicacionGuardada.id ? medicacionGuardada : m))
+    )
+    setEditingMedicacion(null)
+  }
+
+  async function confirmarEliminarMedicacion(profesionalId) {
+    const medicacion = medicacionAEliminar
+
+    const { error: auditoriaError } = await registrarAuditoria({
+      tabla: 'medicacion',
+      registroId: medicacion.id,
+      accion: 'eliminar',
+      usuarioId: profesionalId,
+      valoresAnteriores: medicacion,
+    })
+
+    if (auditoriaError) {
+      setError(auditoriaError.message)
+      return
+    }
+
+    const { error } = await supabase
+      .from('medicacion')
+      .update({ eliminado_en: new Date().toISOString(), eliminado_por: profesionalId })
+      .eq('id', medicacion.id)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    setMedicacionHabitual((prev) => prev.filter((m) => m.id !== medicacion.id))
+    setMedicacionAEliminar(null)
+  }
+
   function handleResultadosCreados(nuevosResultados) {
     setResultadosLab((prev) =>
       [...prev, ...nuevosResultados].sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
@@ -401,6 +445,8 @@ export default function HistoriaClinica() {
   // Antecedentes no tienen un estado "activo", así que solo entran acá si tienen color.
   const patologiasParaResumen = patologias.filter((p) => p.estado === 'Activa' || p.color)
   const antecedentesResaltados = antecedentes.filter((a) => a.color)
+  const mostrarResumen =
+    patologiasParaResumen.length > 0 || medicacionActiva.length > 0 || antecedentesResaltados.length > 0
 
   return (
     <div className="min-h-screen bg-background">
@@ -417,88 +463,60 @@ export default function HistoriaClinica() {
         ]}
       />
 
-      <main className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto">
-        {alergias.length > 0 && (
-          <div className="bg-alert/10 border border-alert rounded-lg p-4 flex gap-3 items-start">
-            <IconoAlerta />
-            <div>
-              <p className="font-semibold text-text-primary">Alergias registradas</p>
-              <ul className="text-text-primary text-base list-disc list-inside">
-                {alergias.map((a) => (
-                  <li key={a.id}>{a.descripcion}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        )}
-
-        {(patologiasParaResumen.length > 0 || medicacionActiva.length > 0 || antecedentesResaltados.length > 0) && (
-          <div className="bg-surface border border-border rounded-lg p-4 space-y-3">
-            {(patologiasParaResumen.length > 0 || antecedentesResaltados.length > 0) && (
-              <div>
-                <p className="font-semibold text-text-primary">Patologías y Antecedentes</p>
-                <ul className="text-base space-y-1">
-                  {patologiasParaResumen.map((p) => (
-                    <li
-                      key={`patologia-${p.id}`}
-                      className={
-                        'rounded-md px-2 py-1 border-l-4 text-text-primary ' +
-                        (claseColorResaltado(p.color) || 'border-transparent')
-                      }
-                    >
-                      {p.nombre}
-                    </li>
-                  ))}
-                  {antecedentesResaltados.map((a) => (
-                    <li
-                      key={`antecedente-${a.id}`}
-                      className={
-                        'rounded-md px-2 py-1 border-l-4 text-text-primary ' + claseColorResaltado(a.color)
-                      }
-                    >
-                      {a.descripcion}
-                    </li>
-                  ))}
-                </ul>
+      <main className="p-4 sm:p-6 max-w-7xl mx-auto">
+        <div
+          className={
+            'lg:grid lg:gap-6 lg:items-start ' +
+            (mostrarResumen ? 'lg:grid-cols-[280px_1fr_320px]' : 'lg:grid-cols-[280px_1fr]')
+          }
+        >
+          {/* Columna izquierda, pedido explícito del cliente ("lo mismo con los datos del
+              paciente pero del lado izquierdo") — mismo criterio sticky que el panel de la
+              derecha: acompaña el scroll en vez de perderse de vista al bajar. El cartel de
+              alergias se agrupó acá (no en la columna del medio) porque es información de
+              identidad/seguridad del paciente, igual que sus datos — no parte de la historia
+              clínica cronológica que sí vive en la columna central. */}
+          <aside className="space-y-6 lg:sticky lg:top-4">
+            {alergias.length > 0 && (
+              <div className="bg-alert/10 border border-alert rounded-lg p-4 flex gap-3 items-start">
+                <IconoAlerta />
+                <div>
+                  <p className="font-semibold text-text-primary">Alergias registradas</p>
+                  <ul className="text-text-primary text-base list-disc list-inside">
+                    {alergias.map((a) => (
+                      <li key={a.id}>{a.descripcion}</li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             )}
 
-            {medicacionActiva.length > 0 && (
-              <div>
-                <p className="font-semibold text-text-primary">Medicación habitual activa</p>
-                <ul className="text-text-primary text-base list-disc list-inside">
-                  {medicacionActiva.map((m) => (
-                    <li key={m.id}>
-                      {m.nombre}
-                      {m.dosis ? ` — ${m.dosis}` : ''}
-                    </li>
-                  ))}
-                </ul>
+            <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
+              <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+                <h2 className="text-lg font-semibold text-text-primary">Datos del paciente</h2>
+                <button onClick={() => setShowEditModal(true)} className="btn-secondary px-3 py-1.5">
+                  Editar
+                </button>
               </div>
-            )}
-          </div>
-        )}
+              {/* Una sola columna — antes era grid-cols-2 sm:grid-cols-3, pensado para un
+                  ancho de página completo; en esta columna angosta (280px) esa cuadrícula
+                  quedaba demasiado apretada para leer "Label: Valor" cómodo */}
+              <dl className="space-y-4 text-base">
+                <Dato label="Fecha de nacimiento" value={formatFecha(paciente.fecha_nacimiento)} />
+                <Dato label="Edad" value={edad != null ? `${edad} años` : null} />
+                <Dato label="Sexo" value={paciente.sexo} />
+                <Dato label="Teléfono" value={paciente.telefono} />
+                <Dato label="Dirección" value={paciente.direccion} />
+                <Dato label="Contacto familiar" value={paciente.contacto_familiar} />
+                <Dato label="Obra social" value={formatearMayuscula(paciente.obra_social)} />
+                <Dato label="Grupo sanguíneo" value={formatearMayuscula(paciente.grupo_sanguineo)} />
+                <Dato label="Ocupación" value={paciente.ocupacion} />
+                <Dato label="Estado civil" value={paciente.estado_civil} />
+              </dl>
+            </section>
+          </aside>
 
-        <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-text-primary">Datos del paciente</h2>
-            <button onClick={() => setShowEditModal(true)} className="btn-secondary px-3 py-1.5">
-              Editar
-            </button>
-          </div>
-          <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-base">
-            <Dato label="Fecha de nacimiento" value={formatFecha(paciente.fecha_nacimiento)} />
-            <Dato label="Edad" value={edad != null ? `${edad} años` : null} />
-            <Dato label="Sexo" value={paciente.sexo} />
-            <Dato label="Teléfono" value={paciente.telefono} />
-            <Dato label="Dirección" value={paciente.direccion} />
-            <Dato label="Contacto familiar" value={paciente.contacto_familiar} />
-            <Dato label="Obra social" value={formatearMayuscula(paciente.obra_social)} />
-            <Dato label="Grupo sanguíneo" value={formatearMayuscula(paciente.grupo_sanguineo)} />
-            <Dato label="Ocupación" value={paciente.ocupacion} />
-            <Dato label="Estado civil" value={paciente.estado_civil} />
-          </dl>
-        </section>
+          <div className="space-y-6 mt-6 lg:mt-0">
 
         {/* Línea de tiempo de consultas — experimento de UX pedido directo por los médicos
             (ver CLAUDE.md): se lee de arriba hacia abajo, de la más vieja a la más nueva,
@@ -779,6 +797,77 @@ export default function HistoriaClinica() {
             </button>
           )}
         </section>
+          </div>
+
+          {mostrarResumen && (
+            // Pedido explícito del cliente: que el resumen de Patologías/Antecedentes y
+            // Medicación "acompañe" el scroll en vez de quedar arriba de todo y perderse de
+            // vista al bajar — `lg:sticky lg:top-4` lo fija a 1rem del borde superior del
+            // viewport a partir de `lg` (por debajo de eso, se apila como una sección más,
+            // no hay espacio para una columna lateral). El cartel de alergias NO se mueve
+            // acá — sigue arriba de todo en la columna principal, es una señal distinta.
+            <aside className="mt-6 lg:mt-0 lg:sticky lg:top-4 bg-surface border border-border rounded-lg p-4 space-y-3">
+              {(patologiasParaResumen.length > 0 || antecedentesResaltados.length > 0) && (
+                <div>
+                  <p className="font-semibold text-text-primary">Patologías y Antecedentes</p>
+                  <ul className="text-base space-y-1">
+                    {patologiasParaResumen.map((p) => (
+                      <li
+                        key={`patologia-${p.id}`}
+                        className={
+                          'rounded-md px-2 py-1 border-l-4 text-text-primary ' +
+                          (claseColorResaltado(p.color) || 'border-transparent')
+                        }
+                      >
+                        {p.nombre}
+                      </li>
+                    ))}
+                    {antecedentesResaltados.map((a) => (
+                      <li
+                        key={`antecedente-${a.id}`}
+                        className={
+                          'rounded-md px-2 py-1 border-l-4 text-text-primary ' + claseColorResaltado(a.color)
+                        }
+                      >
+                        {a.descripcion}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {medicacionActiva.length > 0 && (
+                <div>
+                  <p className="font-semibold text-text-primary">Medicación actual</p>
+                  <ul className="space-y-2">
+                    {medicacionActiva.map((m) => (
+                      <li key={m.id} className="text-base">
+                        <div className="text-text-primary">
+                          {m.nombre}
+                          {m.dosis ? ` — ${m.dosis}` : ''}
+                        </div>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setEditingMedicacion(m)}
+                            className="text-sm text-text-secondary hover:text-text-primary underline"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => setMedicacionAEliminar(m)}
+                            className="text-sm text-text-primary underline"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </aside>
+          )}
+        </div>
       </main>
 
       {editingConsulta && (
@@ -839,6 +928,14 @@ export default function HistoriaClinica() {
         />
       )}
 
+      {editingMedicacion && (
+        <EditarMedicacionModal
+          medicacion={editingMedicacion}
+          onClose={() => setEditingMedicacion(null)}
+          onSaved={handleMedicacionGuardada}
+        />
+      )}
+
       {antecedenteAEliminar && (
         <ConfirmarConProfesionalModal
           titulo="Eliminar antecedente"
@@ -876,6 +973,16 @@ export default function HistoriaClinica() {
           textoConfirmar="Eliminar"
           onCancelar={() => setResultadoAEliminar(null)}
           onConfirmar={confirmarEliminarResultado}
+        />
+      )}
+
+      {medicacionAEliminar && (
+        <ConfirmarConProfesionalModal
+          titulo="Eliminar medicación"
+          mensaje="Deja de verse en la ficha del paciente. El registro se conserva internamente por la normativa de historia clínica (10 años) — no se puede deshacer desde la aplicación."
+          textoConfirmar="Eliminar"
+          onCancelar={() => setMedicacionAEliminar(null)}
+          onConfirmar={confirmarEliminarMedicacion}
         />
       )}
     </div>
