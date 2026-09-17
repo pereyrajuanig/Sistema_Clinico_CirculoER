@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import LoteFormModal from '@/components/LoteFormModal'
+import DarDeBajaLoteModal from '@/components/DarDeBajaLoteModal'
 import { loteVencido } from '@/lib/stock'
 
 function formatFecha(value) {
@@ -15,6 +16,7 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [editingLote, setEditingLote] = useState(null)
+  const [loteParaBaja, setLoteParaBaja] = useState(null)
 
   useEffect(() => {
     async function fetchLotes() {
@@ -97,6 +99,18 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
     onCambio()
   }
 
+  function handleBajaRegistrada(cantidadDadaDeBaja) {
+    setLotes((prev) =>
+      prev.map((l) =>
+        l.lote_id === loteParaBaja.lote_id
+          ? { ...l, stock_actual: l.stock_actual - cantidadDadaDeBaja }
+          : l
+      )
+    )
+    setLoteParaBaja(null)
+    onCambio()
+  }
+
   async function handleEliminarLote(loteId) {
     if (
       !window.confirm(
@@ -155,26 +169,38 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
                         {l.stock_actual}
                       </p>
                     </div>
-                    {tieneSalidas ? (
-                      <p className="text-sm text-text-secondary shrink-0">
-                        Ya tiene salidas registradas
-                      </p>
-                    ) : (
-                      <div className="flex gap-3 shrink-0">
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {tieneSalidas ? (
+                        <p className="text-sm text-text-secondary">Ya tiene salidas registradas</p>
+                      ) : (
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setEditingLote(l)}
+                            className="text-sm text-text-secondary hover:text-text-primary underline"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleEliminarLote(l.lote_id)}
+                            className="text-sm text-text-primary underline"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      )}
+                      {/* Independiente de Editar/Eliminar (que se bloquean con salidas
+                          registradas) — dar de baja stock remanente por vencimiento/daño es
+                          una acción distinta, disponible mientras quede stock sin importar el
+                          historial del lote. */}
+                      {l.stock_actual > 0 && (
                         <button
-                          onClick={() => setEditingLote(l)}
-                          className="text-sm text-text-secondary hover:text-text-primary underline"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => handleEliminarLote(l.lote_id)}
+                          onClick={() => setLoteParaBaja(l)}
                           className="text-sm text-text-primary underline"
                         >
-                          Eliminar
+                          Dar de baja stock
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </li>
                 )
               })}
@@ -199,6 +225,15 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
           entradaMovimiento={entradaPorLote.get(editingLote.lote_id) || null}
           onClose={() => setEditingLote(null)}
           onSaved={handleLoteGuardado}
+        />
+      )}
+
+      {loteParaBaja && (
+        <DarDeBajaLoteModal
+          lote={loteParaBaja}
+          medicamentoNombre={medicamentoNombre}
+          onClose={() => setLoteParaBaja(null)}
+          onRegistrado={handleBajaRegistrada}
         />
       )}
     </div>

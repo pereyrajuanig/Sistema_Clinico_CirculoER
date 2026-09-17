@@ -147,6 +147,7 @@ export default function ExportarMovimientosPdfModal({
                   <option value="">Todos</option>
                   <option value="entrada">Entrada</option>
                   <option value="salida">Salida</option>
+                  <option value="baja">Baja</option>
                 </select>
               </div>
 

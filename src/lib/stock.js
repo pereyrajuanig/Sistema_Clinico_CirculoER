@@ -74,6 +74,16 @@ export function elegirLoteFEFO(lotes, hoy = hoyLocalISO()) {
   })[0]
 }
 
+// Etiqueta legible para el tercer tipo de movimiento (`baja`, ver DarDeBajaLoteModal.jsx) —
+// centralizada porque HistorialMovimientos.jsx, CorregirMovimientoModal.jsx y
+// pdfExportMedicamentos.js repetían el mismo `tipo === 'entrada' ? 'Entrada' : 'Salida'`, que
+// etiquetaba mal una baja como "Salida".
+export function etiquetaTipoMovimiento(tipo) {
+  if (tipo === 'entrada') return 'Entrada'
+  if (tipo === 'baja') return 'Baja'
+  return 'Salida'
+}
+
 // Misma validación que handleSubmit de SalidaStockModal.jsx — extraída para poder testearla sin
 // mockear Supabase. Decisión explícita del cliente para el caso "pide más de lo que tiene el
 // lote FEFO": rechazar la operación con un mensaje que indique la acción a seguir, NO dividir

@@ -1,4 +1,5 @@
 import { identificarMedicamento, formatearPresentacion } from '@/lib/medicamentos'
+import { etiquetaTipoMovimiento } from '@/lib/stock'
 import {
   documentoBase,
   generarPdf,
@@ -24,7 +25,7 @@ function identificarConPresentacion(medicamento) {
 function filaMovimiento(m) {
   return [
     { text: formatFechaHoraAR(m.fecha), style: 'normal' },
-    { text: m.tipo === 'entrada' ? 'Entrada' : 'Salida', style: 'normal' },
+    { text: etiquetaTipoMovimiento(m.tipo), style: 'normal' },
     {
       text: `${valorOTexto(m.lotes?.numero_lote, 'Sin número')} — vence ${valorOTexto(formatFechaAR(m.lotes?.fecha_vencimiento))}`,
       style: 'normal',
@@ -74,7 +75,7 @@ function tablaMovimientos(movimientos) {
 
 function textoFiltrosAplicados({ tipo, desde, hasta }) {
   const partes = []
-  if (tipo) partes.push(`Tipo: ${tipo === 'entrada' ? 'Entrada' : 'Salida'}`)
+  if (tipo) partes.push(`Tipo: ${etiquetaTipoMovimiento(tipo)}`)
   if (desde) partes.push(`Desde: ${formatFechaAR(desde)}`)
   if (hasta) partes.push(`Hasta: ${formatFechaAR(hasta)}`)
 
@@ -100,9 +101,12 @@ function resumenMovimientos(movimientosDesc) {
   const totalSalidas = movimientosDesc
     .filter((m) => m.tipo === 'salida')
     .reduce((acc, m) => acc + m.cantidad, 0)
+  const totalBajas = movimientosDesc
+    .filter((m) => m.tipo === 'baja')
+    .reduce((acc, m) => acc + m.cantidad, 0)
   const stockFinal = movimientosDesc[0]?.saldo
 
-  return { totalEntradas, totalSalidas, stockFinal }
+  return { totalEntradas, totalSalidas, totalBajas, stockFinal }
 }
 
 // Variante 1 (pedido explícito del cliente): historial de UN medicamento puntual, con
@@ -127,12 +131,13 @@ export function construirPdfHistorialMedicamento({ medicamento, movimientos, fil
   } else {
     contenido.push(tablaMovimientos(movimientos))
 
-    const { totalEntradas, totalSalidas, stockFinal } = resumenMovimientos(movimientos)
+    const { totalEntradas, totalSalidas, totalBajas, stockFinal } = resumenMovimientos(movimientos)
     contenido.push(tituloSeccion('Resumen'))
     contenido.push(
       tablaClaveValor([
         ['Total entradas (en el período exportado)', String(totalEntradas)],
         ['Total salidas (en el período exportado)', String(totalSalidas)],
+        ['Total bajas (en el período exportado)', String(totalBajas)],
         ['Stock al cierre del período exportado', String(stockFinal)],
       ])
     )

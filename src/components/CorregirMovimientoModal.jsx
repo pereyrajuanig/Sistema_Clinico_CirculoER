@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { identificarMedicamento } from '@/lib/medicamentos'
+import { etiquetaTipoMovimiento } from '@/lib/stock'
 import { limpiarDni, formatearDni } from '@/lib/dni'
 
 function formatFechaHora(value) {
@@ -10,7 +11,9 @@ function formatFechaHora(value) {
 
 // Corrige un movimiento registrando uno nuevo que lo compensa, nunca editando ni borrando el
 // original (es un libro contable). Una entrada se compensa con una salida y viceversa, siempre
-// sobre el mismo lote — no tiene sentido "corregir" creando un lote nuevo.
+// sobre el mismo lote — no tiene sentido "corregir" creando un lote nuevo. Una `baja` (ver
+// DarDeBajaLoteModal.jsx) se corrige igual que una salida — compensa con una entrada simple,
+// sin paciente — porque las dos restan del mismo lote de la misma forma.
 export default function CorregirMovimientoModal({ movimiento, onClose, onRegistrado }) {
   const tipoCompensatorio = movimiento.tipo === 'entrada' ? 'salida' : 'entrada'
   const medicamentoNombre = identificarMedicamento(movimiento.lotes?.medicamentos)
@@ -166,7 +169,7 @@ export default function CorregirMovimientoModal({ movimiento, onClose, onRegistr
             <div className="bg-background border border-border rounded-lg p-3 text-sm text-text-secondary space-y-1">
               <p>
                 Vas a corregir: <span className="text-text-primary font-medium">
-                  {movimiento.tipo === 'entrada' ? 'Entrada' : 'Salida'} de {movimiento.cantidad}{' '}
+                  {etiquetaTipoMovimiento(movimiento.tipo)} de {movimiento.cantidad}{' '}
                   {medicamentoNombre}
                 </span>{' '}
                 — lote {movimiento.lotes?.numero_lote || 'sin número'} — {formatFechaHora(movimiento.fecha)}
