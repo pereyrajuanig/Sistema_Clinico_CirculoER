@@ -233,9 +233,6 @@ export default function Medicamentos() {
                           <span className={bajoMinimo ? 'text-text-primary font-semibold' : 'text-text-primary'}>
                             {stock}
                           </span>
-                          {bajoMinimo && (
-                            <span className="ml-2 text-sm text-text-primary">(bajo el mínimo)</span>
-                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-3">
