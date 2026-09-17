@@ -328,11 +328,96 @@ Medicamentos y stock (`migracion-02-medicamentos-stock.sql`, RF-21 a RF-26):
   corrido a mano en el SQL Editor, no versionado — igual que el resto de las
   migraciones de este proyecto).
 - `lotes` — un lote por ingreso, con su propia fecha_vencimiento
-- `movimientos_stock` — única fuente de verdad del stock (tipo entrada/salida,
-  cantidad, usuario_id, paciente_id obligatorio en salidas por constraint de base,
+- `movimientos_stock` — única fuente de verdad del stock (tipo entrada/salida/
+  **baja** — este tercero agregado después, ver el punto siguiente —, cantidad,
+  usuario_id, paciente_id obligatorio en salidas por constraint de base,
   consulta_id opcional). El stock nunca se edita directo, solo se calcula.
 - Vistas `stock_por_lote` y `stock_por_medicamento` — stock actual calculado a
-  partir de los movimientos, usadas para leer (nunca para escribir)
+  partir de los movimientos, usadas para leer (nunca para escribir).
+  `stock_por_lote` calcula `stock_actual` con
+  `sum(case when tipo = 'entrada' then cantidad else -cantidad end)` — un
+  `ELSE`, no un `WHEN tipo = 'salida'` explícito, así que cualquier tipo nuevo
+  que no sea `'entrada'` resta automáticamente sin tener que tocar la vista
+  (confirmado al agregar `'baja'`, ver el punto siguiente).
+
+  **Tercer tipo `'baja'`, agregado a pedido del cliente para poder sacar del
+  stock unidades vencidas/dañadas sin fingir una entrega a un paciente real**:
+  antes de esto, la única forma de descontar stock era una "salida" — que
+  por constraint (`salida_requiere_paciente`) exige un paciente real —, así
+  que no había manera correcta de reflejar "esto se tiró/venció" en el
+  sistema. Dos `ALTER TABLE` corridos a mano en el SQL Editor (no
+  versionados, mismo criterio que el resto de las migraciones ad-hoc de este
+  proyecto) — **corridos ANTES de mergear el código**, porque el código nuevo
+  empieza a insertar filas con `tipo: 'baja'` apenas se despliega:
+  ```sql
+  alter table movimientos_stock drop constraint movimientos_stock_tipo_check;
+  alter table movimientos_stock add constraint movimientos_stock_tipo_check
+    check (tipo = ANY (ARRAY['entrada'::text, 'salida'::text, 'baja'::text]));
+
+  alter table movimientos_stock drop constraint salida_requiere_paciente;
+  alter table movimientos_stock add constraint salida_requiere_paciente
+    check (((tipo = 'salida'::text) AND (paciente_id IS NOT NULL)) OR (tipo = 'entrada'::text) OR (tipo = 'baja'::text));
+  ```
+  **El segundo `ALTER` es el que de verdad importa acá, no el primero** — el
+  constraint `salida_requiere_paciente` original era
+  `(tipo='salida' AND paciente_id IS NOT NULL) OR (tipo='entrada')`, un `OR`
+  de solo dos casos: cualquier fila que no fuera "salida con paciente" ni
+  "entrada" (como una `baja` sin paciente) violaba el constraint igual,
+  aunque el `tipo` en sí ya estuviera permitido por el otro `CHECK`. Se
+  confirmó la definición exacta de los dos constraints y de las dos vistas
+  con `pg_get_constraintdef`/`pg_get_viewdef` antes de escribir este `ALTER`
+  — no se adivinó la sintaxis, dado el riesgo de romper el cálculo de stock
+  de toda la app si el `CHECK` quedaba mal.
+
+  `DarDeBajaLoteModal.jsx` (botón "Dar de baja stock" en `LotesMedicamentoModal.jsx`
+  — nombre elegido a propósito distinto de "Dar de baja" a secas, que ya es el
+  texto del botón que desactiva un medicamento ENTERO del catálogo en
+  `Medicamentos.jsx`/`MedicamentosInactivos.jsx`, una acción completamente
+  distinta): disponible para cualquier lote con `stock_actual > 0`, **sin
+  importar si tiene salidas registradas** — a diferencia de Editar/Eliminar,
+  que si se bloquean con salidas (dar de baja el stock remanente es una
+  acción distinta e independiente de esa regla). Pide profesional (¿quién da
+  de baja?) y motivo (obligatorio — es la única explicación de qué pasó con
+  esas unidades, no hay paciente/consulta que den contexto como en una
+  salida), precarga la cantidad con el `stock_actual` del lote y el motivo
+  con "Vencido" si `loteVencido()` da `true` (queda editable por si es por
+  otra razón — dañado, roto, etc.). Inserta un `movimientos_stock` con
+  `tipo: 'baja'`, `paciente_id: null`, sin exigir DNI.
+
+  `etiquetaTipoMovimiento()` (`src/lib/stock.js`) centraliza el
+  `'Entrada'/'Salida'/'Baja'` que antes se repetía como
+  `tipo === 'entrada' ? 'Entrada' : 'Salida'` en tres lugares
+  (`HistorialMovimientos.jsx`, `CorregirMovimientoModal.jsx`,
+  `pdfExportMedicamentos.js`) — ese ternario de dos ramas etiquetaba mal una
+  baja como "Salida". `conSaldoPorMedicamento()` (`HistorialMovimientos.jsx`)
+  no necesitó ningún cambio — ya restaba con un `else` genérico, igual que la
+  vista. **`ConsumoDelMes.jsx` y el ranking de consumo del PDF general
+  (`pdfExportMedicamentos.js`) tampoco necesitaron cambios**, y esto fue
+  deliberado al elegir un tipo nuevo en vez de reusar `'salida'` con paciente
+  `null`: los dos ya filtran/suman específicamente `tipo === 'salida'`, así
+  que una `baja` quedó afuera de esas estadísticas de consumo sin tocar nada
+  — si en cambio se hubiera reusado `'salida'` con paciente nulo, una baja se
+  hubiera contado como si fuera una entrega real a un paciente en esos dos
+  reportes.
+
+  `CorregirMovimientoModal.jsx` tampoco necesitó cambios de lógica (solo el
+  label, ver arriba): `tipoCompensatorio = tipo === 'entrada' ? 'salida' :
+  'entrada'` ya trata cualquier `baja` como si fuera una `salida` a los
+  efectos de la corrección (compensa con una entrada simple, sin paciente) —
+  exactamente el comportamiento correcto, sin ningún caso especial.
+
+  **Verificado en el navegador contra un caso real** (Playwright temporal,
+  cuenta institucional real — con confirmación explícita del cliente antes de
+  enviar el formulario, porque a diferencia del resto de las verificaciones
+  de esta sesión, este submit sí modifica datos reales): se dio de baja el
+  lote 00138 de IXACOR 10 MGR (el mismo caso vencido de la auditoría de
+  arriba, 27 unidades) y se confirmó que (a) el `INSERT` se aceptó sin error
+  de constraint, (b) el lote pasó a stock 0 y el botón "Dar de baja stock"
+  desapareció de esa fila (ya no queda nada para dar de baja), (c) IXACOR
+  dejó de aparecer en el cartel "Lotes vencidos" de `/medicamentos`, y (d)
+  el historial de movimientos muestra la fila nueva con tipo "Baja", cantidad
+  27, saldo 0, el profesional elegido y motivo "Vencido" — sin errores de
+  consola en ningún paso.
 
 ### Reglas de CRUD de Medicamentos y stock (no son parejas entre tablas)
 
@@ -403,7 +488,10 @@ Medicamentos y stock (`migracion-02-medicamentos-stock.sql`, RF-21 a RF-26):
 - **`movimientos_stock`**: **nunca se edita ni se borra desde la UI, bajo ningún
   caso** — es un libro contable, no un dato editable (con la única excepción de
   arriba: la fila de entrada de un lote SIN salidas, que todavía no es un hecho
-  contable real). `HistorialMovimientos.jsx`
+  contable real). Vale igual para las tres `tipo` posibles (`entrada`/`salida`/
+  `baja` — ver el modelo de datos más arriba para el porqué de la tercera) —
+  una `baja` se corrige con una entrada compensatoria, nunca editándola o
+  borrándola directo, mismo criterio que una salida. `HistorialMovimientos.jsx`
   (`/medicamentos/historial`, botón "Historial de movimientos" en el header de
   `/medicamentos`, al lado del título, con el mismo estilo que el botón
   "Medicamentos" del header de Pacientes; es una vista **global** de todos los
@@ -1239,7 +1327,10 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
   `MedicamentosInactivos.jsx`), hacen baja lógica (`activo`), nunca `DELETE` — ver
   reglas de CRUD arriba.
 - "Ver lotes" por medicamento (`LotesMedicamentoModal.jsx`): edición/borrado de un lote
-  solo si no tiene movimientos asociados (`LoteFormModal.jsx` para editar)
+  solo si no tiene movimientos asociados (`LoteFormModal.jsx` para editar). Además,
+  "Dar de baja stock" (`DarDeBajaLoteModal.jsx`) por cada lote con stock > 0 — sin
+  paciente, para vencidos/dañados; ver el modelo de datos de `movimientos_stock`
+  más arriba para el detalle completo (`tipo: 'baja'`).
 
   **"+ Nuevo medicamento" (el único botón del toolbar para cargar algo, ver
   historia abajo) abre `EntradaStockModal.jsx`, no `MedicamentoFormModal.jsx`**:
@@ -1395,17 +1486,10 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
   directamente "No hay stock disponible en ningún lote de este medicamento",
   sin errores de consola en ningún paso.
 
-  **Pendiente, no implementado en este cambio — a definir con el cliente**:
-  hoy no existe ninguna forma de sacar del stock un lote vencido que no sea
-  registrando una "salida" atribuida a un paciente real (lo cual sería
-  incorrecto — no se le "administró" nada a nadie). Si hace falta poder dar
-  de baja stock vencido/dañado formalmente, hace falta una tercera categoría
-  de movimiento distinta de entrada/salida (algo tipo `'baja'`), sin
-  `paciente_id` obligatorio — implica tocar el `CHECK constraint` de
-  `movimientos_stock.tipo` y probablemente las vistas `stock_por_lote`/
-  `stock_por_medicamento` (para que también resten stock con este tipo nuevo),
-  cuyo SQL no está versionado y no se pudo confirmar sin acceso a la base. Se
-  charla aparte con el cliente antes de tocar nada de esto.
+  **Resuelto en una segunda vuelta — "dar de baja" stock vencido/dañado sin
+  fingir una entrega a un paciente**: ver `movimientos_stock.tipo = 'baja'` y
+  `DarDeBajaLoteModal.jsx` más abajo, en el modelo de datos de
+  `movimientos_stock` y en "Medicamentos y stock — hecho".
 
   **Paciente no registrado (pedido explícito del cliente)**: como toda salida exige
   `paciente_id` por el constraint `salida_requiere_paciente` de la base (ver reglas

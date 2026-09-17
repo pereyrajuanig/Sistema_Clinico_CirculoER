@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { limpiarDni } from '@/lib/dni'
 import { identificarMedicamento } from '@/lib/medicamentos'
+import { etiquetaTipoMovimiento } from '@/lib/stock'
 import CorregirMovimientoModal from '@/components/CorregirMovimientoModal'
 import ExportarMovimientosPdfModal from '@/components/ExportarMovimientosPdfModal'
 import Header from '@/components/Header'
@@ -18,7 +19,8 @@ function formatFecha(value) {
 }
 
 // Calcula el saldo acumulado de stock, por medicamento, recorriendo los movimientos en
-// orden cronológico — mezclar el saldo de medicamentos distintos no tendría sentido
+// orden cronológico — mezclar el saldo de medicamentos distintos no tendría sentido. 'baja'
+// resta igual que 'salida' (las dos sacan unidades del stock real) — solo 'entrada' suma.
 function conSaldoPorMedicamento(movimientosAsc) {
   const saldoPorMedicamento = {}
 
@@ -160,6 +162,7 @@ export default function HistorialMovimientos() {
               <option value="">Todos</option>
               <option value="entrada">Entrada</option>
               <option value="salida">Salida</option>
+              <option value="baja">Baja</option>
             </select>
           </div>
 
@@ -233,7 +236,7 @@ export default function HistorialMovimientos() {
                               : 'bg-alert/10 border-alert text-text-primary')
                           }
                         >
-                          {m.tipo === 'entrada' ? 'Entrada' : 'Salida'}
+                          {etiquetaTipoMovimiento(m.tipo)}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-text-primary whitespace-nowrap">

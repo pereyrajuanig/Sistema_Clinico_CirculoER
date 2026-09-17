@@ -7,6 +7,7 @@ import {
   sumarDiasISO,
   loteVencido,
   loteProximoAVencer,
+  etiquetaTipoMovimiento,
 } from './stock'
 
 // Fecha de referencia fija para no depender de la fecha real del sistema en los tests que ya
@@ -127,6 +128,14 @@ describe('loteProximoAVencer', () => {
 describe('hoyLocalISO', () => {
   it('devuelve una fecha en formato YYYY-MM-DD', () => {
     expect(hoyLocalISO()).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+})
+
+describe('etiquetaTipoMovimiento', () => {
+  it('traduce los tres tipos de movimiento', () => {
+    expect(etiquetaTipoMovimiento('entrada')).toBe('Entrada')
+    expect(etiquetaTipoMovimiento('salida')).toBe('Salida')
+    expect(etiquetaTipoMovimiento('baja')).toBe('Baja')
   })
 })
 
