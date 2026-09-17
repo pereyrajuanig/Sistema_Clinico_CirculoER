@@ -192,6 +192,18 @@ Historia clínica (`schema-historia-clinica.sql`):
     `resultados_laboratorio`) — `medicacion` conserva las columnas
     `eliminado_en`/`eliminado_por` en la base por si en algún momento se
     reintroduce edición/baja, pero hoy no hay ningún botón que las use.
+  - **La consulta deja una nota de lo que se agregó, pedido explícito del
+    cliente** ("si es para agregar una nueva medicación... sale la consulta
+    sola y no dice qué fue"): al usar el quick-add, `ConsultaEntryForm.jsx`
+    reusa el campo de texto libre `medicacion` DE LA CONSULTA (el mismo que ya
+    existía, histórico, que `CAMPOS_CONSULTA` en `HistoriaClinica.jsx` sigue
+    mostrando en `ConsultaCard`) para dejar un texto tipo "Losartán 50mg cada
+    12hs (agregado a medicación habitual)". No crea ninguna relación en la
+    base con la fila insertada en `medicacion` (sigue sin haber FK entre las
+    dos tablas) — es solo una nota de texto en la consulta, para que no quede
+    "sola" sin decir qué se cargó. Si la consulta que se edita ya tenía algo
+    en ese campo (una consulta vieja, de antes de que se sacara del
+    formulario activo), se concatena con ` · ` en vez de pisarlo.
 - `consultas` — núcleo del sistema, incluye signos vitales como columnas directas
   (siempre van pegados a una consulta, nunca sueltos). El campo `medicacion` (texto
   libre) es lo que se indicó en esa visita puntual — ver la aclaración de arriba en
@@ -853,6 +865,49 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
     contra la base** porque la columna todavía no existe en producción
     (correrla es una acción manual del usuario, ver arriba) — probarlo
     hubiera fallado a propósito, no por un bug del código.
+  - **Layout de la ficha, tres columnas fijas en desktop — pedido explícito
+    del cliente** ("que vayan bajando a medida que se scrollee, cosa de que
+    acompañe y esté siempre visible" para el panel de Patologías/Medicación,
+    y después "lo mismo con los datos del paciente pero del lado izquierdo,
+    quedando las consultas en el medio"): a partir de `lg` (1024px),
+    `HistoriaClinica.jsx` arma un grid de tres columnas —
+    `lg:grid-cols-[280px_1fr_320px]` (o `[280px_1fr]` sin la columna derecha,
+    si `mostrarResumen` es falso — ver `mostrarResumen` en el cuerpo del
+    componente) — con `lg:sticky lg:top-4` en las dos columnas laterales:
+    - **Izquierda (280px)**: cartel de alergias (si hay) + "Datos del
+      paciente". El cartel de alergias se agrupó ACÁ, no en la columna
+      central — es información de identidad/seguridad del paciente, igual
+      que sus datos, no parte de la historia clínica cronológica. La `dl` de
+      "Datos del paciente" pasó de `grid-cols-2 sm:grid-cols-3` a una sola
+      columna (`space-y-4`) — la cuadrícula de varias columnas estaba pensada
+      para el ancho de página completo que tenía antes; en 280px quedaba
+      demasiado apretada para leer "Label: Valor" cómodo.
+    - **Centro (`1fr`, el ancho que sobra)**: Consultas, Antecedentes y
+      Patologías, Laboratorio — la línea de tiempo clínica en sí, sin cambios
+      de contenido, solo de columna.
+    - **Derecha (320px)**: el panel resumen (Patologías y Antecedentes +
+      Medicación actual, ver más arriba) — sin cambios de contenido respecto
+      a como ya estaba, solo se le sumó el sticky.
+    Por debajo de `lg` las tres se apilan en una sola columna, en el mismo
+    orden (izquierda, centro, derecha) — sin `sticky` (no hay espacio para
+    una columna lateral en celular/tablet, mismo criterio que el resto de la
+    app con el corte a `lg`, ver "Responsive" más abajo). `max-w-4xl` pasó a
+    `max-w-7xl` en el contenedor `<main>` para darle más aire a las tres
+    columnas juntas en pantallas grandes.
+
+    **De paso, pedido explícito**: "Medicación habitual activa" (el
+    subtítulo del panel resumen) se renombró a **"Medicación actual"** — sin
+    otro cambio, sigue siendo la misma lista (`medicacionActiva`, filtrada
+    por `estado === 'Activa'`).
+
+    **Verificado en el navegador** (Playwright temporal, cuenta real, contra
+    varios pacientes reales hasta encontrar uno con datos en el panel
+    resumen — no todos los pacientes de prueba tenían patologías/medicación
+    cargada): `position: sticky` confirmado en las dos columnas laterales a
+    1440px, `position: static` (apilado normal) confirmado a 375px, capturas
+    visuales conformes en desktop (scrolleado y sin scrollear) y mobile, sin
+    errores de consola. No se guardó ni modificó ningún dato de paciente
+    real durante la verificación.
 
 - Cartel de alergias visible al abrir la ficha del paciente (RF-17)
 - Sistema de diseño con modo claro/oscuro (`design-system.md`)

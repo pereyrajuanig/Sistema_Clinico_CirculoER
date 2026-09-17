@@ -401,6 +401,8 @@ export default function HistoriaClinica() {
   // Antecedentes no tienen un estado "activo", así que solo entran acá si tienen color.
   const patologiasParaResumen = patologias.filter((p) => p.estado === 'Activa' || p.color)
   const antecedentesResaltados = antecedentes.filter((a) => a.color)
+  const mostrarResumen =
+    patologiasParaResumen.length > 0 || medicacionActiva.length > 0 || antecedentesResaltados.length > 0
 
   return (
     <div className="min-h-screen bg-background">
@@ -417,88 +419,60 @@ export default function HistoriaClinica() {
         ]}
       />
 
-      <main className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto">
-        {alergias.length > 0 && (
-          <div className="bg-alert/10 border border-alert rounded-lg p-4 flex gap-3 items-start">
-            <IconoAlerta />
-            <div>
-              <p className="font-semibold text-text-primary">Alergias registradas</p>
-              <ul className="text-text-primary text-base list-disc list-inside">
-                {alergias.map((a) => (
-                  <li key={a.id}>{a.descripcion}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        )}
-
-        {(patologiasParaResumen.length > 0 || medicacionActiva.length > 0 || antecedentesResaltados.length > 0) && (
-          <div className="bg-surface border border-border rounded-lg p-4 space-y-3">
-            {(patologiasParaResumen.length > 0 || antecedentesResaltados.length > 0) && (
-              <div>
-                <p className="font-semibold text-text-primary">Patologías y Antecedentes</p>
-                <ul className="text-base space-y-1">
-                  {patologiasParaResumen.map((p) => (
-                    <li
-                      key={`patologia-${p.id}`}
-                      className={
-                        'rounded-md px-2 py-1 border-l-4 text-text-primary ' +
-                        (claseColorResaltado(p.color) || 'border-transparent')
-                      }
-                    >
-                      {p.nombre}
-                    </li>
-                  ))}
-                  {antecedentesResaltados.map((a) => (
-                    <li
-                      key={`antecedente-${a.id}`}
-                      className={
-                        'rounded-md px-2 py-1 border-l-4 text-text-primary ' + claseColorResaltado(a.color)
-                      }
-                    >
-                      {a.descripcion}
-                    </li>
-                  ))}
-                </ul>
+      <main className="p-4 sm:p-6 max-w-7xl mx-auto">
+        <div
+          className={
+            'lg:grid lg:gap-6 lg:items-start ' +
+            (mostrarResumen ? 'lg:grid-cols-[280px_1fr_320px]' : 'lg:grid-cols-[280px_1fr]')
+          }
+        >
+          {/* Columna izquierda, pedido explícito del cliente ("lo mismo con los datos del
+              paciente pero del lado izquierdo") — mismo criterio sticky que el panel de la
+              derecha: acompaña el scroll en vez de perderse de vista al bajar. El cartel de
+              alergias se agrupó acá (no en la columna del medio) porque es información de
+              identidad/seguridad del paciente, igual que sus datos — no parte de la historia
+              clínica cronológica que sí vive en la columna central. */}
+          <aside className="space-y-6 lg:sticky lg:top-4">
+            {alergias.length > 0 && (
+              <div className="bg-alert/10 border border-alert rounded-lg p-4 flex gap-3 items-start">
+                <IconoAlerta />
+                <div>
+                  <p className="font-semibold text-text-primary">Alergias registradas</p>
+                  <ul className="text-text-primary text-base list-disc list-inside">
+                    {alergias.map((a) => (
+                      <li key={a.id}>{a.descripcion}</li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             )}
 
-            {medicacionActiva.length > 0 && (
-              <div>
-                <p className="font-semibold text-text-primary">Medicación habitual activa</p>
-                <ul className="text-text-primary text-base list-disc list-inside">
-                  {medicacionActiva.map((m) => (
-                    <li key={m.id}>
-                      {m.nombre}
-                      {m.dosis ? ` — ${m.dosis}` : ''}
-                    </li>
-                  ))}
-                </ul>
+            <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
+              <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+                <h2 className="text-lg font-semibold text-text-primary">Datos del paciente</h2>
+                <button onClick={() => setShowEditModal(true)} className="btn-secondary px-3 py-1.5">
+                  Editar
+                </button>
               </div>
-            )}
-          </div>
-        )}
+              {/* Una sola columna — antes era grid-cols-2 sm:grid-cols-3, pensado para un
+                  ancho de página completo; en esta columna angosta (280px) esa cuadrícula
+                  quedaba demasiado apretada para leer "Label: Valor" cómodo */}
+              <dl className="space-y-4 text-base">
+                <Dato label="Fecha de nacimiento" value={formatFecha(paciente.fecha_nacimiento)} />
+                <Dato label="Edad" value={edad != null ? `${edad} años` : null} />
+                <Dato label="Sexo" value={paciente.sexo} />
+                <Dato label="Teléfono" value={paciente.telefono} />
+                <Dato label="Dirección" value={paciente.direccion} />
+                <Dato label="Contacto familiar" value={paciente.contacto_familiar} />
+                <Dato label="Obra social" value={formatearMayuscula(paciente.obra_social)} />
+                <Dato label="Grupo sanguíneo" value={formatearMayuscula(paciente.grupo_sanguineo)} />
+                <Dato label="Ocupación" value={paciente.ocupacion} />
+                <Dato label="Estado civil" value={paciente.estado_civil} />
+              </dl>
+            </section>
+          </aside>
 
-        <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-text-primary">Datos del paciente</h2>
-            <button onClick={() => setShowEditModal(true)} className="btn-secondary px-3 py-1.5">
-              Editar
-            </button>
-          </div>
-          <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-base">
-            <Dato label="Fecha de nacimiento" value={formatFecha(paciente.fecha_nacimiento)} />
-            <Dato label="Edad" value={edad != null ? `${edad} años` : null} />
-            <Dato label="Sexo" value={paciente.sexo} />
-            <Dato label="Teléfono" value={paciente.telefono} />
-            <Dato label="Dirección" value={paciente.direccion} />
-            <Dato label="Contacto familiar" value={paciente.contacto_familiar} />
-            <Dato label="Obra social" value={formatearMayuscula(paciente.obra_social)} />
-            <Dato label="Grupo sanguíneo" value={formatearMayuscula(paciente.grupo_sanguineo)} />
-            <Dato label="Ocupación" value={paciente.ocupacion} />
-            <Dato label="Estado civil" value={paciente.estado_civil} />
-          </dl>
-        </section>
+          <div className="space-y-6 mt-6 lg:mt-0">
 
         {/* Línea de tiempo de consultas — experimento de UX pedido directo por los médicos
             (ver CLAUDE.md): se lee de arriba hacia abajo, de la más vieja a la más nueva,
@@ -779,6 +753,61 @@ export default function HistoriaClinica() {
             </button>
           )}
         </section>
+          </div>
+
+          {mostrarResumen && (
+            // Pedido explícito del cliente: que el resumen de Patologías/Antecedentes y
+            // Medicación "acompañe" el scroll en vez de quedar arriba de todo y perderse de
+            // vista al bajar — `lg:sticky lg:top-4` lo fija a 1rem del borde superior del
+            // viewport a partir de `lg` (por debajo de eso, se apila como una sección más,
+            // no hay espacio para una columna lateral). El cartel de alergias NO se mueve
+            // acá — sigue arriba de todo en la columna principal, es una señal distinta.
+            <aside className="mt-6 lg:mt-0 lg:sticky lg:top-4 bg-surface border border-border rounded-lg p-4 space-y-3">
+              {(patologiasParaResumen.length > 0 || antecedentesResaltados.length > 0) && (
+                <div>
+                  <p className="font-semibold text-text-primary">Patologías y Antecedentes</p>
+                  <ul className="text-base space-y-1">
+                    {patologiasParaResumen.map((p) => (
+                      <li
+                        key={`patologia-${p.id}`}
+                        className={
+                          'rounded-md px-2 py-1 border-l-4 text-text-primary ' +
+                          (claseColorResaltado(p.color) || 'border-transparent')
+                        }
+                      >
+                        {p.nombre}
+                      </li>
+                    ))}
+                    {antecedentesResaltados.map((a) => (
+                      <li
+                        key={`antecedente-${a.id}`}
+                        className={
+                          'rounded-md px-2 py-1 border-l-4 text-text-primary ' + claseColorResaltado(a.color)
+                        }
+                      >
+                        {a.descripcion}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {medicacionActiva.length > 0 && (
+                <div>
+                  <p className="font-semibold text-text-primary">Medicación actual</p>
+                  <ul className="text-text-primary text-base list-disc list-inside">
+                    {medicacionActiva.map((m) => (
+                      <li key={m.id}>
+                        {m.nombre}
+                        {m.dosis ? ` — ${m.dosis}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </aside>
+          )}
+        </div>
       </main>
 
       {editingConsulta && (
