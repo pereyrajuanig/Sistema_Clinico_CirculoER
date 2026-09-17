@@ -5,7 +5,6 @@ import ConsultaEntryForm from '@/components/ConsultaEntryForm'
 import DocumentosConsulta from '@/components/DocumentosConsulta'
 import AntecedenteEntryForm from '@/components/AntecedenteEntryForm'
 import PatologiaEntryForm from '@/components/PatologiaEntryForm'
-import MedicacionEntryForm from '@/components/MedicacionEntryForm'
 import PacienteFormModal from '@/components/PacienteFormModal'
 import LaboratorioEntryForm from '@/components/LaboratorioEntryForm'
 import EditarResultadoLaboratorioModal from '@/components/EditarResultadoLaboratorioModal'
@@ -15,7 +14,6 @@ import Header from '@/components/Header'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
 import { ordenarPatologias, claseEstadoPatologia } from '@/lib/patologias'
 import { claseColorResaltado } from '@/lib/resaltado'
-import { ordenarMedicacion, claseEstadoMedicacion } from '@/lib/medicacion'
 import { TIPOS_EXAMEN } from '@/lib/laboratorio'
 import { formatearDni } from '@/lib/dni'
 import { registrarAuditoria } from '@/lib/auditoria'
@@ -56,7 +54,6 @@ export default function HistoriaClinica() {
   const { id } = useParams()
   const location = useLocation()
   const nuevaConsultaRef = useRef(null)
-  const nuevaMedicacionRef = useRef(null)
   const [paciente, setPaciente] = useState(null)
   const [antecedentes, setAntecedentes] = useState([])
   const [patologias, setPatologias] = useState([])
@@ -75,18 +72,15 @@ export default function HistoriaClinica() {
   // (AntecedenteEntryForm/PatologiaEntryForm, sin tocar) se renderiza debajo del selector.
   const [mostrandoAltaAntecedentePatologia, setMostrandoAltaAntecedentePatologia] = useState(false)
   const [tipoAlta, setTipoAlta] = useState('antecedente')
-  const [mostrandoNuevaMedicacion, setMostrandoNuevaMedicacion] = useState(false)
   const [mostrandoNuevoResultado, setMostrandoNuevoResultado] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
   const [editingConsulta, setEditingConsulta] = useState(null)
   const [editingAntecedente, setEditingAntecedente] = useState(null)
   const [editingPatologia, setEditingPatologia] = useState(null)
-  const [editingMedicacion, setEditingMedicacion] = useState(null)
   const [editingResultado, setEditingResultado] = useState(null)
   const [antecedenteAEliminar, setAntecedenteAEliminar] = useState(null)
   const [patologiaAEliminar, setPatologiaAEliminar] = useState(null)
-  const [medicacionAEliminar, setMedicacionAEliminar] = useState(null)
   const [consultaAEliminar, setConsultaAEliminar] = useState(null)
   const [resultadoAEliminar, setResultadoAEliminar] = useState(null)
 
@@ -150,7 +144,10 @@ export default function HistoriaClinica() {
       setPaciente(pacienteRes.data)
       setAntecedentes(antecedentesRes.data)
       setPatologias(ordenarPatologias(patologiasRes.data))
-      setMedicacionHabitual(ordenarMedicacion(medicacionRes.data))
+      // Ya viene ordenado alfabéticamente por el .order('nombre') de la query — no hace
+      // falta ordenarMedicacion() (agrupar Activa/Suspendida) desde que la sección de
+      // gestión se sacó (ver más abajo): el panel resumen de arriba solo lista las activas.
+      setMedicacionHabitual(medicacionRes.data)
       setConsultas(consultasRes.data)
       setResultadosLab(labRes.data)
 
@@ -183,15 +180,6 @@ export default function HistoriaClinica() {
       nuevaConsultaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
   }, [mostrandoNuevaConsulta])
-
-  // Mismo motivo que el scroll de arriba: el atajo "+ Agregar a medicación habitual" de una
-  // consulta abre esta sección desde otro lugar de la página, no un modal aparte — sin esto
-  // la entrada nueva podía abrirse fuera de la vista
-  useEffect(() => {
-    if (mostrandoNuevaMedicacion) {
-      nuevaMedicacionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }, [mostrandoNuevaMedicacion])
 
   function handlePacienteGuardado(pacienteActualizado) {
     setPaciente(pacienteActualizado)
@@ -289,49 +277,11 @@ export default function HistoriaClinica() {
     setPatologiaAEliminar(null)
   }
 
-  function handleMedicacionGuardada(medicacionGuardada) {
-    setMedicacionHabitual((prev) => {
-      const existe = prev.some((m) => m.id === medicacionGuardada.id)
-      const siguiente = existe
-        ? prev.map((m) => (m.id === medicacionGuardada.id ? medicacionGuardada : m))
-        : [...prev, medicacionGuardada]
-      return ordenarMedicacion(siguiente)
-    })
-    setMostrandoNuevaMedicacion(false)
-    setEditingMedicacion(null)
-  }
-
-  async function confirmarEliminarMedicacion(profesionalId) {
-    const medicacion = medicacionAEliminar
-
-    const { error: auditoriaError } = await registrarAuditoria({
-      tabla: 'medicacion',
-      registroId: medicacion.id,
-      accion: 'eliminar',
-      usuarioId: profesionalId,
-      valoresAnteriores: medicacion,
-    })
-
-    if (auditoriaError) {
-      setError(auditoriaError.message)
-      return
-    }
-
-    const { error } = await supabase
-      .from('medicacion')
-      .update({ eliminado_en: new Date().toISOString(), eliminado_por: profesionalId })
-      .eq('id', medicacion.id)
-
-    if (error) {
-      setError(error.message)
-      return
-    }
-
-    setMedicacionHabitual((prev) => prev.filter((m) => m.id !== medicacion.id))
-    setMedicacionAEliminar(null)
-  }
-
-  function handleConsultaGuardada(consultaGuardada) {
+  // `medicacionInsertada` viene de ConsultaEntryForm.jsx cuando se usó el atajo "+ Agregar a
+  // medicación habitual" dentro de esa consulta — como la sección dedicada de "Medicación
+  // habitual" ya no existe (se sacó a pedido del cliente, solo queda el panel resumen de
+  // arriba), sin esto el panel no se actualizaba hasta recargar la página.
+  function handleConsultaGuardada(consultaGuardada, medicacionInsertada) {
     setConsultas((prev) => {
       const existe = prev.some((c) => c.id === consultaGuardada.id)
       const siguiente = existe
@@ -340,6 +290,9 @@ export default function HistoriaClinica() {
       // Ascendente, igual que el fetch inicial — la nueva entrada se asienta al final
       return siguiente.sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
     })
+    if (medicacionInsertada) {
+      setMedicacionHabitual((prev) => [...prev, medicacionInsertada])
+    }
     setMostrandoNuevaConsulta(false)
     setEditingConsulta(null)
   }
@@ -441,7 +394,6 @@ export default function HistoriaClinica() {
   const alergias = antecedentes.filter((a) => a.tipo === 'alergia')
   const edad = calcularEdad(paciente.fecha_nacimiento)
   const medicacionActiva = medicacionHabitual.filter((m) => m.estado === 'Activa')
-  const medicacionSuspendida = medicacionHabitual.filter((m) => m.estado === 'Suspendida')
   // Panel resumen de arriba: una patología entra si está Activa y/o si tiene color puesto
   // (resaltado, ver src/lib/resaltado.js) — una sola fila por patología en los dos casos, el
   // color se aplica SOBRE esa fila en vez de repetirla en una lista aparte de "resaltados"
@@ -764,64 +716,6 @@ export default function HistoriaClinica() {
         </section>
 
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Medicación habitual</h2>
-
-          {medicacionHabitual.length === 0 && !mostrandoNuevaMedicacion && (
-            <p className="text-base text-text-secondary mb-4">No hay medicación habitual registrada.</p>
-          )}
-
-          {medicacionHabitual.length > 0 &&
-            (medicacionActiva.length > 0 ? (
-              <ul className="space-y-4 mb-4">
-                {medicacionActiva.map((m) => (
-                  <MedicacionItem
-                    key={m.id}
-                    medicacion={m}
-                    onEditar={() => setEditingMedicacion(m)}
-                    onEliminar={() => setMedicacionAEliminar(m)}
-                  />
-                ))}
-              </ul>
-            ) : (
-              <p className="text-base text-text-secondary mb-4">No hay medicación activa.</p>
-            ))}
-
-          {medicacionSuspendida.length > 0 && (
-            <details className="mb-4">
-              <summary className="text-sm text-text-secondary cursor-pointer hover:text-text-primary">
-                Medicación suspendida ({medicacionSuspendida.length})
-              </summary>
-              <ul className="space-y-4 mt-3">
-                {medicacionSuspendida.map((m) => (
-                  <MedicacionItem
-                    key={m.id}
-                    medicacion={m}
-                    onEditar={() => setEditingMedicacion(m)}
-                    onEliminar={() => setMedicacionAEliminar(m)}
-                  />
-                ))}
-              </ul>
-            </details>
-          )}
-
-          <div ref={nuevaMedicacionRef}>
-            {mostrandoNuevaMedicacion ? (
-              <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6">
-                <MedicacionEntryForm
-                  pacienteId={id}
-                  onClose={() => setMostrandoNuevaMedicacion(false)}
-                  onSaved={handleMedicacionGuardada}
-                />
-              </div>
-            ) : (
-              <button onClick={() => setMostrandoNuevaMedicacion(true)} className="btn-secondary">
-                + Agregar medicación
-              </button>
-            )}
-          </div>
-        </section>
-
-        <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
           <h2 className="text-lg font-semibold text-text-primary mb-4">Laboratorio</h2>
 
           {resultadosLab.length === 0 && !mostrandoNuevoResultado && (
@@ -914,15 +808,6 @@ export default function HistoriaClinica() {
         />
       )}
 
-      {editingMedicacion && (
-        <MedicacionEntryForm
-          pacienteId={id}
-          medicacion={editingMedicacion}
-          onClose={() => setEditingMedicacion(null)}
-          onSaved={handleMedicacionGuardada}
-        />
-      )}
-
       {showEditModal && (
         <PacienteFormModal
           paciente={paciente}
@@ -971,16 +856,6 @@ export default function HistoriaClinica() {
           textoConfirmar="Eliminar"
           onCancelar={() => setPatologiaAEliminar(null)}
           onConfirmar={confirmarEliminarPatologia}
-        />
-      )}
-
-      {medicacionAEliminar && (
-        <ConfirmarConProfesionalModal
-          titulo="Eliminar medicación"
-          mensaje="Deja de verse en la ficha del paciente. El registro se conserva internamente por la normativa de historia clínica (10 años) — no se puede deshacer desde la aplicación."
-          textoConfirmar="Eliminar"
-          onCancelar={() => setMedicacionAEliminar(null)}
-          onConfirmar={confirmarEliminarMedicacion}
         />
       )}
 
@@ -1072,39 +947,6 @@ function ConsultaCard({ consulta: c, documentos, onDocumentoSubido, onEditar, on
         onUploaded={onDocumentoSubido}
       />
     </div>
-  )
-}
-
-// Reusado para la lista de medicación activa y para la lista colapsada de suspendida —
-// mismas acciones (Editar/Eliminar), solo cambia qué grupo las contiene
-function MedicacionItem({ medicacion: m, onEditar, onEliminar }) {
-  return (
-    <li className="border-l-4 border-primary rounded-r-lg bg-surface pl-4 py-3 text-base flex items-start justify-between gap-2">
-      <div className="flex gap-2 flex-wrap">
-        <span className={'shrink-0 rounded-md px-2 py-0.5 text-sm border ' + claseEstadoMedicacion(m.estado)}>
-          {m.estado}
-        </span>
-        <span className="text-text-primary">
-          {m.nombre}
-          {m.dosis && <span className="text-text-secondary"> — {m.dosis}</span>}
-          {(m.fecha_inicio || m.fecha_fin) && (
-            <span className="block text-text-secondary text-sm">
-              {m.fecha_inicio && `Desde ${formatFecha(m.fecha_inicio)}`}
-              {m.fecha_inicio && m.fecha_fin && ' — '}
-              {m.fecha_fin && `hasta ${formatFecha(m.fecha_fin)}`}
-            </span>
-          )}
-        </span>
-      </div>
-      <div className="flex gap-3 shrink-0">
-        <button onClick={onEditar} className="text-sm text-text-secondary hover:text-text-primary underline">
-          Editar
-        </button>
-        <button onClick={onEliminar} className="text-sm text-text-primary underline">
-          Eliminar
-        </button>
-      </div>
-    </li>
   )
 }
 

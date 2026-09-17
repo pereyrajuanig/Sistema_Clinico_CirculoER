@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { registrarAuditoria } from '@/lib/auditoria'
-import { ESTADOS_MEDICACION } from '@/lib/medicacion'
 
 // examen_fisico, diagnostico y medicacion se sacaron del formulario a pedido del cliente —
 // mismo criterio que pronostico/proximo_control/observaciones antes: la columna sigue
@@ -25,12 +24,13 @@ const initialForm = {
   glucemia: '',
 }
 
+// Estado y fecha_inicio se sacaron del formulario a pedido del cliente ("solo dejar nombre
+// y dosis") — toda medicación cargada desde acá arranca como Activa, sin fecha de inicio
+// (la columna sigue existiendo en la base, sin tocar). Mismo criterio que el resto de los
+// campos reducidos de esta app: no se pierde nada, solo se dejó de pedir.
 const medicacionNuevaInicial = {
   nombre: '',
   dosis: '',
-  estado: 'Activa',
-  fecha_inicio: '',
-  fecha_fin: '',
 }
 
 const CAMPOS_NUMERICOS = new Set([
@@ -149,23 +149,30 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
     // Va antes que la consulta a propósito — medicacion no tiene ninguna FK hacia
     // consultas (es un agregado independiente, sin vínculo en la base), así que si esto
     // falla no tiene sentido dejar a mitad de camino nada relacionado con la consulta:
-    // se corta acá, sin tocar la consulta todavía
+    // se corta acá, sin tocar la consulta todavía. `estado: 'Activa'` fijo (ya no se pide,
+    // ver medicacionNuevaInicial más arriba) — toda medicación cargada desde una consulta
+    // arranca como vigente.
+    let medicacionInsertada = null
     if (agregandoMedicacion) {
-      const { error: medicacionError } = await supabase.from('medicacion').insert({
-        paciente_id: pacienteId,
-        nombre: medicacionNueva.nombre.trim(),
-        dosis: medicacionNueva.dosis || null,
-        estado: medicacionNueva.estado,
-        fecha_inicio: medicacionNueva.fecha_inicio || null,
-        fecha_fin: medicacionNueva.fecha_fin || null,
-        usuario_id: profesionalId,
-      })
+      const { data: medicacionData, error: medicacionError } = await supabase
+        .from('medicacion')
+        .insert({
+          paciente_id: pacienteId,
+          nombre: medicacionNueva.nombre.trim(),
+          dosis: medicacionNueva.dosis || null,
+          estado: 'Activa',
+          usuario_id: profesionalId,
+        })
+        .select()
+        .single()
 
       if (medicacionError) {
         setLoading(false)
         setError(medicacionError.message)
         return
       }
+
+      medicacionInsertada = medicacionData
     }
 
     if (esEdicion) {
@@ -212,7 +219,7 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
       return
     }
 
-    onSaved(data)
+    onSaved(data, medicacionInsertada)
   }
 
   const campos = (
@@ -361,42 +368,6 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
               className="input"
             />
           </Field>
-
-          <Field label="Estado">
-            <select
-              value={medicacionNueva.estado}
-              onChange={handleChangeMedicacion('estado')}
-              className="input"
-            >
-              {ESTADOS_MEDICACION.map((estado) => (
-                <option key={estado} value={estado}>
-                  {estado}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Fecha de inicio">
-              <input
-                type="date"
-                value={medicacionNueva.fecha_inicio}
-                onChange={handleChangeMedicacion('fecha_inicio')}
-                className="input"
-              />
-            </Field>
-
-            {medicacionNueva.estado === 'Suspendida' && (
-              <Field label="Fecha de fin">
-                <input
-                  type="date"
-                  value={medicacionNueva.fecha_fin}
-                  onChange={handleChangeMedicacion('fecha_fin')}
-                  className="input"
-                />
-              </Field>
-            )}
-          </div>
         </div>
       )}
 
