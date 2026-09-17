@@ -1710,7 +1710,9 @@ principio de este archivo).
   sería lo primero a verificar con una build desplegada real (dos versiones consecutivas en
   Vercel), no algo para forzar en local.
 
-  **Chequeo periódico cada 30 minutos, pedido explícito del cliente** — problema real que
+  **Chequeo periódico cada 5 minutos (antes 30 — bajado en una segunda vuelta a
+  pedido explícito del cliente, mismo mecanismo, sin cambiar ninguna otra parte
+  de la lógica)** — problema real que
   motivó esto: por default, el navegador solo revisa si `sw.js` cambió cuando la página se
   recarga o navega; si alguien deja la PWA abierta sin cerrarla nunca (el caso normal en el
   consultorio — la computadora queda prendida con la app abierta todo el día), el banner de
@@ -1718,7 +1720,7 @@ principio de este archivo).
   días que se desplegó un cambio. `ActualizacionDisponible.jsx` arma un chequeo manual en
   `onRegisteredSW` (**no** `onRegistered`, que está deprecado en `vite-plugin-pwa`) — patrón
   oficial que documenta la librería para este caso exacto, con los mismos resguardos:
-  `setInterval` cada `INTERVALO_CHEQUEO_MS` (30 min = `30 * 60 * 1000`) que:
+  `setInterval` cada `INTERVALO_CHEQUEO_MS` (5 min = `5 * 60 * 1000`) que:
   1. No hace nada si `registration.installing` ya está en verdadero — no pisa una
      instalación en curso con otro chequeo superpuesto.
   2. No hace nada si `!navigator.onLine` — sin conexión el `fetch` de abajo fallaría igual,
@@ -1732,14 +1734,14 @@ principio de este archivo).
      exactamente el mismo camino de siempre (`onNeedRefresh` → `needRefresh` → el banner
      aparece), nunca activa nada solo. **Esto no cambia el comportamiento "prompt" ya
      pedido antes** — el chequeo periódico solo repite la pregunta "¿hay algo nuevo?" cada
-     30 minutos en vez de depender de un cierre/apertura de pestaña; la decisión de
+     5 minutos en vez de depender de un cierre/apertura de pestaña; la decisión de
      activar sigue siendo 100% del usuario, tocando "Actualizar".
 
   **Verificado en el navegador**: build de producción + `pnpm preview` + Playwright
   temporal, espiando `window.setInterval` antes de que cargara cualquier script de la app
-  para confirmar sin ambigüedad que se registra un intervalo de `1800000` ms (30 min) — sin
+  para confirmar sin ambigüedad que se registra un intervalo de `300000` ms (5 min) — sin
   alterar su comportamiento real, solo observándolo — y que el service worker se sigue
-  registrando sin errores de consola. No se simuló el paso de 30 minutos reales (ni tenía
+  registrando sin errores de consola. No se simuló el paso de 5 minutos reales (ni tenía
   sentido esperar eso en una verificación local) — el código del callback en sí es
   suficientemente simple (cuatro condicionales + un `fetch`) como para revisarlo por
   lectura con confianza, una vez confirmado que el `setInterval` se arma con el delay

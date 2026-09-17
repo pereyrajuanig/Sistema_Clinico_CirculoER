@@ -2,7 +2,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
 
 // Cada cuánto se chequea si hay una versión nueva mientras la pestaña sigue abierta, sin
 // que nadie la recargue — ver el bloque de comentario sobre `onRegisteredSW` más abajo.
-const INTERVALO_CHEQUEO_MS = 30 * 60 * 1000
+const INTERVALO_CHEQUEO_MS = 5 * 60 * 1000
 
 // Contraparte de registerType: 'prompt' en vite.config.js (ver ese archivo y la sección
 // PWA de CLAUDE.md) — cuando el service worker detecta una versión nueva del build, NO se
