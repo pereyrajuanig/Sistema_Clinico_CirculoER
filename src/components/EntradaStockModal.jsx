@@ -13,7 +13,6 @@ const medicamentoNuevoInicial = {
   presentacion: '',
   presentacion_detalle: '',
   concentracion: '',
-  stock_minimo: '',
 }
 
 function hoyISO() {
@@ -104,7 +103,6 @@ export default function EntradaStockModal({ medicamentos, onClose, onRegistrado 
           presentacion: medicamentoNuevo.presentacion || null,
           presentacion_detalle: esOtra ? medicamentoNuevo.presentacion_detalle : null,
           concentracion: medicamentoNuevo.concentracion || null,
-          stock_minimo: medicamentoNuevo.stock_minimo === '' ? null : Number(medicamentoNuevo.stock_minimo),
         })
         .select()
         .single()
@@ -284,18 +282,6 @@ export default function EntradaStockModal({ medicamentos, onClose, onRegistrado 
                     value={medicamentoNuevo.concentracion}
                     onChange={handleChangeNuevo('concentracion')}
                     placeholder="Ej: 500 mg"
-                    className="input"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm text-text-secondary">Stock mínimo</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={medicamentoNuevo.stock_minimo}
-                    onChange={handleChangeNuevo('stock_minimo')}
-                    placeholder="Opcional — para alertar cuando el stock caiga por debajo"
                     className="input"
                   />
                 </div>

@@ -5,7 +5,7 @@ import EntradaStockModal from '@/components/EntradaStockModal'
 import SalidaStockModal from '@/components/SalidaStockModal'
 import LotesMedicamentoModal from '@/components/LotesMedicamentoModal'
 import Header from '@/components/Header'
-import { formatearPresentacion, identificarMedicamento } from '@/lib/medicamentos'
+import { formatearPresentacion, identificarMedicamento, STOCK_MINIMO } from '@/lib/medicamentos'
 
 function formatFecha(value) {
   if (!value) return ''
@@ -38,7 +38,7 @@ export default function Medicamentos() {
     const [medsRes, stockRes, lotesRes] = await Promise.all([
       supabase
         .from('medicamentos')
-        .select('id, nombre, droga, concentracion, presentacion, presentacion_detalle, stock_minimo, activo')
+        .select('id, nombre, droga, concentracion, presentacion, presentacion_detalle, activo')
         .order('nombre'),
       supabase.from('stock_por_medicamento').select('medicamento_id, stock_total'),
       supabase
@@ -71,7 +71,7 @@ export default function Medicamentos() {
   }, [])
 
   const medicamentosBajoMinimo = medicamentos.filter(
-    (m) => m.activo !== false && m.stock_minimo != null && (stockPorMedicamento[m.id] || 0) < m.stock_minimo
+    (m) => m.activo !== false && (stockPorMedicamento[m.id] || 0) < STOCK_MINIMO
   )
 
   const medicamentosActivos = medicamentos.filter((m) => m.activo !== false)
@@ -112,7 +112,7 @@ export default function Medicamentos() {
       .from('medicamentos')
       .update({ activo: false })
       .eq('id', medicamento.id)
-      .select('id, nombre, droga, concentracion, presentacion, presentacion_detalle, stock_minimo, activo')
+      .select('id, nombre, droga, concentracion, presentacion, presentacion_detalle, activo')
       .single()
 
     if (error) {
@@ -154,7 +154,7 @@ export default function Medicamentos() {
                 <ul className="text-text-primary text-base list-disc list-inside">
                   {medicamentosBajoMinimo.map((m) => (
                     <li key={m.id}>
-                      {identificarMedicamento(m)}: {stockPorMedicamento[m.id] || 0} (mínimo {m.stock_minimo})
+                      {identificarMedicamento(m)}: {stockPorMedicamento[m.id] || 0} (mínimo {STOCK_MINIMO})
                     </li>
                   ))}
                 </ul>
@@ -221,7 +221,7 @@ export default function Medicamentos() {
                 <tbody>
                   {medicamentosFiltrados.map((m) => {
                     const stock = stockPorMedicamento[m.id] || 0
-                    const bajoMinimo = m.stock_minimo != null && stock < m.stock_minimo
+                    const bajoMinimo = stock < STOCK_MINIMO
 
                     return (
                       <tr key={m.id} className="border-b border-border last:border-0">

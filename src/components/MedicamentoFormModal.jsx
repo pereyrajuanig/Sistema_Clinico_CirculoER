@@ -8,7 +8,6 @@ const initialForm = {
   presentacion: '',
   presentacion_detalle: '',
   concentracion: '',
-  stock_minimo: '',
 }
 
 export default function MedicamentoFormModal({ medicamento, onClose, onSaved }) {
@@ -40,7 +39,6 @@ export default function MedicamentoFormModal({ medicamento, onClose, onSaved }) 
       presentacion: form.presentacion || null,
       presentacion_detalle: esOtra ? form.presentacion_detalle : null,
       concentracion: form.concentracion || null,
-      stock_minimo: form.stock_minimo === '' ? null : Number(form.stock_minimo),
     }
 
     const query = esEdicion
@@ -117,17 +115,6 @@ export default function MedicamentoFormModal({ medicamento, onClose, onSaved }) 
                 value={form.concentracion}
                 onChange={handleChange('concentracion')}
                 placeholder="Ej: 500 mg"
-                className="input"
-              />
-            </Field>
-
-            <Field label="Stock mínimo">
-              <input
-                type="number"
-                min="0"
-                value={form.stock_minimo}
-                onChange={handleChange('stock_minimo')}
-                placeholder="Opcional — para alertar cuando el stock caiga por debajo"
                 className="input"
               />
             </Field>

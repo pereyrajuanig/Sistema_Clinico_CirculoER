@@ -1,3 +1,8 @@
+// Alerta de stock bajo (RF-25): antes era un valor por medicamento (columna stock_minimo en
+// la base), pero en la práctica nunca varió de ítem a ítem — pedido explícito del cliente de
+// sacar la columna y dejar un único valor fijo para todos, definido acá una sola vez.
+export const STOCK_MINIMO = 10
+
 export const PRESENTACIONES = [
   'Comprimidos',
   'Cápsulas',
