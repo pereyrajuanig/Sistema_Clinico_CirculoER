@@ -3,17 +3,11 @@ import { supabase } from '@/lib/supabaseClient'
 import { limpiarDni, formatearDni } from '@/lib/dni'
 import { capitalizarPalabras } from '@/lib/pacientes'
 import { formatearPresentacion, identificarMedicamento } from '@/lib/medicamentos'
-import { validarCantidadSalida } from '@/lib/stock'
+import { validarCantidadSalida, hoyLocalISO, loteProximoAVencer } from '@/lib/stock'
 
 function formatFecha(value) {
   if (!value) return ''
   return new Date(value + 'T00:00:00').toLocaleDateString('es-AR', { dateStyle: 'medium' })
-}
-
-function estaProximoAVencer(fechaVencimiento) {
-  const limite = new Date()
-  limite.setDate(limite.getDate() + 30)
-  return fechaVencimiento <= limite.toISOString().slice(0, 10)
 }
 
 export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }) {
@@ -57,6 +51,13 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
   // a mano, no siempre el que vence antes, y antes no había forma de reflejar eso en el
   // sistema (se descontaba siempre del lote sugerido, sin poder elegir otro). Se preselecciona
   // el primero (el de FEFO) como default razonable, pero queda editable.
+  //
+  // Un lote VENCIDO nunca aparece acá, aunque tenga stock — pedido explícito del cliente tras
+  // un caso real: al ordenar por fecha ascendente, un lote vencido (la fecha más antigua de
+  // todas) terminaba siendo la primera sugerencia, ofreciendo por default algo vencido para
+  // una administración real. No hay ningún caso de uso legítimo para elegirlo acá — si hace
+  // falta sacarlo del stock por estar vencido, esa es una acción distinta ("dar de baja"), no
+  // una salida a un paciente.
   useEffect(() => {
     if (!medicamentoId) {
       setLotesDisponibles([])
@@ -73,6 +74,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
       .select('*')
       .eq('medicamento_id', medicamentoId)
       .gt('stock_actual', 0)
+      .gte('fecha_vencimiento', hoyLocalISO())
       .order('fecha_vencimiento', { ascending: true })
       .then(({ data, error }) => {
         setBuscandoLotes(false)
@@ -310,7 +312,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
                     de la lista), pero queda editable a propósito — en la práctica quien
                     administra saca del lote que tiene físicamente a mano, no siempre el que
                     corresponde por vencimiento, y antes no había forma de reflejar eso acá. */}
-                {loteSeleccionado && estaProximoAVencer(loteSeleccionado.fecha_vencimiento) && (
+                {loteSeleccionado && loteProximoAVencer(loteSeleccionado.fecha_vencimiento) && (
                   <p className="text-sm text-text-primary font-semibold">
                     Este lote está próximo a vencer.
                   </p>

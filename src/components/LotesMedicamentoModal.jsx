@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import LoteFormModal from '@/components/LoteFormModal'
+import { loteVencido } from '@/lib/stock'
 
 function formatFecha(value) {
   if (!value) return ''
@@ -134,6 +135,7 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
             <ul className="space-y-2">
               {lotes.map((l) => {
                 const tieneSalidas = loteIdsConSalidas.has(l.lote_id)
+                const vencido = loteVencido(l.fecha_vencimiento)
 
                 return (
                   <li
@@ -144,8 +146,13 @@ export default function LotesMedicamentoModal({ medicamentoId, medicamentoNombre
                       <p className="text-base text-text-primary">
                         {l.numero_lote || 'Sin número de lote'}
                       </p>
-                      <p className="text-sm text-text-secondary">
-                        Vence {formatFecha(l.fecha_vencimiento)} — stock actual: {l.stock_actual}
+                      <p
+                        className={
+                          'text-sm ' + (vencido ? 'text-text-primary font-semibold' : 'text-text-secondary')
+                        }
+                      >
+                        {vencido ? 'Venció' : 'Vence'} {formatFecha(l.fecha_vencimiento)} — stock actual:{' '}
+                        {l.stock_actual}
                       </p>
                     </div>
                     {tieneSalidas ? (

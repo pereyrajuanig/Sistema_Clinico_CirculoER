@@ -6,16 +6,11 @@ import SalidaStockModal from '@/components/SalidaStockModal'
 import LotesMedicamentoModal from '@/components/LotesMedicamentoModal'
 import Header from '@/components/Header'
 import { formatearPresentacion, identificarMedicamento, STOCK_MINIMO } from '@/lib/medicamentos'
+import { hoyLocalISO, sumarDiasISO, loteVencido } from '@/lib/stock'
 
 function formatFecha(value) {
   if (!value) return ''
   return new Date(value + 'T00:00:00').toLocaleDateString('es-AR', { dateStyle: 'medium' })
-}
-
-function diasHastaLimite(dias) {
-  const limite = new Date()
-  limite.setDate(limite.getDate() + dias)
-  return limite.toISOString().slice(0, 10)
 }
 
 export default function Medicamentos() {
@@ -45,7 +40,7 @@ export default function Medicamentos() {
         .from('stock_por_lote')
         .select('lote_id, medicamento_id, numero_lote, fecha_vencimiento')
         .gt('stock_actual', 0)
-        .lte('fecha_vencimiento', diasHastaLimite(30))
+        .lte('fecha_vencimiento', sumarDiasISO(hoyLocalISO(), 30))
         .order('fecha_vencimiento', { ascending: true }),
     ])
 
@@ -75,6 +70,15 @@ export default function Medicamentos() {
   )
 
   const medicamentosActivos = medicamentos.filter((m) => m.activo !== false)
+
+  // "Vencido" y "por vencer" son estados excluyentes — antes se mostraban mezclados en una
+  // sola lista bajo el título "Lotes a 30 días o menos de vencer", así que un lote YA vencido
+  // (con stock todavía cargado) se leía con el mismo aviso suave que uno que recién está por
+  // vencer. `lotesRes` ya viene acotado a fecha_vencimiento <= hoy + 30 días, así que separar
+  // acá alcanza con loteVencido() — todo lo que no está vencido, por construcción, está dentro
+  // de esa ventana de 30 días.
+  const lotesVencidos = lotesPorVencer.filter((l) => loteVencido(l.fecha_vencimiento))
+  const lotesProximosAVencer = lotesPorVencer.filter((l) => !loteVencido(l.fecha_vencimiento))
 
   // Busca por marca comercial (nombre) o droga — las alertas de arriba siguen mirando
   // TODOS los medicamentos, esto solo filtra lo que se ve en la tabla. La tabla principal
@@ -163,11 +167,26 @@ export default function Medicamentos() {
               </div>
             )}
 
-            {lotesPorVencer.length > 0 && (
+            {lotesVencidos.length > 0 && (
+              <div>
+                <p className="font-semibold text-text-primary">Lotes vencidos — sacar del stock</p>
+                <ul className="text-text-primary text-base list-disc list-inside">
+                  {lotesVencidos.map((l) => (
+                    <li key={l.lote_id}>
+                      {nombreMedicamento(l.medicamento_id)}
+                      {l.numero_lote ? ` — Lote ${l.numero_lote}` : ' — sin número de lote'} — venció{' '}
+                      {formatFecha(l.fecha_vencimiento)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {lotesProximosAVencer.length > 0 && (
               <div>
                 <p className="font-semibold text-text-primary">Lotes a 30 días o menos de vencer</p>
                 <ul className="text-text-primary text-base list-disc list-inside">
-                  {lotesPorVencer.map((l) => (
+                  {lotesProximosAVencer.map((l) => (
                     <li key={l.lote_id}>
                       {nombreMedicamento(l.medicamento_id)}
                       {l.numero_lote ? ` — Lote ${l.numero_lote}` : ' — sin número de lote'} — vence{' '}
