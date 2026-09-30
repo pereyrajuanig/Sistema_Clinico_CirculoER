@@ -25,3 +25,8 @@ dist-ssr
 
 # Variables de entorno con credenciales — nunca se sube
 .env
+
+# Mirror automático de CLAUDE.md que genera el entorno del editor para otras
+# herramientas de IA (convención AGENTS.md) — no es un archivo que se edite a
+# mano, y puede quedar desactualizado respecto a CLAUDE.md en cualquier momento
+AGENTS.md
