@@ -1091,6 +1091,65 @@ que no había nada que corregir ahí (se confirmó revisando, no se asumió).
     errores de consola. No se guardó ni modificó ningún dato de paciente
     real durante la verificación.
 
+- **Accesos rápidos a Antecedentes/Patologías y Laboratorio desde "+ Nueva
+  consulta", pedido explícito del cliente**: mientras se está cargando una
+  consulta nueva (bloque punteado de `ConsultaEntryForm.jsx`), aparecen dos
+  botones extra — "+ Agregar antecedente o patología" y "+ Cargar
+  resultados" — para no tener que cerrar la consulta en curso ni bajar a
+  buscar el botón correspondiente más abajo en la página si de la misma
+  visita también surge algo para esas dos secciones. No duplican ningún
+  formulario: disparan exactamente los mismos estados
+  (`mostrandoAltaAntecedentePatologia`/`mostrandoNuevoResultado`) que ya
+  controlan el alta en línea de cada sección, así que abren el mismo
+  `AntecedenteEntryForm.jsx`/`PatologiaEntryForm.jsx`/
+  `LaboratorioEntryForm.jsx` de siempre, en su propia sección — solo que
+  ahora también se puede abrir desde acá. Dos refs nuevas
+  (`altaAntecedentePatologiaRef`/`nuevoResultadoRef`) + un `useEffect` por
+  cada una hacen `scrollIntoView` cuando el estado correspondiente pasa a
+  `true`, mismo patrón ya usado para `nuevaConsultaRef` — sin esto, tocar el
+  acceso rápido abriría el panel fuera de la vista (en una sección más abajo
+  de la página) sin que se note que pasó algo.
+
+  **Bug de afordance real que esto sacó a la luz, corregido — RNF-01 (un
+  solo botón primario por pantalla)**: al poder tener abiertos a la vez el
+  formulario de "Nueva consulta" (con su propio "Guardar consulta" en
+  `.btn-primary`) y el de Antecedente/Patología/Laboratorio (cada uno con su
+  propio "Guardar X" también en `.btn-primary`), quedaban DOS botones
+  primarios visibles en pantalla al mismo tiempo — exactamente lo que RNF-01
+  prohíbe. Se agregó `submitEsPrimario` (default `true`, no cambia ningún
+  otro uso existente) a `AntecedenteEntryForm.jsx`/`PatologiaEntryForm.jsx`/
+  `LaboratorioEntryForm.jsx` — controla únicamente el botón de submit del
+  modo ALTA (nunca el de "Editar", que sigue siendo modal y siempre
+  primario, esa combinación no la habilita ningún acceso rápido).
+  `HistoriaClinica.jsx` pasa `submitEsPrimario={!mostrandoNuevaConsulta}` en
+  los tres usos de alta — si hay una consulta en curso, el submit de
+  Antecedente/Patología/Laboratorio baja a `.btn-secondary`, dejando
+  "Guardar consulta" como el único primario.
+
+  **Nota — este mismo problema ya existía antes, de forma más difícil de
+  disparar, y sigue sin resolverse fuera del caso de arriba**: "+ Nueva
+  consulta" es `.btn-primary` y queda visible todo el tiempo que
+  `mostrandoNuevaConsulta` sea `false` — si alguien abre
+  "+ Agregar antecedente o patología" o "+ Cargar resultados" de forma
+  independiente (sin haber tocado "+ Nueva consulta"), sigue habiendo dos
+  primarios en pantalla ("+ Nueva consulta" sin abrir + "Guardar X" del alta
+  que sí se abrió), porque esos toggles nunca se coordinaron entre sí. No se
+  tocó en este cambio — arreglarlo del todo requeriría una noción de "qué
+  sección es la primaria ahora mismo" compartida entre las cuatro secciones
+  de la página, no solo entre Consultas y las dos que ahora tienen acceso
+  rápido. Documentado acá para que quede claro que es un hallazgo, no algo
+  ya resuelto.
+
+  **Verificado en el navegador, sin escribir contra datos reales**:
+  Playwright temporal, cuenta institucional real — confirmado que los dos
+  accesos rápidos aparecen dentro de "Nueva consulta", que tocarlos abre el
+  panel correcto en su propia sección con scroll automático, que la consulta
+  en curso sigue intacta (no se pierde ni se cierra), que no aparece ningún
+  overlay (`.fixed.inset-0`) en ningún momento, y que con la consulta abierta
+  el submit del antecedente/patología/laboratorio se ve en `.btn-secondary`
+  mientras "Guardar consulta" queda como el único `.btn-primary` visible —
+  sin errores de consola.
+
 - Cartel de alergias visible al abrir la ficha del paciente (RF-17)
 - Sistema de diseño con modo claro/oscuro (`design-system.md`)
 - **"Últimas consultas" (`/consultas/recientes`, `UltimasConsultas.jsx`)**: feed

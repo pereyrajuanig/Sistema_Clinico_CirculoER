@@ -8,7 +8,19 @@ import SelectorColorResaltado from '@/components/SelectorColorResaltado'
 // continuo" pedido por los médicos, extendido al resto de la ficha): el alta se renderiza en
 // línea, sin overlay, dentro del flujo de la sección de HistoriaClinica.jsx; editar sigue
 // siendo un modal, eso no cambió.
-export default function AntecedenteEntryForm({ pacienteId, antecedente, onClose, onSaved }) {
+//
+// `submitEsPrimario` (default true, sin cambios en el resto de los usos): en `false` cuando
+// este alta se abrió desde el acceso rápido dentro de "+ Nueva consulta" — ahí ya hay otro
+// botón primario en pantalla ("Guardar consulta"), y RNF-01 exige que no haya dos al mismo
+// tiempo. Solo afecta al submit de ALTA — el de "Editar" (modal) sigue siendo siempre
+// primario, esa combinación no la habilita ningún acceso rápido.
+export default function AntecedenteEntryForm({
+  pacienteId,
+  antecedente,
+  onClose,
+  onSaved,
+  submitEsPrimario = true,
+}) {
   const esEdicion = Boolean(antecedente)
   const [tipo, setTipo] = useState(antecedente?.tipo || '')
   const [descripcion, setDescripcion] = useState(antecedente?.descripcion || '')
@@ -178,7 +190,11 @@ export default function AntecedenteEntryForm({ pacienteId, antecedente, onClose,
         <button type="button" onClick={onClose} className="btn-secondary">
           Cancelar
         </button>
-        <button type="submit" disabled={loading} className="btn-primary">
+        <button
+          type="submit"
+          disabled={loading}
+          className={submitEsPrimario ? 'btn-primary' : 'btn-secondary'}
+        >
           {loading ? 'Guardando...' : 'Guardar antecedente'}
         </button>
       </div>

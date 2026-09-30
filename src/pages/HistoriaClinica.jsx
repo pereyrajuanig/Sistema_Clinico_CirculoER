@@ -55,6 +55,8 @@ export default function HistoriaClinica() {
   const { id } = useParams()
   const location = useLocation()
   const nuevaConsultaRef = useRef(null)
+  const altaAntecedentePatologiaRef = useRef(null)
+  const nuevoResultadoRef = useRef(null)
   const [paciente, setPaciente] = useState(null)
   const [antecedentes, setAntecedentes] = useState([])
   const [patologias, setPatologias] = useState([])
@@ -183,6 +185,22 @@ export default function HistoriaClinica() {
       nuevaConsultaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
   }, [mostrandoNuevaConsulta])
+
+  // Mismo criterio que arriba, para los dos accesos rápidos que aparecen dentro del bloque
+  // de "+ Nueva consulta" (pedido explícito del cliente) — Antecedentes/Patologías y
+  // Laboratorio viven en secciones más abajo de la página, así que sin este scroll el
+  // médico no vería que pasó nada al tocar el atajo.
+  useEffect(() => {
+    if (mostrandoAltaAntecedentePatologia) {
+      altaAntecedentePatologiaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [mostrandoAltaAntecedentePatologia])
+
+  useEffect(() => {
+    if (mostrandoNuevoResultado) {
+      nuevoResultadoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [mostrandoNuevoResultado])
 
   function handlePacienteGuardado(pacienteActualizado) {
     setPaciente(pacienteActualizado)
@@ -549,12 +567,40 @@ export default function HistoriaClinica() {
                 // Borde punteado + fondo apenas teñido en `primary` (no un borde sólido
                 // como las entradas ya escritas) — marca de un vistazo cuál es la entrada
                 // todavía en curso, sin gritar ni romper el resto de la paleta
-                <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6">
+                <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6 space-y-4">
                   <ConsultaEntryForm
                     pacienteId={id}
                     onClose={() => setMostrandoNuevaConsulta(false)}
                     onSaved={handleConsultaGuardada}
                   />
+
+                  {/* Accesos rápidos a Antecedentes/Patologías y Laboratorio, pedido
+                      explícito del cliente — mientras se carga una consulta nueva, sin
+                      tener que cerrarla ni ir a buscar el botón correspondiente más abajo
+                      en la página. Abren el mismo alta en línea de siempre en su propia
+                      sección (no duplican ningún formulario acá) y hacen scroll hasta
+                      ella, igual que "+ Nueva consulta" hace scroll hasta sí misma. */}
+                  <div className="pt-4 border-t border-primary/30 space-y-2">
+                    <p className="text-sm text-text-secondary">
+                      ¿También hace falta cargar algo más de esta visita?
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setMostrandoAltaAntecedentePatologia(true)}
+                        className="btn-secondary"
+                      >
+                        + Agregar antecedente o patología
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMostrandoNuevoResultado(true)}
+                        className="btn-secondary"
+                      >
+                        + Cargar resultados
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <button onClick={() => setMostrandoNuevaConsulta(true)} className="btn-primary">
@@ -680,6 +726,7 @@ export default function HistoriaClinica() {
             </div>
           </div>
 
+          <div ref={altaAntecedentePatologiaRef}>
           {mostrandoAltaAntecedentePatologia ? (
             <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6 space-y-4">
               <div className="space-y-2">
@@ -714,12 +761,14 @@ export default function HistoriaClinica() {
                   pacienteId={id}
                   onClose={cerrarAltaAntecedentePatologia}
                   onSaved={handleAntecedenteGuardado}
+                  submitEsPrimario={!mostrandoNuevaConsulta}
                 />
               ) : (
                 <PatologiaEntryForm
                   pacienteId={id}
                   onClose={cerrarAltaAntecedentePatologia}
                   onSaved={handlePatologiaGuardada}
+                  submitEsPrimario={!mostrandoNuevaConsulta}
                 />
               )}
             </div>
@@ -731,6 +780,7 @@ export default function HistoriaClinica() {
               + Agregar antecedente o patología
             </button>
           )}
+          </div>
         </section>
 
         <section className="bg-surface border border-border rounded-lg p-4 sm:p-6">
@@ -783,12 +833,14 @@ export default function HistoriaClinica() {
             </div>
           )}
 
+          <div ref={nuevoResultadoRef}>
           {mostrandoNuevoResultado ? (
             <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6">
               <LaboratorioEntryForm
                 pacienteId={id}
                 onClose={() => setMostrandoNuevoResultado(false)}
                 onCreated={handleResultadosCreados}
+                submitEsPrimario={!mostrandoNuevaConsulta}
               />
             </div>
           ) : (
@@ -796,6 +848,7 @@ export default function HistoriaClinica() {
               + Cargar resultados
             </button>
           )}
+          </div>
         </section>
           </div>
 

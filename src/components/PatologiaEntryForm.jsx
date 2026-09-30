@@ -8,7 +8,17 @@ import SelectorColorResaltado from '@/components/SelectorColorResaltado'
 // continuo" pedido por los médicos, extendido al resto de la ficha): el alta se renderiza en
 // línea, sin overlay, dentro del flujo de la sección de HistoriaClinica.jsx; editar sigue
 // siendo un modal, eso no cambió.
-export default function PatologiaEntryForm({ pacienteId, patologia, onClose, onSaved }) {
+//
+// `submitEsPrimario` (default true, sin cambios en el resto de los usos): en `false` cuando
+// este alta se abrió desde el acceso rápido dentro de "+ Nueva consulta" — ver el mismo
+// comentario en AntecedenteEntryForm.jsx. Solo afecta al submit de ALTA, no al de "Editar".
+export default function PatologiaEntryForm({
+  pacienteId,
+  patologia,
+  onClose,
+  onSaved,
+  submitEsPrimario = true,
+}) {
   const esEdicion = Boolean(patologia)
   const [profesionales, setProfesionales] = useState([])
   const [profesionalId, setProfesionalId] = useState(patologia?.usuario_id || null)
@@ -219,7 +229,11 @@ export default function PatologiaEntryForm({ pacienteId, patologia, onClose, onS
         <button type="button" onClick={onClose} className="btn-secondary">
           Cancelar
         </button>
-        <button type="submit" disabled={loading} className="btn-primary">
+        <button
+          type="submit"
+          disabled={loading}
+          className={submitEsPrimario ? 'btn-primary' : 'btn-secondary'}
+        >
           {loading ? 'Guardando...' : 'Guardar patología'}
         </button>
       </div>
