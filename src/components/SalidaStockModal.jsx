@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { limpiarDni, formatearDni } from '@/lib/dni'
 import { capitalizarPalabras } from '@/lib/pacientes'
-import { formatearPresentacion, identificarMedicamento } from '@/lib/medicamentos'
+import { formatearPresentacion } from '@/lib/medicamentos'
 import { validarCantidadSalida, hoyLocalISO, loteProximoAVencer } from '@/lib/stock'
+import SelectorMedicamento from '@/components/SelectorMedicamento'
 
 function formatFecha(value) {
   if (!value) return ''
@@ -254,22 +255,12 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
               <label className="text-sm text-text-secondary">
                 Medicamento <span className="text-text-primary">*</span>
               </label>
-              <select
-                required
+              <SelectorMedicamento
+                medicamentos={medicamentos}
                 value={medicamentoId}
-                onChange={(e) => setMedicamentoId(e.target.value)}
-                className="input"
-              >
-                <option value="" disabled>
-                  Elegir medicamento...
-                </option>
-                {medicamentos.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {identificarMedicamento(m)}
-                    {formatearPresentacion(m) ? ` (${formatearPresentacion(m)})` : ''}
-                  </option>
-                ))}
-              </select>
+                onChange={setMedicamentoId}
+                placeholder="Escribir para buscar..."
+              />
               {medicamentoSeleccionado && (
                 <p className="text-sm text-text-secondary">
                   {[

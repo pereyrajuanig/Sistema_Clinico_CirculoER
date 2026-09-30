@@ -1400,9 +1400,13 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
   no queda un texto suelto sin ningún `medicamentoId` real detrás.
 
   Se armó como componente reusable (no específico de `EntradaStockModal.jsx`)
-  pensando en que `SalidaStockModal.jsx` tiene el mismo `<select>` largo con el
-  mismo catálogo — no se tocó ahí porque no se pidió, pero si hace falta el
-  mismo cambio, es aplicar este mismo componente ahí.
+  — en una segunda vuelta, el mismo día, se aplicó también en
+  `SalidaStockModal.jsx` (tenía el mismo `<select>` largo con el mismo
+  catálogo). Ahí conviven bien: elegir un medicamento con
+  `SelectorMedicamento` sigue disparando el `useEffect` que busca los lotes
+  disponibles (depende de `medicamentoId`, no de cómo se llegó a setearlo) —
+  no hizo falta tocar nada de esa lógica, solo cambiar el `<select>` por el
+  combobox, igual que en `EntradaStockModal.jsx`.
 
   **Verificado en el navegador, sin escribir contra datos reales**: Playwright
   temporal contra `pnpm dev` con la cuenta institucional real — se confirmó que
