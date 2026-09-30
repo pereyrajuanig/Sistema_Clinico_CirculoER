@@ -17,7 +17,16 @@ function hoyISO() {
 // sin overlay, dentro del flujo de la sección "Laboratorio" de HistoriaClinica.jsx. Este
 // formulario es de alta ÚNICAMENTE (nunca edita) — la edición de un resultado ya cargado
 // sigue siendo un modal aparte, `EditarResultadoLaboratorioModal.jsx`, sin cambios.
-export default function LaboratorioEntryForm({ pacienteId, onClose, onCreated }) {
+//
+// `submitEsPrimario` (default true, sin cambios en el resto de los usos): en `false` cuando
+// este alta se abrió desde el acceso rápido dentro de "+ Nueva consulta" — ver el mismo
+// comentario en AntecedenteEntryForm.jsx.
+export default function LaboratorioEntryForm({
+  pacienteId,
+  onClose,
+  onCreated,
+  submitEsPrimario = true,
+}) {
   const [profesionales, setProfesionales] = useState([])
   const [profesionalId, setProfesionalId] = useState(null)
   const [fecha, setFecha] = useState(hoyISO())
@@ -213,7 +222,11 @@ export default function LaboratorioEntryForm({ pacienteId, onClose, onCreated })
         <button type="button" onClick={onClose} className="btn-secondary">
           Cancelar
         </button>
-        <button type="submit" disabled={loading} className="btn-primary">
+        <button
+          type="submit"
+          disabled={loading}
+          className={submitEsPrimario ? 'btn-primary' : 'btn-secondary'}
+        >
           {loading ? 'Guardando...' : 'Guardar resultado'}
         </button>
       </div>
