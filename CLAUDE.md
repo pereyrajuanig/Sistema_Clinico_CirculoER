@@ -267,6 +267,13 @@ Medicamentos y stock (`migracion-02-medicamentos-stock.sql`, RF-21 a RF-26):
   `stock_minimo` en sus `select`) rompería con "column does not exist" hasta que
   el deploy nuevo termine de propagarse. No tengo acceso a la base — lo corre el
   usuario, mismo patrón que el resto de las migraciones ad-hoc de este proyecto.
+
+  **Nota posterior: la alerta de stock bajo (RF-25) en sí se terminó sacando
+  por completo, `STOCK_MINIMO` incluido** — un umbral único de 10 para todo el
+  catálogo resultó ser el problema real, no solo su presentación como cartel
+  (varios medicamentos manejan un stock normal por debajo de esa cifra). Ver
+  "Estado actual del desarrollo" → "Medicamentos y stock" más abajo para el
+  detalle completo de qué se sacó.
   No tiene `unidad_medida`: se sacó por
   redundante con `presentacion` (si la presentación es "comprimidos", la unidad
   para contar stock ya es obvia). `presentacion` es un selector fijo (Comprimidos,
@@ -1304,21 +1311,23 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
 
 **Medicamentos y stock — hecho:**
 - `/medicamentos`: listado con stock total por medicamento (vista `stock_por_medicamento`),
-  **solo medicamentos activos** — alerta visual (`alert`) cuando el stock está bajo el
-  mínimo. Buscador por marca comercial (`nombre`) o `droga`
+  **solo medicamentos activos**. Buscador por marca comercial (`nombre`) o `droga`
   (`medicamentosFiltrados`, client-side sobre lo ya cargado — mismo patrón que el
-  buscador de `Pacientes.jsx`) — solo filtra la tabla, las alertas de stock
-  bajo/vencimiento (ver el layout de dos columnas más abajo) siguen mirando todos
-  los medicamentos activos sin importar la búsqueda.
+  buscador de `Pacientes.jsx`) — solo filtra la tabla, las alertas de vencimiento
+  (ver el layout de dos columnas más abajo — ya no hay alerta de stock bajo
+  mínimo, sacada por completo, ver "RF-25 sacado por completo" más abajo) siguen
+  mirando todos los medicamentos activos sin importar la búsqueda.
 
   **Layout de dos columnas en desktop, alertas a la izquierda y sticky — pedido
   explícito del cliente** ("las alertas de medicamentos de lado izquierdo, que
   sigan el scroll, como en el detalle de pacientes"): mismo patrón que la
   columna izquierda de `HistoriaClinica.jsx` (cartel de alergias + datos del
   paciente) — `lg:grid lg:grid-cols-[280px_1fr] lg:gap-6 lg:items-start` con
-  `lg:sticky lg:top-4` en el `<aside>` de la izquierda, que agrupa las tres
-  alertas (stock bajo mínimo, lotes vencidos, lotes por vencer) en un solo
-  cartel `bg-alert/10`. La columna de 280px **solo se reserva si hay alguna
+  `lg:sticky lg:top-4` en el `<aside>` de la izquierda, que agrupa las alertas
+  de vencimiento (lotes vencidos, lotes por vencer — la de stock bajo mínimo
+  se sacó por completo después, ver "RF-25 sacado por completo" más abajo) en
+  un solo cartel `bg-alert/10`. La columna de 280px **solo se reserva si hay
+  alguna
   alerta activa** (`hayAlertas`, mismo criterio que `mostrarResumen` en
   `HistoriaClinica.jsx`) — sin nada que avisar, la tabla ocupa el ancho
   completo en vez de dejar un hueco vacío a la izquierda. Por debajo de `lg`
@@ -1576,9 +1585,24 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
   cargado nombre/apellido, los dos campos se limpian solos (mismo `useEffect` que
   dispara la búsqueda) — evita el riesgo de registrar a alguien con el DNI de otra
   persona por quedar nombre/apellido viejos en pantalla.
-- Alertas de stock bajo mínimo (RF-25, umbral fijo `STOCK_MINIMO = 10` en
-  `src/lib/medicamentos.js` — ya no por medicamento, ver el modelo de datos de
-  `medicamentos` más arriba) y lotes a 30 días o menos de vencer (RF-26)
+- **RF-25 (stock bajo mínimo) sacado por completo, pedido explícito del
+  cliente** — "hay medicamentos que disponen de menos de 10 y la alerta queda
+  molesta": el umbral fijo `STOCK_MINIMO = 10` (agregado poco antes al sacar
+  la columna `stock_minimo` por medicamento, ver el modelo de datos de
+  `medicamentos` más arriba) resultó ser el problema de fondo, no solo la
+  presentación — un solo número para todo el catálogo no tiene sentido cuando
+  varios medicamentos manejan un stock normal por debajo de 10 unidades, así
+  que la alerta terminaba disparando todo el tiempo para ítems que no tenían
+  ningún problema real. Se sacó de punta a punta, no solo el cartel: el
+  cartel "Stock por debajo del mínimo" en `/medicamentos`, la negrita
+  (`font-semibold`) que resaltaba la cifra de stock bajo mínimo en cada fila
+  de la tabla, `medicamentosBajoMinimo` en `Medicamentos.jsx`, y la constante
+  `STOCK_MINIMO` en `src/lib/medicamentos.js` (quedó sin ningún uso, se borró
+  en vez de dejarla a medio usar, mismo criterio ya aplicado antes con
+  `MedicacionEntryForm.jsx`/`src/lib/medicamentos.js` viejo). La columna
+  `Stock total` de la tabla principal sigue mostrando el número tal cual,
+  sin ningún estilo condicional — es información, no una alerta. Lotes a 30
+  días o menos de vencer (RF-26) no se tocó, sigue funcionando igual.
 - Historial de movimientos **global**, todos los medicamentos juntos
   (`HistorialMovimientos.jsx`, `/medicamentos/historial`, botón al lado del
   título en el header de `/medicamentos`, mismo estilo que "Medicamentos" en el

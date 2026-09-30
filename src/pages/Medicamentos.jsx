@@ -5,7 +5,7 @@ import EntradaStockModal from '@/components/EntradaStockModal'
 import SalidaStockModal from '@/components/SalidaStockModal'
 import LotesMedicamentoModal from '@/components/LotesMedicamentoModal'
 import Header from '@/components/Header'
-import { formatearPresentacion, identificarMedicamento, STOCK_MINIMO } from '@/lib/medicamentos'
+import { formatearPresentacion, identificarMedicamento } from '@/lib/medicamentos'
 import { hoyLocalISO, sumarDiasISO, loteVencido } from '@/lib/stock'
 
 function formatFecha(value) {
@@ -65,10 +65,6 @@ export default function Medicamentos() {
     fetchTodo()
   }, [])
 
-  const medicamentosBajoMinimo = medicamentos.filter(
-    (m) => m.activo !== false && (stockPorMedicamento[m.id] || 0) < STOCK_MINIMO
-  )
-
   const medicamentosActivos = medicamentos.filter((m) => m.activo !== false)
 
   // "Vencido" y "por vencer" son estados excluyentes — antes se mostraban mezclados en una
@@ -79,7 +75,7 @@ export default function Medicamentos() {
   // de esa ventana de 30 días.
   const lotesVencidos = lotesPorVencer.filter((l) => loteVencido(l.fecha_vencimiento))
   const lotesProximosAVencer = lotesPorVencer.filter((l) => !loteVencido(l.fecha_vencimiento))
-  const hayAlertas = medicamentosBajoMinimo.length > 0 || lotesPorVencer.length > 0
+  const hayAlertas = lotesPorVencer.length > 0
 
   // Busca por marca comercial (nombre) o droga — las alertas de arriba siguen mirando
   // TODOS los medicamentos, esto solo filtra lo que se ve en la tabla. La tabla principal
@@ -165,21 +161,6 @@ export default function Medicamentos() {
               que volver a ensanchar el contenedor. */}
           {hayAlertas && (
             <aside className="lg:sticky lg:top-4 bg-alert/10 border border-alert rounded-lg p-4 space-y-3">
-              {medicamentosBajoMinimo.length > 0 && (
-                <div>
-                  <p className="font-semibold text-text-primary">
-                    Stock por debajo del mínimo ({STOCK_MINIMO}u.)
-                  </p>
-                  <ul className="text-text-primary text-base list-disc list-inside">
-                    {medicamentosBajoMinimo.map((m) => (
-                      <li key={m.id}>
-                        {identificarMedicamento(m)}: {stockPorMedicamento[m.id] || 0}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
               {lotesVencidos.length > 0 && (
                 <div>
                   <p className="font-semibold text-text-primary">Lotes vencidos — sacar del stock</p>
@@ -258,7 +239,6 @@ export default function Medicamentos() {
                     <tbody>
                       {medicamentosFiltrados.map((m) => {
                         const stock = stockPorMedicamento[m.id] || 0
-                        const bajoMinimo = stock < STOCK_MINIMO
 
                         return (
                           <tr key={m.id} className="border-b border-border last:border-0">
@@ -267,9 +247,7 @@ export default function Medicamentos() {
                             <td className="px-4 py-3 text-text-primary">{m.droga || '—'}</td>
                             <td className="px-4 py-3 text-text-primary">{formatearPresentacion(m) || '—'}</td>
                             <td className="px-4 py-3">
-                              <span className={bajoMinimo ? 'text-text-primary font-semibold' : 'text-text-primary'}>
-                                {stock}
-                              </span>
+                              <span className="text-text-primary">{stock}</span>
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex flex-wrap gap-3">
