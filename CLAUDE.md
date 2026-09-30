@@ -1379,6 +1379,38 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
   compartido — ver "Selectores explícitos de profesional" más abajo). El selector
   de medicamento existente excluye los inactivos.
 
+  **El selector de medicamento existente es un combobox con filtro por teclado,
+  no un `<select>` nativo — pedido explícito del cliente** ("el selector queda
+  muy largo cuando hay muchos medicamentos, se debería poder escribir e ir
+  filtrando"): `SelectorMedicamento.jsx`, un input de texto + lista desplegable,
+  reemplaza el `<select>` que tenía antes. Sigue siendo un selector de UNA sola
+  opción real — el componente expone `value` (el `medicamentoId`) igual que un
+  `<select>`, escribir texto sin elegir un ítem de la lista **no** cuenta como
+  selección válida (se sigue validando `!medicamentoId` en `handleSubmit`, sin
+  cambios ahí). Filtra client-side por `nombre`/`droga` (mismo criterio que
+  `medicamentosFiltrados` en `Medicamentos.jsx`), muestra la lista completa al
+  enfocar sin haber escrito nada, y navegable con teclado (flechas + Enter elige
+  el ítem resaltado — con `e.preventDefault()` en el Enter, si no mandaría el
+  formulario completo en vez de elegir del desplegable). La selección por click
+  usa `onMouseDown` con `preventDefault()` en vez de `onClick` — truco estándar
+  de combobox: el mousedown corre ANTES del blur del input, así que el click no
+  se pierde por el input perdiendo el foco a mitad de camino. Si se escribe algo
+  y se hace blur sin elegir ningún ítem de la lista, el texto se descarta solo
+  (vuelve a mostrar la selección anterior, o queda vacío si no había ninguna) —
+  no queda un texto suelto sin ningún `medicamentoId` real detrás.
+
+  Se armó como componente reusable (no específico de `EntradaStockModal.jsx`)
+  pensando en que `SalidaStockModal.jsx` tiene el mismo `<select>` largo con el
+  mismo catálogo — no se tocó ahí porque no se pidió, pero si hace falta el
+  mismo cambio, es aplicar este mismo componente ahí.
+
+  **Verificado en el navegador, sin escribir contra datos reales**: Playwright
+  temporal contra `pnpm dev` con la cuenta institucional real — se confirmó que
+  escribir filtra la lista en vivo, que ArrowDown + Enter elige un ítem sin
+  enviar el formulario (el modal sigue abierto), que un texto sin coincidencias
+  muestra "Sin resultados", y que escribir algo inválido y hacer blur revierte
+  el campo solo, sin dejar texto suelto — sin errores de consola.
+
   **Por qué era dos botones y dejó de serlo**: originalmente "+ Nuevo medicamento"
   (crear en el catálogo) y "+ Registrar entrada" (cargar stock de algo ya
   existente) eran dos botones y dos modales separados, con un popup de puente

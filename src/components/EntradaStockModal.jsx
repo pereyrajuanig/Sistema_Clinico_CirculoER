@@ -1,12 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import {
-  PRESENTACIONES,
-  formatearPresentacion,
-  identificarMedicamento,
-  mensajeErrorMedicamento,
-} from '@/lib/medicamentos'
+import { PRESENTACIONES, mensajeErrorMedicamento } from '@/lib/medicamentos'
 import { hoyLocalISO } from '@/lib/stock'
+import SelectorMedicamento from '@/components/SelectorMedicamento'
 
 const medicamentoNuevoInicial = {
   nombre: '',
@@ -190,22 +186,12 @@ export default function EntradaStockModal({ medicamentos, onClose, onRegistrado 
                 <label className="text-sm text-text-secondary">
                   Medicamento <span className="text-text-primary">*</span>
                 </label>
-                <select
-                  required
+                <SelectorMedicamento
+                  medicamentos={medicamentos}
                   value={medicamentoId}
-                  onChange={(e) => setMedicamentoId(e.target.value)}
-                  className="input"
-                >
-                  <option value="" disabled>
-                    Elegir medicamento...
-                  </option>
-                  {medicamentos.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {identificarMedicamento(m)}
-                      {formatearPresentacion(m) ? ` (${formatearPresentacion(m)})` : ''}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setMedicamentoId}
+                  placeholder="Escribir para buscar..."
+                />
                 <button type="button" onClick={mostrarAgregarNuevo} className="btn-secondary w-full">
                   + Agregar medicamento nuevo
                 </button>
