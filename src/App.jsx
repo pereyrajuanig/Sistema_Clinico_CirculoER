@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { createBrowserRouter, createRoutesFromElements, RouterProvider, Route } from 'react-router-dom'
 import { AuthProvider } from '@/lib/AuthContext'
 import { ThemeProvider } from '@/lib/ThemeContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
@@ -23,82 +23,86 @@ function CargandoPantalla() {
   return <p className="p-10 text-center text-text-secondary text-base">Cargando...</p>
 }
 
+// El data router habilita useBlocker para los enlaces y Atrás/Adelante. Conserva
+// las mismas rutas, providers y carga diferida; los datos siguen en Supabase.
+const router = createBrowserRouter(createRoutesFromElements(
+  <>
+    <Route path="/login" element={<Login />} />
+    <Route
+      path="/"
+      element={
+        <ProtectedRoute>
+          <Pacientes />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/pacientes/:id"
+      element={
+        <ProtectedRoute>
+          <HistoriaClinica />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/consultas/recientes"
+      element={
+        <ProtectedRoute>
+          <UltimasConsultas />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/busqueda"
+      element={
+        <ProtectedRoute>
+          <BusquedaClinica />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/medicamentos"
+      element={
+        <ProtectedRoute>
+          <Medicamentos />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/medicamentos/inactivos"
+      element={
+        <ProtectedRoute>
+          <MedicamentosInactivos />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/medicamentos/historial"
+      element={
+        <ProtectedRoute>
+          <HistorialMovimientos />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/medicamentos/consumo-mes"
+      element={
+        <ProtectedRoute>
+          <ConsumoDelMes />
+        </ProtectedRoute>
+      }
+    />
+  </>
+))
+
 export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
         <ActualizacionDisponible />
-        <BrowserRouter>
-          <Suspense fallback={<CargandoPantalla />}>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <Pacientes />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/pacientes/:id"
-                element={
-                  <ProtectedRoute>
-                    <HistoriaClinica />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/consultas/recientes"
-                element={
-                  <ProtectedRoute>
-                    <UltimasConsultas />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/busqueda"
-                element={
-                  <ProtectedRoute>
-                    <BusquedaClinica />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/medicamentos"
-                element={
-                  <ProtectedRoute>
-                    <Medicamentos />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/medicamentos/inactivos"
-                element={
-                  <ProtectedRoute>
-                    <MedicamentosInactivos />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/medicamentos/historial"
-                element={
-                  <ProtectedRoute>
-                    <HistorialMovimientos />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/medicamentos/consumo-mes"
-                element={
-                  <ProtectedRoute>
-                    <ConsumoDelMes />
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
+        <Suspense fallback={<CargandoPantalla />}>
+          <RouterProvider router={router} />
+        </Suspense>
       </AuthProvider>
     </ThemeProvider>
   )

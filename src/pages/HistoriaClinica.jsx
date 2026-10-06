@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import ConsultaEntryForm from '@/components/ConsultaEntryForm'
+import AbrirNuevaConsulta from '@/components/AbrirNuevaConsulta'
 import DocumentosConsulta from '@/components/DocumentosConsulta'
 import AntecedenteEntryForm from '@/components/AntecedenteEntryForm'
 import PatologiaEntryForm from '@/components/PatologiaEntryForm'
@@ -312,7 +313,7 @@ export default function HistoriaClinica() {
       return siguiente.sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
     })
     if (medicacionInsertada) {
-      setMedicacionHabitual((prev) => [...prev, medicacionInsertada])
+      setMedicacionHabitual((prev) => prev.some((m) => m.id === medicacionInsertada.id) ? prev : [...prev, medicacionInsertada])
     }
     setMostrandoNuevaConsulta(false)
     setEditingConsulta(null)
@@ -569,6 +570,7 @@ export default function HistoriaClinica() {
                 // todavía en curso, sin gritar ni romper el resto de la paleta
                 <div className="border-2 border-dashed border-primary rounded-lg bg-primary/10 p-4 sm:p-6 space-y-4">
                   <ConsultaEntryForm
+                    key={id}
                     pacienteId={id}
                     onClose={() => setMostrandoNuevaConsulta(false)}
                     onSaved={handleConsultaGuardada}
@@ -603,9 +605,7 @@ export default function HistoriaClinica() {
                   </div>
                 </div>
               ) : (
-                <button onClick={() => setMostrandoNuevaConsulta(true)} className="btn-primary">
-                  + Nueva consulta
-                </button>
+                <AbrirNuevaConsulta key={id} pacienteId={id} onOpen={() => setMostrandoNuevaConsulta(true)} />
               )}
             </div>
           </div>

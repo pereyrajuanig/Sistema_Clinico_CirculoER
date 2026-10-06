@@ -57,9 +57,8 @@ export default defineConfig({
     },
   },
   test: {
-    // Solo lógica pura por ahora (src/lib) — no hay entorno DOM ni mocks de Supabase, así
-    // que no alcanza para testear componentes. Ver CLAUDE.md, sección de tests.
+    // Lógica pura en Node; los tests de formularios optan por jsdom en su propio archivo.
     environment: 'node',
-    include: ['src/**/*.test.js'],
+    include: ['src/**/*.test.{js,jsx}'],
   },
 })

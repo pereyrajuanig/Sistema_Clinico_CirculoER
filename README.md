@@ -213,11 +213,18 @@ un paciente con ficha vieja vuelve, se escanea y se adjunta como documento a su 
 digital, en vez de invertir tiempo en digitalizar retroactivamente letra manuscrita difícil
 de leer.
 
+**Borradores de nuevas consultas.** El texto y los campos se conservan automáticamente
+en el navegador de esa computadora. Al volver a la ficha se puede continuar o descartar
+el borrador. Salir con una consulta pendiente muestra un aviso; cerrar o recargar utiliza
+el aviso del navegador. El borrador se elimina después de registrar correctamente la
+consulta o de descartarlo con confirmación. Las consultas existentes siguen editándose
+con el modal habitual.
+
 ## Qué sigue
 
-- [ ] Tests de componentes (`@testing-library/react` + mocks de `supabase-js`) para los dos
-      flujos que se usan todos los días: alta de paciente y nueva consulta. Hoy los tests
-      automatizados cubren solo lógica pura (`src/lib`), el resto se sigue probando a mano
+- [ ] Tests de componentes para el alta de paciente y ampliar la cobertura de consultas.
+      Nueva consulta ya tiene tests de borradores, guardado y navegación con Supabase simulado;
+      los otros flujos se siguen probando a mano.
 - [ ] Subir el margen de `accent-marino` como texto sobre `primary` (botón "Editar" y accesos
       de header como "Medicamentos"/"Historial de movimientos"): da ~4.6:1, pasa el piso de
       WCAG AA pero con poco margen — no es urgente, pero conviene revisarlo si esa paleta

@@ -1937,12 +1937,12 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
 ### Tests automatizados (Vitest)
 
 `pnpm test` (o `pnpm test:watch`). Alcance **deliberadamente acotado**, no confundir con
-"la app está testeada": solo cubre lógica pura de `src/lib/*.js` (sin DOM, sin mocks de
-Supabase) — `dni.test.js`, `medicamentos.test.js`, `laboratorio.test.js`, `stock.test.js`
+"la app está testeada": cubre lógica pura de `src/lib/*.js` (sin DOM, sin mocks de
+Supabase) — `dni.test.js`, `pacientes.test.js`, `medicamentos.test.js`, `laboratorio.test.js`, `stock.test.js`
 (FEFO y validación de cantidad de `SalidaStockModal.jsx`, ver la auditoría de "registrar
-salida" más arriba). No hay tests de componentes ni end-to-end; los flujos completos
-(llenar un formulario, guardar contra Supabase, ver el resultado en pantalla) se siguen
-probando a mano, como siempre.
+salida" más arriba). Se agregaron tests de componentes para los borradores y el guardado
+de Nueva consulta con jsdom y Supabase simulado (ver sección de borradores más abajo).
+No hay tests end-to-end contra Supabase; esos flujos se siguen probando a mano.
 
 La razón de por qué se empezó por acá: es donde vive la lógica con más historial real de
 bugs sutiles — en particular, el atajo de "Perfil lipídico" (`GRUPOS_CARGA` en
@@ -2431,6 +2431,46 @@ necesidad real.
    code splitting ya usado para `pdfmake` (ver RF-19 más arriba) — ahí ya se
    había establecido el patrón de `import()` dinámico para no inflar el bundle
    principal, esto lo extiende a las pantallas enteras.
+
+### Borradores de Nueva consulta y protección al salir
+
+`ConsultaEntryForm.jsx` guarda automáticamente cada cambio de un ALTA en
+`localStorage`, con una clave por paciente (`hc:consulta-borrador:v1:<pacienteId>`).
+Incluye los tres campos de texto, signos vitales, profesional explícito, medicación
+habitual pendiente y el estado de sus apartados. Es un borrador local de esta
+computadora/navegador: no forma parte de la historia clínica hasta confirmar el
+guardado en Supabase. Se conserva al navegar, recargar, cerrar la pestaña, cerrar el
+formulario con Cancelar o expirar la sesión. La app sigue requiriendo internet para
+trabajar con la base; esto no agrega modo offline ni sincronización entre equipos.
+Los borradores contienen texto clínico en almacenamiento local del navegador,
+independiente de las políticas RLS de Supabase.
+
+`AbrirNuevaConsulta.jsx` muestra "Tenés una consulta sin terminar" al volver a la
+ficha, con Continuar/Descartar (el descarte exige confirmación). Se elimina el
+borrador solo después de un guardado exitoso o de un descarte explícito; un error
+de Supabase lo conserva. Si el navegador no puede almacenar el borrador, se muestra
+un mensaje y el aviso al salir informa que puede perderse el texto.
+
+`AvisoSalirConsulta.jsx` usa `useBlocker` para Atrás/Adelante y enlaces de la SPA,
+con Seguir escribiendo/Salir y conservar borrador. Para cerrar o recargar utiliza
+`beforeunload`, cuyo mensaje y disponibilidad controla el navegador. El guardado
+local automático es la protección principal. `App.jsx` usa `createBrowserRouter`
+y `RouterProvider` para habilitar el bloqueo; conserva las mismas rutas, providers,
+protección de acceso y páginas lazy. La edición de consultas existentes sigue
+siendo modal y no modifica ni recupera el borrador del ALTA.
+
+Si el quick-add de medicación tuvo éxito y la consulta falló, se conserva en el
+borrador la fila ya insertada. Al reintentar se reutiliza para dejar la nota en la
+consulta, sin insertar otra medicación; sus campos quedan de solo lectura. Descartar
+ese borrador no elimina la medicación ya registrada. `HistoriaClinica.jsx` evita
+duplicarla en memoria cuando ya llegó en el fetch inicial. No se agregaron tablas
+ni migraciones y el orden medicación → consulta se mantiene.
+
+Tests de flujo con React Testing Library + jsdom en `ConsultaEntryForm.test.jsx`,
+con Supabase simulado: recuperación de texto extenso y campos opcionales, aislamiento
+por paciente, navegación, cierre/recarga, fallo y reintento, medicación sin duplicar,
+descarte confirmado y almacenamiento no disponible. Los tests de lógica pura
+siguen en Node; los de componentes optan por jsdom con un comentario por archivo.
 
 ## Comandos habituales
 
