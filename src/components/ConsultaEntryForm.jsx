@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { registrarAuditoria } from '@/lib/auditoria'
+import AvisoSalirConsulta from '@/components/AvisoSalirConsulta'
+import {
+  FORM_CONSULTA_INICIAL as initialForm, MEDICACION_NUEVA_INICIAL as medicacionNuevaInicial,
+  leerBorradorConsulta, guardarBorradorConsulta, eliminarBorradorConsulta, tieneContenidoConsulta,
+} from '@/lib/borradorConsulta'
 
 // examen_fisico, diagnostico y medicacion se sacaron del formulario a pedido del cliente —
 // mismo criterio que pronostico/proximo_control/observaciones antes: la columna sigue
@@ -9,29 +14,11 @@ import { registrarAuditoria } from '@/lib/auditoria'
 // estar en `initialForm`, editar una consulta vieja con esos campos cargados no los borra —
 // `camposClinicos` (más abajo) simplemente no los incluye en el UPDATE, así que Supabase
 // deja esas columnas como estaban.
-const initialForm = {
-  motivo: '',
-  tratamiento: '',
-  evolucion: '',
-  presion_sistolica: '',
-  presion_diastolica: '',
-  frecuencia_cardiaca: '',
-  temperatura: '',
-  frecuencia_respiratoria: '',
-  saturacion_oxigeno: '',
-  peso: '',
-  talla: '',
-  glucemia: '',
-}
 
 // Estado y fecha_inicio se sacaron del formulario a pedido del cliente ("solo dejar nombre
 // y dosis") — toda medicación cargada desde acá arranca como Activa, sin fecha de inicio
 // (la columna sigue existiendo en la base, sin tocar). Mismo criterio que el resto de los
 // campos reducidos de esta app: no se pierde nada, solo se dejó de pedir.
-const medicacionNuevaInicial = {
-  nombre: '',
-  dosis: '',
-}
 
 const CAMPOS_NUMERICOS = new Set([
   'presion_sistolica',
@@ -60,23 +47,48 @@ function formatFecha(value) {
 // sin fondo oscuro ni posición fija).
 export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSaved }) {
   const esEdicion = Boolean(consulta)
+  const [borradorInicial] = useState(() => esEdicion ? null : leerBorradorConsulta(pacienteId))
+  const [consultaGuardada, setConsultaGuardada] = useState(false)
   const [profesionales, setProfesionales] = useState([])
-  const [profesionalId, setProfesionalId] = useState(consulta?.profesional_id || null)
+  const [profesionalId, setProfesionalId] = useState(consulta?.profesional_id || borradorInicial?.profesionalId || null)
   const [form, setForm] = useState(() =>
     esEdicion
       ? Object.fromEntries(Object.keys(initialForm).map((key) => [key, consulta[key] ?? '']))
-      : initialForm
+      : borradorInicial?.form || initialForm
   )
   // Colapsados por defecto en el alta (nada que mostrar todavía); si se edita una consulta
   // que ya tenía algún signo vital cargado, arranca desplegado para no esconder un dato que
   // ya estaba — nunca ocultar datos existentes detrás de un clic
   const [mostrandoVitales, setMostrandoVitales] = useState(
-    () => esEdicion && [...CAMPOS_NUMERICOS].some((campo) => consulta[campo] != null && consulta[campo] !== '')
+    () => esEdicion
+      ? [...CAMPOS_NUMERICOS].some((campo) => consulta[campo] != null && consulta[campo] !== '')
+      : borradorInicial?.mostrandoVitales || false
   )
-  const [agregandoMedicacion, setAgregandoMedicacion] = useState(false)
-  const [medicacionNueva, setMedicacionNueva] = useState(medicacionNuevaInicial)
+  const [agregandoMedicacion, setAgregandoMedicacion] = useState(borradorInicial?.agregandoMedicacion || false)
+  const [medicacionNueva, setMedicacionNueva] = useState(borradorInicial?.medicacionNueva || medicacionNuevaInicial)
+  const [medicacionRegistrada, setMedicacionRegistrada] = useState(borradorInicial?.medicacionRegistrada || null)
+  const [borradorGuardado, setBorradorGuardado] = useState(true)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const pendiente = tieneContenidoConsulta({ form, profesionalId, agregandoMedicacion, medicacionNueva, medicacionRegistrada })
+
+  // Sin debounce: cada cambio queda protegido sin esperar un temporizador. Las
+  // escrituras son locales, no producen registros clínicos ni requieren conexión.
+  useEffect(() => {
+    if (esEdicion || consultaGuardada) return
+    // oxlint-disable-next-line react/set-state-in-effect -- Refleja el resultado de sincronizar el almacenamiento externo.
+    setBorradorGuardado(guardarBorradorConsulta(pacienteId, {
+      form, profesionalId, mostrandoVitales, agregandoMedicacion, medicacionNueva, medicacionRegistrada,
+    }))
+  }, [esEdicion, consultaGuardada, pacienteId, form, profesionalId, mostrandoVitales, agregandoMedicacion, medicacionNueva, medicacionRegistrada])
+
+  function cerrarConsulta() {
+    if (pendiente && !window.confirm(borradorGuardado
+      ? 'La consulta todavía no se registró. ¿Cerrar y conservar el borrador para continuar después?'
+      : 'No se pudo guardar el borrador. ¿Cerrar de todos modos y perder lo escrito?')) return
+    onClose()
+  }
 
   useEffect(() => {
     async function cargarProfesionales() {
@@ -108,11 +120,19 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
         }
       }
 
+      // Un borrador de ALTA todavía no tiene una atención registrada. Si se dio
+      // de baja al profesional mientras tanto, hay que elegir uno activo.
+      if (!esEdicion && borradorInicial?.profesionalId &&
+        !data.some((p) => p.id === borradorInicial.profesionalId)) {
+        setProfesionalId(null)
+        setError('El profesional del borrador ya no está activo. Elegí quién atiende antes de guardar.')
+      }
+
       setProfesionales(data)
     }
 
     cargarProfesionales()
-  }, [consulta?.profesional_id])
+  }, [consulta?.profesional_id, borradorInicial?.profesionalId, esEdicion])
 
   function handleChange(field) {
     return (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -152,8 +172,8 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
     // se corta acá, sin tocar la consulta todavía. `estado: 'Activa'` fijo (ya no se pide,
     // ver medicacionNuevaInicial más arriba) — toda medicación cargada desde una consulta
     // arranca como vigente.
-    let medicacionInsertada = null
-    if (agregandoMedicacion) {
+    let medicacionInsertada = medicacionRegistrada
+    if (agregandoMedicacion && !medicacionInsertada) {
       const { data: medicacionData, error: medicacionError } = await supabase
         .from('medicacion')
         .insert({
@@ -173,6 +193,13 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
       }
 
       medicacionInsertada = medicacionData
+      setMedicacionRegistrada(medicacionData)
+      if (!esEdicion) {
+        setBorradorGuardado(guardarBorradorConsulta(pacienteId, {
+          form, profesionalId, mostrandoVitales, agregandoMedicacion, medicacionNueva,
+          medicacionRegistrada: medicacionData,
+        }))
+      }
     }
 
     if (esEdicion) {
@@ -234,6 +261,12 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
       return
     }
 
+    if (!esEdicion) {
+      setConsultaGuardada(true)
+      if (!eliminarBorradorConsulta(pacienteId)) {
+        window.alert('La consulta se guardó correctamente, pero no se pudo quitar el borrador de este navegador. Descartalo antes de iniciar otra consulta para evitar registrarlo dos veces.')
+      }
+    }
     onSaved(data, medicacionInsertada)
   }
 
@@ -278,6 +311,7 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
         <button
           type="button"
           onClick={agregandoMedicacion ? cancelarAgregarMedicacion : mostrarAgregarMedicacion}
+          disabled={Boolean(medicacionRegistrada)}
           className="btn-secondary w-full"
         >
           {agregandoMedicacion ? '‹ Cancelar medicación habitual' : '+ Agregar a medicación habitual'}
@@ -365,10 +399,12 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
 
       {agregandoMedicacion && (
         <div className="space-y-4 border border-border rounded-lg p-3 bg-background">
+          {medicacionRegistrada && <p className="text-base text-text-primary">Esta medicación ya se registró. Falta guardar la consulta.</p>}
           <Field label="Nombre del medicamento" required>
             <input
               required
               value={medicacionNueva.nombre}
+              readOnly={Boolean(medicacionRegistrada)}
               onChange={handleChangeMedicacion('nombre')}
               placeholder="Ej: Losartán"
               className="input"
@@ -378,6 +414,7 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
           <Field label="Dosis">
             <input
               value={medicacionNueva.dosis}
+              readOnly={Boolean(medicacionRegistrada)}
               onChange={handleChangeMedicacion('dosis')}
               placeholder="Ej: 50mg cada 12hs"
               className="input"
@@ -424,7 +461,7 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
               </h2>
             </div>
 
-            <div className="p-4 sm:p-6 space-y-6">{campos}</div>
+            <fieldset disabled={loading} className="p-4 sm:p-6 space-y-6">{campos}</fieldset>
 
             {error && <p className="px-4 sm:px-6 text-base text-text-primary -mt-2 pb-2">{error}</p>}
 
@@ -448,12 +485,18 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
     <form onSubmit={handleSubmit} className="space-y-6">
       <h3 className="text-lg font-semibold text-text-primary">Nueva consulta</h3>
 
-      {campos}
+      {borradorInicial && <p className="text-base text-text-secondary">Borrador recuperado. Podés continuar donde lo dejaste.</p>}
+      {(pendiente || !borradorGuardado) && <p role="status" className="text-base text-text-secondary">
+        {borradorGuardado ? 'Borrador guardado en esta computadora' : 'No se pudo guardar el borrador. Mantené esta página abierta hasta guardar la consulta.'}
+      </p>}
+      <AvisoSalirConsulta pendiente={pendiente && !consultaGuardada} loading={loading} borradorGuardado={borradorGuardado} />
+
+      <fieldset disabled={loading} className="space-y-6">{campos}</fieldset>
 
       {error && <p className="text-base text-text-primary">{error}</p>}
 
       <div className="flex justify-end gap-3">
-        <button type="button" onClick={onClose} className="btn-secondary">
+        <button type="button" onClick={cerrarConsulta} disabled={loading} className="btn-secondary">
           Cancelar
         </button>
         <button type="submit" disabled={loading} className="btn-primary">
