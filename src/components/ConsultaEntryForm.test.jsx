@@ -179,7 +179,7 @@ describe('borrador de nueva consulta', () => {
     abrir()
     await screen.findByText('El profesional del borrador ya no está activo. Elegí quién atiende antes de guardar.')
     expect(screen.getAllByRole('textbox')[0].value).toBe(textoLargo)
-    expect(leerBorradorConsulta('paciente-a').profesionalId).toBeNull()
+    await waitFor(() => expect(leerBorradorConsulta('paciente-a').profesionalId).toBeNull())
     fireEvent.click(screen.getByRole('button', { name: 'Guardar consulta' }))
     expect(mocks.insertarConsulta).not.toHaveBeenCalled()
   })
