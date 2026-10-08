@@ -430,7 +430,7 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
         <Field label="Motivo">
           <textarea value={form.motivo} onChange={handleChange('motivo')} className="input" rows={3} />
         </Field>
-        <Field label="Tratamiento">
+        <Field label="Antecedentes/patologías">
           <textarea
             value={form.tratamiento}
             onChange={handleChange('tratamiento')}

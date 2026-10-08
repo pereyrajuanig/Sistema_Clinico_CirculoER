@@ -2432,6 +2432,15 @@ necesidad real.
    había establecido el patrón de `import()` dinámico para no inflar el bundle
    principal, esto lo extiende a las pantallas enteras.
 
+### Leyenda de Antecedentes/patologías en el formulario de consulta
+
+Por pedido del cliente, el campo que se mostraba como "Tratamiento" en
+`ConsultaEntryForm.jsx` se etiqueta "Antecedentes/patologías", tanto al crear como
+al editar una consulta. Es un cambio de leyenda únicamente: conserva el campo
+`tratamiento`, su guardado y los borradores existentes. No inserta filas en las
+tablas `antecedentes` o `patologias`; sus formularios dedicados siguen disponibles.
+Las etiquetas de lectura de consultas históricas y de los PDF no se modificaron.
+
 ### Borradores de Nueva consulta y protección al salir
 
 `ConsultaEntryForm.jsx` guarda automáticamente cada cambio de un ALTA en
