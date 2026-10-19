@@ -7,6 +7,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 const preparar = readFileSync(new URL('../../supabase/migrations/202610190001_preparar_accesos_individuales.sql', import.meta.url), 'utf8')
 const activar = readFileSync(new URL('../../supabase/migrations/202610190002_activar_atribucion_individual.sql', import.meta.url), 'utf8')
+const primerIngreso = readFileSync(new URL('../../supabase/migrations/202610190003_password_primer_ingreso.sql', import.meta.url), 'utf8')
 const id = (n) => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`
 const profA = id(1), profB = id(2), profC = id(3)
 const userA = id(11), userB = id(12), userC = id(13), compartido = id(99)
@@ -23,9 +24,12 @@ async function admin() {
 beforeAll(async () => {
   db = new PGlite()
   await db.exec(`
-    create role anon; create role authenticated;
+    create role anon; create role authenticated; create role supabase_auth_admin;
     create schema auth; create schema storage;
-    create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz, banned_until timestamptz);
+    create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz, banned_until timestamptz,
+      encrypted_password text default 'hash-provisorio', raw_user_meta_data jsonb default '{}');
+    grant usage on schema auth to supabase_auth_admin;
+    grant select, update on auth.users to supabase_auth_admin;
     create function auth.uid() returns uuid language sql stable as
       $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     grant usage on schema public, auth, storage to anon, authenticated;
@@ -154,5 +158,58 @@ describe('accesos y autoría en PostgreSQL', () => {
     await db.exec(preparar)
     await db.exec(activar)
     expect((await db.query('select id,profesional_id from public.consultas order by id')).rows).toEqual(antes)
+  })
+})
+
+describe('contraseña obligatoria en el primer ingreso', () => {
+  beforeAll(async () => { await admin(); await db.exec(primerIngreso) })
+  beforeEach(async () => {
+    await admin()
+    await db.exec("update public.profesionales set debe_cambiar_password = true where activo")
+  })
+  it('la cuenta pendiente conoce su identidad pero no lee historias, stock ni adjuntos', async () => {
+    await como(userA)
+    const perfil = (await db.query('select * from public.identidad_profesional_actual()')).rows[0]
+    expect(perfil).toMatchObject({ id: profA, debe_cambiar_password: true })
+    expect((await db.query('select * from public.pacientes')).rows).toHaveLength(0)
+    expect((await db.query('select * from public.stock_por_medicamento')).rows).toHaveLength(0)
+    expect((await db.query('select * from storage.objects')).rows).toHaveLength(0)
+    await expect(db.query("insert into public.consultas(motivo) values ('Bloqueado')")).rejects.toMatchObject({ code: '42501' })
+  })
+  it('el navegador no puede marcar por su cuenta que ya cambió la contraseña', async () => {
+    await como(userA)
+    await expect(db.query('update public.profesionales set debe_cambiar_password=false where id=$1', [profA])).rejects.toMatchObject({ code: '42501' })
+  })
+  it('cambiar user_metadata o reenviar el mismo hash no completa el paso', async () => {
+    await db.query('update auth.users set raw_user_meta_data=$1::jsonb where id=$2', [JSON.stringify({ debe_cambiar_password: false }),userA])
+    await db.query('update auth.users set encrypted_password=encrypted_password where id=$1', [userA])
+    await como(userA)
+    expect((await db.query('select * from public.identidad_profesional_actual()')).rows[0].debe_cambiar_password).toBe(true)
+  })
+  it('un cambio real mediante el rol de Auth completa solo la cuenta correspondiente', async () => {
+    await db.exec('set role supabase_auth_admin')
+    await db.query("update auth.users set encrypted_password='hash-nuevo-1' where id=$1", [userA])
+    await como(userA)
+    expect((await db.query('select * from public.identidad_profesional_actual()')).rows[0].debe_cambiar_password).toBe(false)
+    expect((await db.query('select * from public.pacientes')).rows).toHaveLength(1)
+    await como(userB)
+    expect((await db.query('select * from public.identidad_profesional_actual()')).rows[0].debe_cambiar_password).toBe(true)
+  })
+  it('un nuevo vínculo con otra cuenta vuelve a exigir contraseña nueva', async () => {
+    await db.query('update public.profesionales set debe_cambiar_password=false where id=$1', [profA])
+    try {
+      await db.query('update public.profesionales set auth_user_id=$1 where id=$2', [compartido,profA])
+      await como(compartido)
+      expect((await db.query('select * from public.identidad_profesional_actual()')).rows[0].debe_cambiar_password).toBe(true)
+    } finally {
+      await admin()
+      await db.query('update public.profesionales set auth_user_id=$1 where id=$2', [userA,profA])
+    }
+  })
+  it('reaplicar la tercera migración no vuelve a pedir contraseña a quien ya completó el paso', async () => {
+    await db.query("update auth.users set encrypted_password='hash-nuevo-2' where id=$1", [userA])
+    await db.exec(primerIngreso)
+    await como(userA)
+    expect((await db.query('select * from public.identidad_profesional_actual()')).rows[0].debe_cambiar_password).toBe(false)
   })
 })

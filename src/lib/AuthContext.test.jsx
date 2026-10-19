@@ -2,21 +2,26 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider, useAuth } from './AuthContext'
+import { useState } from 'react'
 
-const mocks = vi.hoisted(() => ({ getSession: vi.fn(), profile: vi.fn(), from: vi.fn(),
+const mocks = vi.hoisted(() => ({ getSession: vi.fn(), profile: vi.fn(), rpc: vi.fn(), updateUser: vi.fn(),
   signOut: vi.fn(), signIn: vi.fn(), listener: null, unsubscribe: vi.fn() }))
 vi.mock('@/lib/supabaseClient', () => ({ supabase: {
-  from: mocks.from,
-  auth: { getSession: mocks.getSession, signOut: mocks.signOut, signInWithPassword: mocks.signIn,
+  rpc: mocks.rpc,
+  auth: { getSession: mocks.getSession, signOut: mocks.signOut, signInWithPassword: mocks.signIn, updateUser: mocks.updateUser,
     onAuthStateChange: (callback) => { mocks.listener = callback; return { data: { subscription: { unsubscribe: mocks.unsubscribe } } } } },
 } }))
 const sessionA = { user: { id: 'auth-a' } }
 const sessionB = { user: { id: 'auth-b' } }
 function Probe() {
-  const { profesional, loading, errorAcceso, logout } = useAuth()
+  const { profesional, loading, errorAcceso, logout, cambiarPasswordInicial } = useAuth()
+  const [errorCambio, setErrorCambio] = useState('')
   return <>
     <p data-testid="identidad">{loading ? 'Cargando' : profesional?.nombre || 'Sin profesional'}</p>
     <p>{errorAcceso}</p>
+    <p>{profesional?.debe_cambiar_password ? 'Contraseña pendiente' : 'Contraseña lista'}</p>
+    <p>{errorCambio}</p>
+    <button onClick={async () => { const result = await cambiarPasswordInicial('Nueva contraseña de prueba'); setErrorCambio(result.error?.message || '') }}>Cambiar contraseña</button>
     <button onClick={() => logout()}>Salir</button>
   </>
 }
@@ -24,8 +29,9 @@ function abrir() { render(<AuthProvider><Probe /></AuthProvider>) }
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.getSession.mockResolvedValue({ data: { session: sessionA }, error: null })
-  mocks.profile.mockResolvedValue({ data: { id: 'profesional-historico-a', nombre: 'Médico A' }, error: null })
-  mocks.from.mockReturnValue({ select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: mocks.profile }) }) }) })
+  mocks.profile.mockResolvedValue({ data: { id: 'profesional-historico-a', nombre: 'Médico A', debe_cambiar_password: false }, error: null })
+  mocks.rpc.mockReturnValue({ maybeSingle: mocks.profile })
+  mocks.updateUser.mockResolvedValue({ data: { user: sessionA.user }, error: null })
   mocks.signOut.mockResolvedValue({ error: null })
 })
 afterEach(() => { cleanup(); vi.useRealTimers() })
@@ -35,7 +41,7 @@ describe('identidad profesional de la sesión', () => {
     abrir()
     expect(screen.getByTestId('identidad').textContent).toBe('Cargando')
     await screen.findByText('Médico A')
-    expect(mocks.from).toHaveBeenCalledWith('profesionales')
+    expect(mocks.rpc).toHaveBeenCalledWith('identidad_profesional_actual')
   })
   it('no habilita un profesional para la cuenta institucional no vinculada', async () => {
     mocks.profile.mockResolvedValue({ data: null, error: null })
@@ -86,5 +92,56 @@ describe('identidad profesional de la sesión', () => {
     expect(mocks.signOut).not.toHaveBeenCalled()
     await act(async () => vi.advanceTimersByTime(60 * 1000))
     expect(mocks.signOut).toHaveBeenCalledWith({ scope: 'local' })
+  })
+  it('habilita el acceso después de cambiar la contraseña y comprobar el estado del servidor', async () => {
+    mocks.profile.mockResolvedValueOnce({ data: { id: 'prof-a', nombre: 'Médico A', debe_cambiar_password: true }, error: null })
+      .mockResolvedValueOnce({ data: { id: 'prof-a', nombre: 'Médico A', debe_cambiar_password: false }, error: null })
+    abrir()
+    await screen.findByText('Contraseña pendiente')
+    fireEvent.click(screen.getByText('Cambiar contraseña'))
+    await screen.findByText('Contraseña lista')
+    expect(mocks.updateUser).toHaveBeenCalledWith({ password: 'Nueva contraseña de prueba' })
+    expect(mocks.profile).toHaveBeenCalledTimes(2)
+  })
+  it('no completa el primer ingreso cuando Supabase rechaza la contraseña', async () => {
+    mocks.profile.mockResolvedValue({ data: { id: 'prof-a', nombre: 'Médico A', debe_cambiar_password: true }, error: null })
+    mocks.updateUser.mockResolvedValue({ error: { code: 'same_password' } })
+    abrir()
+    await screen.findByText('Contraseña pendiente')
+    fireEvent.click(screen.getByText('Cambiar contraseña'))
+    await screen.findByText('Elegí una contraseña distinta de la provisoria.')
+    expect(screen.getByText('Contraseña pendiente')).toBeTruthy()
+    expect(mocks.profile).toHaveBeenCalledOnce()
+  })
+  it('identifica la exigencia de contraseña actual sin habilitar todavía el acceso', async () => {
+    mocks.profile.mockResolvedValue({ data: { id: 'prof-a', nombre: 'Médico A', debe_cambiar_password: true }, error: null })
+    mocks.updateUser.mockResolvedValue({ error: { code: 'current_password_required' } })
+    abrir()
+    await screen.findByText('Contraseña pendiente')
+    fireEvent.click(screen.getByText('Cambiar contraseña'))
+    await screen.findByText('Ingresá la contraseña provisoria para confirmar el cambio.')
+    expect(screen.getByText('Contraseña pendiente')).toBeTruthy()
+  })
+  it('no da acceso si el servidor sigue marcando el cambio pendiente después de updateUser', async () => {
+    mocks.profile.mockResolvedValue({ data: { id: 'prof-a', nombre: 'Médico A', debe_cambiar_password: true }, error: null })
+    abrir()
+    await screen.findByText('Contraseña pendiente')
+    fireEvent.click(screen.getByText('Cambiar contraseña'))
+    await screen.findByText(/La contraseña se actualizó, pero no se pudo confirmar/)
+    expect(screen.getByText('Contraseña pendiente')).toBeTruthy()
+  })
+  it('una respuesta de cambio tardía no reemplaza la identidad de otro usuario', async () => {
+    let terminarCambio
+    mocks.profile.mockResolvedValueOnce({ data: { id: 'prof-a', nombre: 'Médico A', debe_cambiar_password: true }, error: null })
+      .mockResolvedValueOnce({ data: { id: 'prof-b', nombre: 'Médico B', debe_cambiar_password: false }, error: null })
+    mocks.updateUser.mockReturnValue(new Promise((resolve) => { terminarCambio = resolve }))
+    abrir()
+    await screen.findByText('Contraseña pendiente')
+    fireEvent.click(screen.getByText('Cambiar contraseña'))
+    act(() => mocks.listener('SIGNED_IN', sessionB))
+    await screen.findByText('Médico B')
+    await act(() => terminarCambio({ error: null }))
+    expect(screen.getByTestId('identidad').textContent).toBe('Médico B')
+    expect(mocks.profile).toHaveBeenCalledTimes(2)
   })
 })

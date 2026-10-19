@@ -17,7 +17,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (profesional) navigate('/', { replace: true })
+    if (profesional) navigate(profesional.debe_cambiar_password === false ? '/' : '/cambiar-contrasena', { replace: true })
   }, [profesional, navigate])
 
   useEffect(() => {

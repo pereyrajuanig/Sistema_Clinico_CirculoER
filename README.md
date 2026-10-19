@@ -82,6 +82,8 @@ bien".
 
 **Autenticación.** Acceso individual: elegir el nombre del profesional y escribir su
 contraseña. Los tres tienen los mismos permisos; no hay registro público. La sesión se
+inicia con una contraseña provisoria y exige elegir una propia la primera vez, antes de
+habilitar las historias clínicas. Esta obligación se comprueba también en Supabase. La sesión se
 conserva por navegador y vence tras 25 minutos sin actividad. El encabezado muestra la
 cuenta actual y permite cambiar de usuario sin perder una consulta pendiente.
 
@@ -110,13 +112,9 @@ destruiría antes de tiempo. Los documentos adjuntos de una consulta borrada tam
 por la misma razón — un estudio escaneado es historia clínica igual que el texto. Si hay una
 alergia cargada, aparece un cartel visible
 apenas se abre la ficha — no hace falta revisar todo el historial para enterarse. Cada consulta
-arranca eligiendo quién la atiende de una lista corta — sin pedir usuario y contraseña de
-nuevo. Esa decisión dejó de ser solo comodidad cuando el login pasó a ser una cuenta
-compartida entre las 3 personas: la sesión ya no dice nada sobre quién está atendiendo
-físicamente, así que ese dato tiene que salir siempre de una elección explícita, nunca
-inferirse. Mismo criterio se aplica a cualquier otra acción atribuible a alguien en el
-sistema (administrar un medicamento, cargar un resultado, eliminar un registro) — todas
-piden explícitamente quién la hace antes de guardar. Los signos vitales viven
+toma al profesional responsable de su sesión individual; no vuelve a pedir elegirlo.
+La misma atribución automática se aplica a las otras cargas, bajas y auditorías.
+Los signos vitales viven
 como columnas directas de la consulta (no en una tabla aparte) porque en la práctica nunca
 existen sueltos — siempre están atados a una consulta puntual, y modelarlos así evita un join
 innecesario para el caso de uso que realmente importa: leer la ficha de un paciente.

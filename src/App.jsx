@@ -11,6 +11,7 @@ import ActualizacionDisponible from '@/components/ActualizacionDisponible'
 // tiempo de carga inicial real.
 const Login = lazy(() => import('@/pages/Login'))
 const CambiarUsuario = lazy(() => import('@/pages/CambiarUsuario'))
+const CambiarContrasena = lazy(() => import('@/pages/CambiarContrasena'))
 const Pacientes = lazy(() => import('@/pages/Pacientes'))
 const HistoriaClinica = lazy(() => import('@/pages/HistoriaClinica'))
 const UltimasConsultas = lazy(() => import('@/pages/UltimasConsultas'))
@@ -30,6 +31,7 @@ const router = createBrowserRouter(createRoutesFromElements(
   <>
     <Route path="/login" element={<Login />} />
     <Route path="/cambiar-usuario" element={<CambiarUsuario />} />
+    <Route path="/cambiar-contrasena" element={<CambiarContrasena />} />
     <Route
       path="/"
       element={

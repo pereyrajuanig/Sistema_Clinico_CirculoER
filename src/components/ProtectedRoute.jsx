@@ -19,6 +19,8 @@ export default function ProtectedRoute(props) {
     <Link to="/cambiar-usuario" className="btn-primary">Volver a elegir usuario</Link>
   </div>
 
+  if (profesional.debe_cambiar_password !== false) return <Navigate to="/cambiar-contrasena" replace />
+
   // Desmontar formularios y estados al cambiar de cuenta.
   return <div key={session.user.id}>{props.children}</div>
 }

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
 const AuthContext = createContext(null)
@@ -10,6 +10,7 @@ export function AuthProvider(props) {
   const [session, setSession] = useState(null)
   const [iniciando, setIniciando] = useState(true)
   const [identidad, setIdentidad] = useState({ usuarioId: null, profesional: null, error: '' })
+  const usuarioActivo = useRef(null)
 
   useEffect(() => {
     let vigente = true
@@ -18,6 +19,7 @@ export function AuthProvider(props) {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nuevaSession) => {
       huboEvento = true
       if (vigente) {
+        usuarioActivo.current = nuevaSession?.user?.id || null
         setSession(nuevaSession)
         if (!nuevaSession) setIdentidad({ usuarioId: null, profesional: null, error: '' })
         setIniciando(false)
@@ -25,6 +27,7 @@ export function AuthProvider(props) {
     })
     supabase.auth.getSession().then(({ data, error }) => {
       if (!vigente || huboEvento) return
+      usuarioActivo.current = error ? null : data.session?.user?.id || null
       setSession(error ? null : data.session)
       setIniciando(false)
     }).catch(() => {
@@ -42,8 +45,7 @@ export function AuthProvider(props) {
     let vigente = true
     async function cargarProfesional() {
       try {
-        const { data, error } = await supabase.from('profesionales')
-          .select('id, nombre').eq('auth_user_id', usuarioId).eq('activo', true).maybeSingle()
+        const { data, error } = await supabase.rpc('identidad_profesional_actual').maybeSingle()
         if (!vigente) return
         setIdentidad({ usuarioId, profesional: error ? null : data,
           error: error ? 'No se pudo verificar tu acceso. Intentá ingresar nuevamente.'
@@ -69,6 +71,38 @@ export function AuthProvider(props) {
   // No revocar las sesiones de otras computadoras al salir de este navegador.
   const logout = useCallback(() => supabase.auth.signOut({ scope: 'local' }), [])
 
+  async function cambiarPasswordInicial(password, passwordActual) {
+    if (!usuarioId || usuarioActivo.current !== usuarioId) {
+      return { error: { message: 'La sesión cambió. Volvé a ingresar.' } }
+    }
+    let passwordActualizada = false
+    try {
+      const { error } = await supabase.auth.updateUser({ password,
+        ...(passwordActual ? { current_password: passwordActual } : {}) })
+      if (error) {
+        if (['current_password_required', 'current_password_invalid'].includes(error.code)) {
+          return { requierePasswordActual: true, error: { message: 'Ingresá la contraseña provisoria para confirmar el cambio.' } }
+        }
+        const message = error.code === 'same_password' ? 'Elegí una contraseña distinta de la provisoria.'
+          : error.code === 'weak_password' ? 'La contraseña no cumple los requisitos. Probá una más larga y difícil de adivinar.'
+            : 'No se pudo confirmar el cambio. Intentá nuevamente o volvé a ingresar.'
+        return { error: { message } }
+      }
+      passwordActualizada = true
+      if (usuarioActivo.current !== usuarioId) return { passwordActualizada, error: { message: 'La sesión cambió. Volvé a ingresar.' } }
+      // No habilitar el acceso basándose en un flag del navegador: comprobar el servidor.
+      const { data, error: perfilError } = await supabase.rpc('identidad_profesional_actual').maybeSingle()
+      if (usuarioActivo.current !== usuarioId) return { passwordActualizada, error: { message: 'La sesión cambió. Volvé a ingresar.' } }
+      if (perfilError || !data || data.debe_cambiar_password !== false) {
+        return { passwordActualizada, error: { message: 'La contraseña se actualizó, pero no se pudo confirmar el acceso. Volvé a ingresar con la contraseña nueva. Si continúa, contactá al administrador.' } }
+      }
+      setIdentidad({ usuarioId, profesional: data, error: '' })
+      return { error: null }
+    } catch {
+      return { passwordActualizada, error: { message: 'No se pudo confirmar el cambio. Revisá la conexión. Si ya se aplicó, ingresá con la contraseña nueva.' } }
+    }
+  }
+
   useEffect(() => {
     if (!usuarioId) return
 
@@ -88,7 +122,7 @@ export function AuthProvider(props) {
     }
   }, [usuarioId, logout])
 
-  const value = { session, profesional, loading, errorAcceso, login, logout }
+  const value = { session, profesional, loading, errorAcceso, login, logout, cambiarPasswordInicial }
 
   return <AuthContext.Provider value={value}>{props.children}</AuthContext.Provider>
 }

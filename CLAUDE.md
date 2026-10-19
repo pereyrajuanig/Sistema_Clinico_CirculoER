@@ -27,7 +27,11 @@ en este mismo repo para la especificación completa de requisitos.
   original, y la auditoría identifica al editor. Se muestra la sesión en todos los headers
   y Cambiar usuario respeta el aviso y borrador de consulta. El cierre es local al navegador.
   **Requiere preparación y activación de Supabase antes de darlo por desplegado**: ver
-  `docs/accesos-individuales.md` y las dos migraciones de `supabase/migrations/`.
+  `docs/accesos-individuales.md` y las tres migraciones de `supabase/migrations/`.
+  El primer ingreso con contraseña provisoria exige una propia antes de acceder a datos.
+  `identidad_profesional_actual` devuelve la identidad propia aun con el paso pendiente;
+  `profesional_actual` no habilita acceso clínico hasta que Auth confirma un cambio real.
+  `debe_cambiar_password` no se controla desde user_metadata ni desde el navegador.
   Las referencias al login compartido/selectores en relatos históricos de este documento
   quedan reemplazadas por esta regla y la guía de acceso individual.
 - No hay soporte offline (el cliente tiene internet estable) — **sigue así incluso
@@ -592,7 +596,8 @@ primario de la pantalla.
 ### Identidad de sesión individual
 
 El acceso individual reemplaza la cuenta compartida y los selectores explícitos anteriores.
-AuthContext resuelve un profesional activo por auth_user_id; ProtectedRoute exige ese vínculo.
+AuthContext consulta identidad_profesional_actual, que resuelve al profesional activo por
+auth_user_id. ProtectedRoute exige ese vínculo y la contraseña inicial completada.
 No utilizar session.user.id como profesional_id/usuario_id: los UUID son distintos.
 ConsultaEntryForm y las otras cargas toman profesional.id. Las ediciones conservan el autor
 original, y la auditoría y las bajas usan la cuenta actual. ConfirmarConProfesionalModal
