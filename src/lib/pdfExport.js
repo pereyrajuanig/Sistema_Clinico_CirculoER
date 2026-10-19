@@ -178,7 +178,7 @@ function bloqueConsulta(c) {
       columns: [
         { text: formatFechaHoraAR(c.fecha), style: 'subseccion' },
         {
-          text: `Atendió: ${c.profesionales?.nombre || 'sin asignar'}`,
+          text: `Profesional: ${c.profesionales?.nombre || 'sin asignar'}`,
           style: 'chico',
           alignment: 'right',
         },

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { useAuth } from '@/lib/AuthContext'
 import { TIPOS_ANTECEDENTE } from '@/lib/antecedentes'
 import { registrarAuditoria } from '@/lib/auditoria'
 import SelectorColorResaltado from '@/components/SelectorColorResaltado'
@@ -25,33 +26,19 @@ export default function AntecedenteEntryForm({
   const [tipo, setTipo] = useState(antecedente?.tipo || '')
   const [descripcion, setDescripcion] = useState(antecedente?.descripcion || '')
   const [color, setColor] = useState(antecedente?.color || null)
-  const [profesionales, setProfesionales] = useState([])
-  const [profesionalId, setProfesionalId] = useState(null)
+  const { profesional } = useAuth()
+  const profesionalId = profesional?.id
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // El selector va siempre, pero cumple dos roles distintos según el modo: al dar de ALTA
-  // fija `usuario_id` (quién cargó, NOT NULL en la base, se guarda una sola vez y no se
-  // vuelve a pedir ni modificar en ediciones posteriores); al EDITAR solo alimenta la
-  // auditoría de ese cambio puntual — nunca pisa el `usuario_id` original
-  useEffect(() => {
-    supabase
-      .from('profesionales')
-      .select('id, nombre')
-      .eq('activo', true)
-      .order('nombre')
-      .then(({ data, error }) => {
-        if (error) setError(error.message)
-        else setProfesionales(data)
-      })
-  }, [])
+  // El alta conserva al autor de la sesión; las ediciones solo atribuyen su auditoría.
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
 
     if (!profesionalId) {
-      setError(esEdicion ? 'Elegí quién edita antes de guardar.' : 'Elegí quién carga antes de guardar.')
+      setError('No hay un profesional activo en la sesión. Volvé a ingresar.')
       return
     }
 
@@ -93,30 +80,6 @@ export default function AntecedenteEntryForm({
 
   const campos = (
     <>
-      <div className="space-y-2">
-        <label className="text-sm text-text-secondary">
-          {esEdicion ? '¿Quién edita?' : '¿Quién carga?'}{' '}
-          <span className="text-text-primary">*</span>
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {profesionales.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setProfesionalId(p.id)}
-              className={
-                'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
-                (profesionalId === p.id
-                  ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
-                  : 'bg-surface text-text-primary border-border hover:bg-background')
-              }
-              style={{ minHeight: '44px' }}
-            >
-              {p.nombre}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <div className="space-y-1">
         <label className="text-sm text-text-secondary">

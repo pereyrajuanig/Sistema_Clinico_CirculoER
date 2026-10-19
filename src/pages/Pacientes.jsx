@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '@/lib/AuthContext'
 import { supabase } from '@/lib/supabaseClient'
 import PacienteFormModal from '@/components/PacienteFormModal'
 import { limpiarDni, formatearDni } from '@/lib/dni'
@@ -8,7 +7,6 @@ import { calcularEdad } from '@/lib/pacientes'
 import Header from '@/components/Header'
 
 export default function Pacientes() {
-  const { logout } = useAuth()
   const navigate = useNavigate()
   const [pacientes, setPacientes] = useState([])
   const [loading, setLoading] = useState(true)
@@ -107,7 +105,6 @@ export default function Pacientes() {
         actions={[
           { label: 'Últimas consultas', to: '/consultas/recientes', variant: 'secondary' },
           { label: 'Buscar por medicación/patología', to: '/busqueda', variant: 'secondary' },
-          { label: 'Cerrar sesión', onClick: logout, variant: 'alert' },
         ]}
       />
 
