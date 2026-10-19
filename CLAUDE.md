@@ -17,16 +17,19 @@ en este mismo repo para la especificación completa de requisitos.
 ## Decisiones clave de diseño (no las cambies sin confirmar con el usuario)
 
 - Los 3 usuarios tienen el mismo rol/permisos — no hay diferenciación por tipo de
-  profesional (RLS: cualquier autenticado tiene acceso total a las tablas)
+  profesional. Las cuentas deben estar vinculadas a un profesional activo para acceder.
 - Sesión persistente por computadora + timeout por inactividad (25 min)
-- **Login compartido, no 1 a 1 con las personas**: hay un único usuario de Supabase Auth
-  (una cuenta institucional del Círculo), compartido entre los 3 — no hay pantalla pública
-  de registro ni un login por profesional. `profesionales` es un catálogo independiente,
-  desacoplado del login (ver sección de modelo de datos). La trazabilidad de "quién hizo
-  qué" NUNCA sale de la sesión de Auth — sale siempre de un selector explícito
-  ("¿Quién atiende?", "¿Quién registra...?") que hay que completar antes de guardar
-  cualquier acción atribuible a una persona. Ver "Selectores explícitos de profesional"
-  más abajo para el detalle de la migración y qué hay que revisar si se toca esto.
+- **Acceso individual por profesional** (cambio autorizado el 19/10/2026): se elige un
+  nombre y se ingresa su contraseña. Son tres cuentas con los mismos permisos. El vínculo
+  es `profesionales.auth_user_id`; NO se asume igualdad con `profesionales.id`, que conserva
+  todas sus FK históricas. Nuevas cargas, bajas y auditoría toman al profesional de la
+  sesión; no hay selectores de quién atiende/registra. En ediciones se mantiene el autor
+  original, y la auditoría identifica al editor. Se muestra la sesión en todos los headers
+  y Cambiar usuario respeta el aviso y borrador de consulta. El cierre es local al navegador.
+  **Requiere preparación y activación de Supabase antes de darlo por desplegado**: ver
+  `docs/accesos-individuales.md` y las dos migraciones de `supabase/migrations/`.
+  Las referencias al login compartido/selectores en relatos históricos de este documento
+  quedan reemplazadas por esta regla y la guía de acceso individual.
 - No hay soporte offline (el cliente tiene internet estable) — **sigue así incluso
   después de agregar la PWA**: la PWA es solo para poder "instalar" la app (ícono
   propio, ventana sin barra de navegador), no para que funcione sin conexión. Ver
@@ -36,13 +39,11 @@ en este mismo repo para la especificación completa de requisitos.
 ## Modelo de datos (Supabase)
 
 Historia clínica (`schema-historia-clinica.sql`):
-- `profesionales` — catálogo independiente de personas habilitadas para atender/registrar,
-  desacoplado del login desde el cambio a cuenta compartida (antes era 1 a 1 con
-  `auth.users`, vía un trigger `handle_new_user` que ya **no existe**). Tiene una columna
-  `activo` para dar de baja a alguien sin borrar su historial ni los registros que ya
-  quedaron atribuidos a esa persona. Dar de alta o dar de baja un profesional se hace
-  directo en la tabla (Supabase → Table Editor → `profesionales`) — **no** crea ni borra
-  usuarios de Auth, porque ya no hay relación entre las dos cosas.
+- `profesionales` — catálogo con IDs históricos conservados, `activo` para baja lógica
+  y `auth_user_id` único y opcional para vincular una cuenta de Supabase Auth. Se administran
+  cuentas y catálogo desde Supabase, sin alta pública ni trigger de creación automática.
+  Para habilitar una persona, crear su cuenta, confirmar el correo y vincular su fila
+  existente. Desactivar no borra el historial. El UUID Auth nunca se envía como FK clínica.
 - `pacientes` — datos completos según Ley 26.529 + práctica estándar. `sexo` (`CHECK
   constraint` a `F`/`M` — así lo anotan los médicos en papel, no es "género") y
   `grupo_sanguineo` (`CHECK constraint` a A+/A-/B+/B-/AB+/AB-/O+/O-) son selectores
@@ -69,14 +70,10 @@ Historia clínica (`schema-historia-clinica.sql`):
   `patologias` y `medicacion` más abajo, que los reemplazaron por completo. Tiene
   `usuario_id` (FK a `profesionales`,
   **`NOT NULL`**, agregado después de la migración inicial) — quién CARGÓ el
-  antecedente. Se fija una sola vez al dar de alta (`AntecedenteEntryForm.jsx`, selector
-  "¿Quién carga?", siempre visible) y **nunca se vuelve a tocar en ediciones
-  posteriores** — el selector "¿Quién edita?" que aparece al editar alimenta
-  únicamente la fila de `auditoria` de ese cambio puntual, no pisa `usuario_id`. Mismo
-  criterio que `resultados_laboratorio.usuario_id` (`LaboratorioEntryForm.jsx` lo fija
-  al crear, `EditarResultadoLaboratorioModal.jsx` jamás lo actualiza) — **distinto** del
-  de `consultas.profesional_id`, que si se reescribe en cada edición porque ahí "quién
-  atendió" es dato clínico editable, no metadato de auditoría. Como `antecedentes` ya
+  antecedente. Se fija al crear desde la sesión y no se modifica al editar. La cuenta
+  editora alimenta únicamente la auditoría. El mismo criterio se aplica a laboratorio,
+  patologías, medicación y consultas (profesional_id conserva al responsable original).
+  Como `antecedentes` ya
   tenía una FK a `profesionales` por `eliminado_por`, cualquier embed
   (`.select('*, profesionales(nombre)')`) hay que desambiguarlo con
   `profesionales!usuario_id(nombre)` — mismo gotcha ya documentado más abajo para
@@ -100,11 +97,8 @@ Historia clínica (`schema-historia-clinica.sql`):
   a exactamente `Activa`/`Controlada`/`Resuelta` — ver `ESTADOS_PATOLOGIA` en
   `src/lib/patologias.js`, tiene que matchear ese string carácter por carácter),
   `fecha_diagnostico` (date, opcional), `observaciones` (texto, opcional),
-  `usuario_id` (FK a `profesionales`, **obligatorio** — a diferencia de
-  `antecedentes`, que no rastrea quién carga un alta nueva, acá sí: es "quién
-  cargó/editó por última vez", mismo patrón que `consultas.profesional_id` en
-  `ConsultaEntryForm.jsx` — se pide siempre, no solo al editar, y se sobrescribe
-  en cada edición con quien confirma el cambio), `eliminado_en`/`eliminado_por`
+  `usuario_id` (FK a `profesionales`, **obligatorio**, se fija desde la sesión al crear
+  y conserva al autor original al editar; la auditoría registra a quien modifica), `eliminado_en`/`eliminado_por`
   (mismo patrón de baja lógica que `antecedentes`/`consultas`/
   `resultados_laboratorio`, con auditoría — ver "CRUD de las tablas clínicas" más
   abajo, `patologias` sigue exactamente esa misma regla).
@@ -595,46 +589,23 @@ usando en los botones de navegación del header ("Medicamentos" en Pacientes,
 "Historial de movimientos" en Medicamentos) que no compiten con ningún botón
 primario de la pantalla.
 
-### Selectores explícitos de profesional (login compartido)
+### Identidad de sesión individual
 
-Se migró de "1 login por profesional" a un único usuario de Supabase Auth compartido entre
-los 3 (una cuenta institucional del Círculo). Antes, `profesionales.id` == el `id` del
-usuario de Auth logueado, así que varios lugares usaban `session.user.id` (de
-`useAuth()`) directo como si fuera el `profesional_id`/`usuario_id` de la acción. Con la
-cuenta compartida eso ya no vale nada — `session.user.id` es siempre el mismo, sin importar
-quién de los 3 esté físicamente al lado de la pantalla. Se auditó todo el código buscando
-esa asunción vieja y se corrigió:
+El acceso individual reemplaza la cuenta compartida y los selectores explícitos anteriores.
+AuthContext resuelve un profesional activo por auth_user_id; ProtectedRoute exige ese vínculo.
+No utilizar session.user.id como profesional_id/usuario_id: los UUID son distintos.
+ConsultaEntryForm y las otras cargas toman profesional.id. Las ediciones conservan el autor
+original, y la auditoría y las bajas usan la cuenta actual. ConfirmarConProfesionalModal
+conserva la confirmación de la acción, pero ya no pide elegir una persona.
 
-- **`EntradaStockModal.jsx`** no tenía selector de profesional (el RF original decía que no
-  hacía falta trazabilidad explícita ahí) — usaba `session.user.id` para `usuario_id`. Se
-  le agregó el mismo selector "¿Quién...?" que ya tenían las salidas y las consultas.
-- **`LaboratorioEntryForm.jsx`** (entonces `LaboratorioFormModal.jsx`) tampoco tenía
-  selector — usaba `session.user.id` para `usuario_id` en las dos rutas de inserción
-  (fila única y "separarEnFilas" del atajo de perfil lipídico). Mismo agregado.
-- **`CorregirMovimientoModal.jsx`** solo pedía profesional cuando la compensación era una
-  `salida` (porque ahí la base lo exige por `paciente_id` obligatorio); cuando compensaba
-  con una `entrada` usaba `session.user.id` directo. Ahora pide el profesional siempre,
-  para las dos direcciones.
-- **`HistoriaClinica.jsx`**: `eliminado_por` (borrado lógico de consultas/antecedentes)
-  usaba `session.user.id`. Como borrar no tiene ningún selector de profesional visible en
-  pantalla al momento de la acción, se reemplazó el `window.confirm()` nativo por
-  `ConfirmarConProfesionalModal.jsx` — un modal chico y reutilizable que pide elegir quién
-  hace la acción antes de confirmar. Mismo componente sirve para cualquier acción futura
-  que necesite "confirmar + atribuir a alguien" sin ser un formulario completo.
-- **`ConsultaEntryForm.jsx`** (entonces `NuevaConsultaModal.jsx`) y **`SalidaStockModal.jsx`**
-  ya tenían selector explícito (nunca dependieron de la sesión) — no tenían el bug, pero
-  tampoco filtraban por `activo`.
+Los borradores v2 se separan por profesional y paciente; los v1 con autor se recuperan
+solo por ese autor. Para un v1 sin autor hay recuperación explícita, sin borrarlo antes de
+confirmar que se pudo trasladar. Cambiar de usuario navega primero por el aviso de consulta.
+Los signos vitales pueden guardarse sin relato: debe existir al menos un dato nuevo.
 
-De paso, como `profesionales` ahora tiene la columna `activo`, **todos** los selectores de
-"¿Quién...?" filtran `eq('activo', true)` — si no, dar de baja a alguien no tendría ningún
-efecto visible. Excepción cuidada: `ConsultaEntryForm.jsx` en modo edición, si la consulta
-que se edita fue atendida por alguien ya dado de baja, ese profesional se agrega igual a la
-lista (con la etiqueta "(dado de baja)") — si no, editar una consulta vieja podría terminar
-reasignándole la atención a otra persona sin querer, falseando quién atendió realmente.
-
-No hay ninguna dependencia del trigger `handle_new_user` en el frontend — no existe pantalla
-de registro ni lógica que espere que aparezca un profesional nuevo después de un login, así
-que no había nada que corregir ahí (se confirmó revisando, no se asumió).
+Guía vigente de despliegue, cuentas, SQL y comprobaciones: docs/accesos-individuales.md.
+Las migraciones se prueban con PostgreSQL en memoria (PGlite, solo desarrollo), además
+de los tests de login, contexto Auth, borradores y atribución de formularios.
 
 ## Estado actual del desarrollo
 

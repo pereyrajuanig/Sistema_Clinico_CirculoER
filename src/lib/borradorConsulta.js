@@ -1,4 +1,4 @@
-// Un borrador por paciente y origen del navegador. Nunca se envía a Supabase como
+// Un borrador por paciente, profesional y origen del navegador. Nunca se envía como
 // consulta hasta que el profesional confirma "Guardar consulta".
 export const FORM_CONSULTA_INICIAL = {
   motivo: '', tratamiento: '', evolucion: '',
@@ -9,8 +9,9 @@ export const FORM_CONSULTA_INICIAL = {
 
 export const MEDICACION_NUEVA_INICIAL = { nombre: '', dosis: '' }
 
-function clave(pacienteId) {
-  return `hc:consulta-borrador:v1:${pacienteId}`
+function clave(pacienteId, profesionalId) {
+  return profesionalId ? `hc:consulta-borrador:v2:${profesionalId}:${pacienteId}`
+    : `hc:consulta-borrador:v1:${pacienteId}`
 }
 
 function camposDeTexto(valores, iniciales) {
@@ -19,10 +20,16 @@ function camposDeTexto(valores, iniciales) {
   ]))
 }
 
-export function leerBorradorConsulta(pacienteId) {
+export function leerBorradorConsulta(pacienteId, profesionalId) {
   try {
-    const datos = JSON.parse(localStorage.getItem(clave(pacienteId)))
-    if (datos?.version !== 1 || !datos.form || typeof datos.form !== 'object') return null
+    let datos = JSON.parse(localStorage.getItem(clave(pacienteId, profesionalId)))
+    if (!datos && profesionalId) {
+      const anterior = leerBorradorConsulta(pacienteId)
+      // No recuperar automáticamente texto perteneciente a otra persona o sin autor.
+      if (anterior?.profesionalId === profesionalId) datos = { ...anterior, version: 1 }
+    }
+    if (![1, 2].includes(datos?.version) || !datos.form || typeof datos.form !== 'object') return null
+    if (profesionalId && datos.profesionalId !== profesionalId) return null
     return {
       form: camposDeTexto(datos.form, FORM_CONSULTA_INICIAL),
       profesionalId: typeof datos.profesionalId === 'string' ? datos.profesionalId : null,
@@ -42,7 +49,7 @@ export function leerBorradorConsulta(pacienteId) {
 }
 
 export function tieneContenidoConsulta(borrador) {
-  return Boolean(borrador.profesionalId || borrador.medicacionRegistrada ||
+  return Boolean(borrador.medicacionRegistrada ||
     Object.values(borrador.form).some((valor) => String(valor).trim() !== '') ||
     (borrador.agregandoMedicacion &&
       Object.values(borrador.medicacionNueva).some((valor) => String(valor).trim() !== '')))
@@ -51,8 +58,20 @@ export function tieneContenidoConsulta(borrador) {
 export function guardarBorradorConsulta(pacienteId, borrador) {
   try {
     if (tieneContenidoConsulta(borrador)) {
-      localStorage.setItem(clave(pacienteId), JSON.stringify({ ...borrador, version: 1 }))
+      localStorage.setItem(clave(pacienteId, borrador.profesionalId), JSON.stringify({ ...borrador, version: borrador.profesionalId ? 2 : 1 }))
     } else {
+      localStorage.removeItem(clave(pacienteId, borrador.profesionalId))
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function eliminarBorradorConsulta(pacienteId, profesionalId) {
+  try {
+    localStorage.removeItem(clave(pacienteId, profesionalId))
+    if (profesionalId && leerBorradorConsulta(pacienteId)?.profesionalId === profesionalId) {
       localStorage.removeItem(clave(pacienteId))
     }
     return true
@@ -61,11 +80,10 @@ export function guardarBorradorConsulta(pacienteId, borrador) {
   }
 }
 
-export function eliminarBorradorConsulta(pacienteId) {
-  try {
-    localStorage.removeItem(clave(pacienteId))
-    return true
-  } catch {
-    return false
-  }
+// Los borradores antiguos sin autor solo se trasladan si el usuario lo confirma.
+export function recuperarBorradorAnterior(pacienteId, profesionalId) {
+  const anterior = leerBorradorConsulta(pacienteId)
+  if (!profesionalId || !anterior || anterior.profesionalId || leerBorradorConsulta(pacienteId, profesionalId)) return false
+  if (!guardarBorradorConsulta(pacienteId, { ...anterior, profesionalId })) return false
+  return eliminarBorradorConsulta(pacienteId)
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import ThemeToggle from '@/components/ThemeToggle'
+import { useAuth } from '@/lib/AuthContext'
 import logo from '@/assets/Logo-Circulo_FondoTransparente.png'
 
 // Header compartido por todas las pantallas. Por debajo de lg (1024px) — cualquier celular
@@ -48,6 +49,7 @@ function Accion({ accion, extraClass = '', onNavigate }) {
 // (ej. "Medicamentos" en Pacientes, "Historial de movimientos" en Medicamentos)
 // actions: [{ label, to?, onClick?, variant? }] — el resto de los botones del header
 export default function Header({ title, subtitle, navLink, actions = [] }) {
+  const { profesional } = useAuth()
   const [menuAbierto, setMenuAbierto] = useState(false)
   const todasLasAcciones = navLink ? [navLink, ...actions] : actions
 
@@ -59,6 +61,7 @@ export default function Header({ title, subtitle, navLink, actions = [] }) {
           <div className="min-w-0">
             <h1 className="text-2xl lg:text-4xl font-bold text-text-primary truncate">{title}</h1>
             {subtitle}
+            <p className="text-sm text-text-secondary">Sesión de: <span className="font-semibold text-text-primary">{profesional?.nombre}</span></p>
           </div>
           {navLink && (
             <>
@@ -72,6 +75,7 @@ export default function Header({ title, subtitle, navLink, actions = [] }) {
 
         <div className="hidden lg:flex items-center gap-2 shrink-0">
           <ThemeToggle />
+          <Link to="/cambiar-usuario" className="btn-secondary">Cambiar usuario</Link>
           {actions.map((accion) => (
             <Accion key={accion.label} accion={accion} />
           ))}
@@ -92,6 +96,7 @@ export default function Header({ title, subtitle, navLink, actions = [] }) {
       {menuAbierto && (
         <div className="lg:hidden border-t border-border px-4 sm:px-6 py-3 space-y-2">
           <ThemeToggle />
+          <Link to="/cambiar-usuario" className="btn-secondary w-full inline-flex justify-center">Cambiar usuario</Link>
           {todasLasAcciones.map((accion) => (
             <Accion
               key={accion.label}

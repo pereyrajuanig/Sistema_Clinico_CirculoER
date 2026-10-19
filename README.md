@@ -80,16 +80,19 @@ bien".
 
 ## Qué funciona hoy
 
-**Autenticación.** Sin pantalla de registro público — en un sistema de datos de salud no
-tiene sentido que cualquiera pueda crear una cuenta. El login es una única cuenta
-institucional del Círculo, compartida entre los 3 profesionales (no un login por persona),
-con la sesión persistente por computadora (no hace falta volver a loguearse en cada uso) y
-expiración automática a los 25 minutos de inactividad. La trazabilidad de "quién hizo qué"
-no depende de la sesión — cada acción atribuible a una persona (atender una consulta,
-administrar un medicamento, cargar un resultado, eliminar un registro) pide explícitamente
-elegir quién la hace de una lista corta, independiente del login. Esa separación es a
-propósito: con una cuenta compartida, quién está logueado y quién está haciendo la acción
-físicamente nunca son la misma pregunta.
+**Autenticación.** Acceso individual: elegir el nombre del profesional y escribir su
+contraseña. Los tres tienen los mismos permisos; no hay registro público. La sesión se
+conserva por navegador y vence tras 25 minutos sin actividad. El encabezado muestra la
+cuenta actual y permite cambiar de usuario sin perder una consulta pendiente.
+
+Las nuevas cargas se atribuyen a la sesión, sin selectores repetidos. Las ediciones
+conservan al responsable original y auditan al editor actual. La enfermera puede registrar
+solo signos vitales; una consulta no exige texto si tiene otros datos. Los borradores se
+separan por profesional y paciente.
+
+**Antes de desplegar este cambio:** crear y vincular las tres cuentas y aplicar las fases
+SQL según [la guía de accesos individuales](docs/accesos-individuales.md). El código no
+crea cuentas ni ejecuta migraciones automáticamente. Se conservan los IDs e historial.
 
 **Pacientes.** Alta y edición con el modelo de datos completo, listado ordenable, y búsqueda
 por nombre, apellido o DNI que funciona sea cual sea el formato con el que se escriba el

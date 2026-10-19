@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
 const AuthContext = createContext(null)
@@ -8,36 +8,75 @@ const EVENTOS_ACTIVIDAD = ['mousemove', 'keydown', 'click', 'scroll', 'touchstar
 
 export function AuthProvider(props) {
   const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [iniciando, setIniciando] = useState(true)
+  const [identidad, setIdentidad] = useState({ usuarioId: null, profesional: null, error: '' })
 
   useEffect(() => {
-    // Al montar, revisa si ya hay una sesión guardada en esta computadora
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setLoading(false)
+    let vigente = true
+    let huboEvento = false
+    // No consultar tablas dentro del callback de Auth: otro efecto resuelve el perfil.
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nuevaSession) => {
+      huboEvento = true
+      if (vigente) {
+        setSession(nuevaSession)
+        if (!nuevaSession) setIdentidad({ usuarioId: null, profesional: null, error: '' })
+        setIniciando(false)
+      }
     })
-
-    // Se mantiene sincronizado si la sesión cambia (login, logout, refresh de token)
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!vigente || huboEvento) return
+      setSession(error ? null : data.session)
+      setIniciando(false)
+    }).catch(() => {
+      if (vigente && !huboEvento) setIniciando(false)
     })
-
-    return () => listener.subscription.unsubscribe()
+    return () => {
+      vigente = false
+      listener.subscription.unsubscribe()
+    }
   }, [])
 
-  const login = (email, password) =>
-    supabase.auth.signInWithPassword({ email, password })
+  const usuarioId = session?.user?.id || null
+  useEffect(() => {
+    if (!usuarioId) return
+    let vigente = true
+    async function cargarProfesional() {
+      try {
+        const { data, error } = await supabase.from('profesionales')
+          .select('id, nombre').eq('auth_user_id', usuarioId).eq('activo', true).maybeSingle()
+        if (!vigente) return
+        setIdentidad({ usuarioId, profesional: error ? null : data,
+          error: error ? 'No se pudo verificar tu acceso. Intentá ingresar nuevamente.'
+            : data ? '' : 'Esta cuenta no tiene un profesional activo asignado. Elegí tu usuario para ingresar.' })
+      } catch {
+        if (vigente) setIdentidad({ usuarioId, profesional: null, error: 'No se pudo verificar tu acceso. Revisá la conexión e intentá nuevamente.' })
+      }
+    }
+    cargarProfesional()
+    return () => { vigente = false }
+  }, [usuarioId])
 
-  const logout = () => supabase.auth.signOut()
+  const profesional = usuarioId && identidad.usuarioId === usuarioId ? identidad.profesional : null
+  const errorAcceso = usuarioId && identidad.usuarioId === usuarioId ? identidad.error : ''
+  const loading = iniciando || Boolean(usuarioId && identidad.usuarioId !== usuarioId)
+  const login = async (email, password) => {
+    try {
+      return await supabase.auth.signInWithPassword({ email, password })
+    } catch {
+      return { error: { message: 'No se pudo conectar. Intentá nuevamente.' } }
+    }
+  }
+  // No revocar las sesiones de otras computadoras al salir de este navegador.
+  const logout = useCallback(() => supabase.auth.signOut({ scope: 'local' }), [])
 
   useEffect(() => {
-    if (!session) return
+    if (!usuarioId) return
 
     let timer
 
     function reiniciarTimer() {
       clearTimeout(timer)
-      timer = setTimeout(logout, TIMEOUT_INACTIVIDAD_MS)
+      timer = setTimeout(() => { logout().catch(() => {}) }, TIMEOUT_INACTIVIDAD_MS)
     }
 
     reiniciarTimer()
@@ -47,9 +86,9 @@ export function AuthProvider(props) {
       clearTimeout(timer)
       EVENTOS_ACTIVIDAD.forEach((evento) => window.removeEventListener(evento, reiniciarTimer))
     }
-  }, [session])
+  }, [usuarioId, logout])
 
-  const value = { session, loading, login, logout }
+  const value = { session, profesional, loading, errorAcceso, login, logout }
 
   return <AuthContext.Provider value={value}>{props.children}</AuthContext.Provider>
 }
