@@ -35,8 +35,8 @@ en este mismo repo para la especificación completa de requisitos.
   **Cuenta de Amanda conservada (03/11/2026)**: la cuenta que utilizaban los tres
   pertenece a la enfermera y se conserva para ella; los médicos tienen dos cuentas nuevas.
   No crear una cuarta cuenta ni retirar la de Amanda. En la pausa de activación hay que
-  cerrar las sesiones compartidas en todas las computadoras y renovar privadamente su
-  provisoria antes de aplicar la fase 3; también elegirá contraseña propia al ingresar.
+  cerrar las sesiones compartidas en todas las computadoras. Su contraseña actual solo
+  sirve como provisoria para el primer ingreso, donde elegirá una propia antes de acceder.
   El usuario decidió continuar sobre el proyecto actual, sin entorno de pruebas separado.
   Las referencias al login compartido/selectores en relatos históricos de este documento
   quedan reemplazadas por esta regla y la guía de acceso individual.
@@ -1483,6 +1483,17 @@ consulta vieja todavía tiene el dato cargado, pero no se le agregó nada nuevo.
 - Registrar salida/administración (`SalidaStockModal.jsx`): selector de "quién
   administra" (mismo patrón que consultas), paciente identificado por búsqueda de
   DNI (no un `<select>` con todos los pacientes — no escala), consulta opcional.
+
+  **Búsqueda por DNI y reintentos (03/11/2026)**: cada búsqueda descarta las
+  respuestas de peticiones anteriores, incluso si ya habían salido del debounce.
+  Un DNI pendiente o con error no habilita guardar ni dar de alta. Al cambiar de
+  paciente también se descartan sus consultas pendientes y la selección anterior.
+  Si el alta rápida se guardó pero el movimiento falló, el reintento reutiliza al
+  paciente creado. Si otra computadora registró el DNI en paralelo, se recupera
+  el paciente existente y se pide verificarlo antes de reintentar la salida, sin
+  pisar sus datos. `SalidaStockModal.test.jsx` reproduce el caso de mostrar a la
+  vez un paciente encontrado y el alta rápida que terminaba en `pacientes_dni_key`.
+  Esta corrección no requiere migraciones ni depende del acceso individual pendiente.
 
   **El lote se elige a mano, ya no es 100% automático — pedido explícito del
   cliente**: "los médicos sacan de cualquier lote [el que tienen físicamente a
