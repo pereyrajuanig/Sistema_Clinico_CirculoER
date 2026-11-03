@@ -4,7 +4,9 @@ Reemplaza la cuenta institucional compartida por cuentas personales con los mism
 
 ## Primera vez que ingresa cada profesional
 
-El administrador crea cada cuenta con una contraseña provisoria distinta y la entrega por un medio privado. Al ingresar, la persona elige una contraseña nueva y la repite. Hasta completar ese paso no puede acceder a historias, stock ni adjuntos, tampoco por la API. Después ingresa normalmente con su contraseña nueva, sin repetir el cambio en cada computadora.
+El administrador prepara cada cuenta con una contraseña provisoria distinta y la entrega por un medio privado. Al ingresar, la persona elige una contraseña nueva y la repite. Hasta completar ese paso no puede acceder a historias, stock ni adjuntos, tampoco por la API. Después ingresa normalmente con su contraseña nueva, sin repetir el cambio en cada computadora.
+
+Por decisión del usuario del 03/11/2026, se conserva la cuenta existente de Amanda, que venían utilizando los tres, y pasa a ser exclusivamente de la enfermera. Los médicos tienen sus cuentas nuevas. No crear una cuarta cuenta ni retirar la de Amanda al terminar la transición. Antes de activar el acceso individual, durante la pausa de uso, cerrar la sesión compartida en todos los navegadores/computadoras y renovar la provisoria de Amanda de forma privada. Su primer ingreso al nuevo frontend también exigirá contraseña propia. El usuario completa personalmente los cambios de contraseña en Supabase.
 
 La aplicación utiliza Supabase Auth para cambiarla y comprueba el resultado en el servidor. `debe_cambiar_password` pertenece al catálogo administrado, no a `user_metadata` editable por el usuario. Solo un cambio real del hash de Auth completa automáticamente el paso; la aplicación no lee ni guarda ese hash.
 
@@ -24,26 +26,26 @@ La contraseña nueva debe tener al menos 8 caracteres y cumplir la política con
 
 ## Preparación antes de publicar
 
-Estos pasos los realiza el administrador en Supabase; no están ejecutados por el frontend ni por CI. Primero comprobar respaldo y probar las migraciones en una copia/entorno de pruebas con el esquema vigente. Estas migraciones son incrementales; el repositorio todavía no contiene el esquema histórico completo.
+Estos pasos los realiza el administrador en Supabase; no están ejecutados por el frontend ni por CI. Comprobar un respaldo reciente antes de activar. El usuario decidió continuar sobre el proyecto actual, sin entorno separado; las comprobaciones reales se harán durante una pausa de uso. Estas migraciones son incrementales; el repositorio todavía no contiene el esquema histórico completo.
 
 1. Ejecutar `supabase/migrations/202610190001_preparar_accesos_individuales.sql` en SQL Editor. Es compatible con la aplicación anterior.
-2. En Authentication > Users, crear una cuenta por cada profesional con correo, una contraseña provisoria distinta y correo confirmado. No reutilizar la cuenta compartida ni eliminar los profesionales existentes. El alta administrativa no necesita abrir una pantalla pública de registro. Entregar las provisorias cuando esté activado el nuevo acceso.
+2. En Authentication > Users, disponer de una cuenta por cada profesional con correo confirmado y una contraseña provisoria distinta. Conservar la cuenta existente de Amanda y las dos cuentas nuevas de los médicos; no eliminar los profesionales existentes. El alta administrativa no necesita abrir una pantalla pública de registro. Entregar las provisorias cuando esté activado el nuevo acceso. Renovar la provisoria de Amanda durante la pausa de activación para no interrumpir el uso actual.
 3. Usar correos/alias institucionales administrados y definir cómo se recuperará una contraseña. No inventar direcciones de correo sin acordar cómo administrarlas. La UI no pide correo, pero Supabase lo necesita como identificador.
 4. Vincular cada fila EXISTENTE de `profesionales` con su cuenta colocando el UUID de Authentication en `auth_user_id`. No cambiar `profesionales.id`. El índice único impide asociar una cuenta con dos profesionales.
 5. Comprobar la lista con `select * from public.listar_profesionales_acceso();`. Deben aparecer los tres nombres correctos y los identificadores de las cuentas previstas.
 6. Deshabilitar altas públicas en la configuración de Auth si no lo estaban. La aplicación no ofrece registro, pero la configuración del servicio también debe impedirlo.
-7. Probar el nuevo frontend en preview con servicios de prueba y las TRES migraciones aplicadas: elegir cada usuario, contraseña correcta e incorrecta, elección de contraseña propia, recarga, cambios de usuario y formularios. No guardar pruebas clínicas en producción.
+7. Durante la activación coordinada, con las TRES migraciones aplicadas, comprobar cada usuario, contraseña correcta e incorrecta, elección de contraseña propia, recarga, cambios de usuario y apertura de formularios. No guardar pruebas clínicas ficticias en producción. Las comprobaciones locales con PGlite y los servicios simulados se describen más abajo.
 
 La RPC de acceso es intencionalmente pública y devuelve solo nombre, ID profesional y correo de acceso de cuentas activas, vinculadas y confirmadas. Los correos son identificadores, no secretos: no usar direcciones personales si no se desea hacerlas accesibles. No se habilita lectura anónima de las tablas clínicas ni de `auth.users`.
 
 ## Activación coordinada
 
-1. Completar primero la preparación y las pruebas con la copia de datos. Coordinar una pausa breve de uso para la activación en producción.
+1. Completar la preparación. El usuario decidió activar sobre el proyecto actual, sin un entorno separado de pruebas: comprobar respaldo reciente y coordinar una pausa breve de uso. Durante esa pausa, cerrar la cuenta compartida en todos los navegadores/computadoras y renovar privadamente la provisoria de Amanda antes de aplicar la fase 3. Cerrar sesiones desde Auth no sustituye limpiar las sesiones de cada computadora: un JWT emitido puede seguir vigente hasta su vencimiento.
 2. Aplicar en orden `supabase/migrations/202610190002_activar_atribucion_individual.sql` y `supabase/migrations/202610190003_password_primer_ingreso.sql`, después de la fase 1 y la vinculación de cuentas. Publicar el frontend mediante rama + PR + CI y recargar la PWA en todas las computadoras. No reanudar el uso mezclando las versiones. La tercera migración requiere la segunda y exige contraseña nueva a todas las cuentas vinculadas.
 3. La fase 2 verifica que todos los profesionales activos tengan cuenta confirmada. Agrega políticas restrictivas a las tablas existentes: conserva las operaciones ya permitidas, pero exige un profesional vinculado. No diferencia permisos por profesión.
-4. También permite motivo vacío para registrar solo signos vitales, restringe el bucket documentos, hace que las vistas de stock respeten RLS y fija autor/editor desde Auth en el servidor. La cuenta compartida y las cuentas no vinculadas dejan de acceder, aunque conserven un token anterior.
+4. También permite motivo vacío para registrar solo signos vitales, restringe el bucket documentos, hace que las vistas de stock respeten RLS y fija autor/editor desde Auth en el servidor. Las cuentas no vinculadas dejan de acceder, aunque conserven un token anterior. La antigua cuenta compartida se conserva vinculada a Amanda y pasa a representarla exclusivamente; por eso se deben cerrar las sesiones compartidas en todas las computadoras durante la transición.
 5. La aplicación no permite modificar el catálogo de profesionales ni sus vínculos por la API. Las altas, bajas y vínculos se administran desde Supabase.
-6. Después de comprobar el acceso individual, retirar el acceso de la cuenta institucional desde Authentication. No borrar los registros históricos de profesionales para hacerlo.
+6. Después de comprobar el acceso individual, verificar que cada computadora ingrese con el profesional correcto. Conservar la cuenta de Amanda: no deshabilitarla ni borrarla como si fuera una cuarta cuenta institucional. Los IDs e historiales de profesionales permanecen.
 
 Las políticas restrictivas se agregan a las existentes con AND. Si el entorno tiene otras reglas, revisar esa combinación: estas migraciones no reconstruyen ni reemplazan las políticas históricas. El script falla dentro de una transacción si falta una tabla/vista requerida; no omite silenciosamente una protección.
 
@@ -72,4 +74,4 @@ Para dar de baja a alguien, marcar `profesionales.activo = false` y retirar su a
 
 Si el administrador asigna una nueva contraseña provisoria a una cuenta existente, primero restablecerla en Auth y DESPUÉS marcar `profesionales.debe_cambiar_password = true`. Un cambio administrativo de contraseña también modifica el hash y completa el indicador automáticamente; por eso el orden es importante. Reasignar un profesional a otra cuenta activa nuevamente la obligación.
 
-La tercera migración agrega un trigger a `auth.users` sobre la columna de hash documentada por Supabase. Debe comprobarse con un cambio real de contraseña en el entorno de pruebas antes de producción, porque errores de un trigger de Auth pueden impedir la operación. Las pruebas locales utilizan fixtures, sin credenciales ni datos reales.
+La tercera migración agrega un trigger a `auth.users` sobre la columna de hash documentada por Supabase. Como se eligió continuar sobre el proyecto actual, el cambio real de contraseña se comprobará durante la pausa de activación, antes de reanudar el uso: errores de un trigger de Auth pueden impedir la operación. Las pruebas locales utilizan fixtures, sin credenciales ni datos reales.

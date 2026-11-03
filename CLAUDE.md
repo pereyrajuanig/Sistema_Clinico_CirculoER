@@ -32,6 +32,12 @@ en este mismo repo para la especificación completa de requisitos.
   `identidad_profesional_actual` devuelve la identidad propia aun con el paso pendiente;
   `profesional_actual` no habilita acceso clínico hasta que Auth confirma un cambio real.
   `debe_cambiar_password` no se controla desde user_metadata ni desde el navegador.
+  **Cuenta de Amanda conservada (03/11/2026)**: la cuenta que utilizaban los tres
+  pertenece a la enfermera y se conserva para ella; los médicos tienen dos cuentas nuevas.
+  No crear una cuarta cuenta ni retirar la de Amanda. En la pausa de activación hay que
+  cerrar las sesiones compartidas en todas las computadoras y renovar privadamente su
+  provisoria antes de aplicar la fase 3; también elegirá contraseña propia al ingresar.
+  El usuario decidió continuar sobre el proyecto actual, sin entorno de pruebas separado.
   Las referencias al login compartido/selectores en relatos históricos de este documento
   quedan reemplazadas por esta regla y la guía de acceso individual.
 - No hay soporte offline (el cliente tiene internet estable) — **sigue así incluso
