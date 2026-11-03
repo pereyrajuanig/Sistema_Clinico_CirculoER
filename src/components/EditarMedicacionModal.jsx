@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { useAuth } from '@/lib/AuthContext'
 import { registrarAuditoria } from '@/lib/auditoria'
 
 // Edición mínima, a pedido del cliente: solo Nombre y Dosis — mismo criterio reducido que
@@ -11,29 +12,17 @@ import { registrarAuditoria } from '@/lib/auditoria'
 export default function EditarMedicacionModal({ medicacion, onClose, onSaved }) {
   const [nombre, setNombre] = useState(medicacion.nombre)
   const [dosis, setDosis] = useState(medicacion.dosis || '')
-  const [profesionales, setProfesionales] = useState([])
-  const [profesionalId, setProfesionalId] = useState(null)
+  const { profesional } = useAuth()
+  const profesionalId = profesional?.id
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    supabase
-      .from('profesionales')
-      .select('id, nombre')
-      .eq('activo', true)
-      .order('nombre')
-      .then(({ data, error }) => {
-        if (error) setError(error.message)
-        else setProfesionales(data)
-      })
-  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
 
     if (!profesionalId) {
-      setError('Elegí quién edita antes de guardar.')
+      setError('No hay un profesional activo en la sesión. Volvé a ingresar.')
       return
     }
     if (!nombre.trim()) {
@@ -86,29 +75,6 @@ export default function EditarMedicacionModal({ medicacion, onClose, onSaved }) 
           </div>
 
           <div className="p-4 sm:p-6 space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm text-text-secondary">
-                ¿Quién edita? <span className="text-text-primary">*</span>
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {profesionales.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setProfesionalId(p.id)}
-                    className={
-                      'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
-                      (profesionalId === p.id
-                        ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
-                        : 'bg-surface text-text-primary border-border hover:bg-background')
-                    }
-                    style={{ minHeight: '44px' }}
-                  >
-                    {p.nombre}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             <div className="space-y-1">
               <label className="text-sm text-text-secondary">

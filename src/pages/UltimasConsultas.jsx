@@ -121,7 +121,7 @@ function ConsultaFeedCard({ consulta: c }) {
         <div className="flex items-center gap-3">
           <span className="text-sm text-text-secondary">{formatFechaHora(c.fecha)}</span>
           <span className="text-sm text-text-secondary">
-            Atendió: {c.profesionales?.nombre || 'sin asignar'}
+            Profesional: {c.profesionales?.nombre || 'sin asignar'}
           </span>
         </div>
       </div>

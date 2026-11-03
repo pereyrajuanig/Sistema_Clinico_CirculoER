@@ -1,23 +1,38 @@
 import { useState } from 'react'
-import { eliminarBorradorConsulta, leerBorradorConsulta } from '@/lib/borradorConsulta'
+import { eliminarBorradorConsulta, leerBorradorConsulta, recuperarBorradorAnterior } from '@/lib/borradorConsulta'
+import { useAuth } from '@/lib/AuthContext'
 
 // Se monta de nuevo al cerrar el formulario para leer el último borrador conservado.
 export default function AbrirNuevaConsulta({ pacienteId, onOpen }) {
-  const [borrador, setBorrador] = useState(() => leerBorradorConsulta(pacienteId))
+  const { profesional } = useAuth()
+  const profesionalId = profesional?.id
+  const [borrador, setBorrador] = useState(() => leerBorradorConsulta(pacienteId, profesionalId))
+  const [anterior] = useState(() => leerBorradorConsulta(pacienteId))
   const [error, setError] = useState('')
 
   function descartar() {
     const detalle = borrador.medicacionRegistrada
       ? ' La medicación habitual que ya se registró se conserva.' : ''
     if (!window.confirm(`¿Descartar el borrador de esta consulta? El texto sin registrar se perderá.${detalle}`)) return
-    if (!eliminarBorradorConsulta(pacienteId)) {
+    if (!eliminarBorradorConsulta(pacienteId, profesionalId)) {
       setError('No se pudo descartar el borrador en este navegador. Intentá nuevamente.')
       return
     }
     setBorrador(null)
   }
 
-  if (!borrador) return <button onClick={onOpen} className="btn-primary">+ Nueva consulta</button>
+  if (!borrador) return <div className="space-y-3">
+    <button onClick={onOpen} className="btn-primary">+ Nueva consulta</button>
+    {anterior && !anterior.profesionalId && <div className="space-y-2">
+      <p className="text-sm text-text-secondary">Hay un borrador anterior sin profesional asignado en esta computadora.</p>
+      <button className="btn-secondary" onClick={() => {
+        if (!window.confirm(`¿Recuperar ese borrador como ${profesional.nombre}? Revisá su contenido antes de registrarlo.`)) return
+        if (recuperarBorradorAnterior(pacienteId, profesionalId)) setBorrador(leerBorradorConsulta(pacienteId, profesionalId))
+        else setError('No se pudo recuperar el borrador. Intentá nuevamente.')
+      }}>Recuperar borrador anterior</button>
+    </div>}
+    {error && <p role="alert" className="text-text-primary">{error}</p>}
+  </div>
 
   return (
     <div className="border border-primary rounded-lg bg-primary/10 p-4 space-y-3">

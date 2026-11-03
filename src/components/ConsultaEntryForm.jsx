@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { useAuth } from '@/lib/AuthContext'
 import { registrarAuditoria } from '@/lib/auditoria'
 import AvisoSalirConsulta from '@/components/AvisoSalirConsulta'
 import {
@@ -46,11 +47,11 @@ function formatFecha(value) {
 // el armazón de alrededor cambia según `esEdicion` (modal centrado) o no (bloque en línea,
 // sin fondo oscuro ni posición fija).
 export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSaved }) {
+  const { profesional } = useAuth()
+  const profesionalId = profesional?.id
   const esEdicion = Boolean(consulta)
-  const [borradorInicial] = useState(() => esEdicion ? null : leerBorradorConsulta(pacienteId))
+  const [borradorInicial] = useState(() => esEdicion ? null : leerBorradorConsulta(pacienteId, profesionalId))
   const [consultaGuardada, setConsultaGuardada] = useState(false)
-  const [profesionales, setProfesionales] = useState([])
-  const [profesionalId, setProfesionalId] = useState(consulta?.profesional_id || borradorInicial?.profesionalId || null)
   const [form, setForm] = useState(() =>
     esEdicion
       ? Object.fromEntries(Object.keys(initialForm).map((key) => [key, consulta[key] ?? '']))
@@ -90,50 +91,6 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
     onClose()
   }
 
-  useEffect(() => {
-    async function cargarProfesionales() {
-      const { data, error } = await supabase
-        .from('profesionales')
-        .select('id, nombre, activo')
-        .eq('activo', true)
-        .order('nombre')
-
-      if (error) {
-        setError(error.message)
-        return
-      }
-
-      // Si se edita una consulta atendida por alguien ya dado de baja, lo agregamos igual
-      // a la lista (marcado) — no tiene sentido que la edición borre o falsee quién atendió
-      // realmente en su momento
-      const idOriginal = consulta?.profesional_id
-      if (idOriginal && !data.some((p) => p.id === idOriginal)) {
-        const { data: inactivo } = await supabase
-          .from('profesionales')
-          .select('id, nombre, activo')
-          .eq('id', idOriginal)
-          .maybeSingle()
-
-        if (inactivo) {
-          setProfesionales([...data, inactivo])
-          return
-        }
-      }
-
-      // Un borrador de ALTA todavía no tiene una atención registrada. Si se dio
-      // de baja al profesional mientras tanto, hay que elegir uno activo.
-      if (!esEdicion && borradorInicial?.profesionalId &&
-        !data.some((p) => p.id === borradorInicial.profesionalId)) {
-        setProfesionalId(null)
-        setError('El profesional del borrador ya no está activo. Elegí quién atiende antes de guardar.')
-      }
-
-      setProfesionales(data)
-    }
-
-    cargarProfesionales()
-  }, [consulta?.profesional_id, borradorInicial?.profesionalId, esEdicion])
-
   function handleChange(field) {
     return (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
   }
@@ -156,7 +113,11 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
     setError('')
 
     if (!profesionalId) {
-      setError('Elegí quién atiende antes de guardar.')
+      setError('No hay un profesional activo en la sesión. Volvé a ingresar.')
+      return
+    }
+    if (!esEdicion && !pendiente) {
+      setError('Cargá al menos un dato de la consulta o un signo vital antes de guardar.')
       return
     }
     if (agregandoMedicacion && !medicacionNueva.nombre.trim()) {
@@ -243,7 +204,7 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
     const query = esEdicion
       ? supabase
           .from('consultas')
-          .update({ profesional_id: profesionalId, ...camposClinicos })
+          .update(camposClinicos)
           .eq('id', consulta.id)
       : supabase.from('consultas').insert({
           paciente_id: pacienteId,
@@ -263,7 +224,7 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
 
     if (!esEdicion) {
       setConsultaGuardada(true)
-      if (!eliminarBorradorConsulta(pacienteId)) {
+      if (!eliminarBorradorConsulta(pacienteId, profesionalId)) {
         window.alert('La consulta se guardó correctamente, pero no se pudo quitar el borrador de este navegador. Descartalo antes de iniciar otra consulta para evitar registrarlo dos veces.')
       }
     }
@@ -272,34 +233,10 @@ export default function ConsultaEntryForm({ pacienteId, consulta, onClose, onSav
 
   const campos = (
     <>
-      <div className="space-y-2">
-        <label className="text-sm text-text-secondary">
-          ¿Quién atiende? <span className="text-text-primary">*</span>
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {profesionales.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setProfesionalId(p.id)}
-              className={
-                'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
-                (profesionalId === p.id
-                  ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
-                  : 'bg-surface text-text-primary border-border hover:bg-background')
-              }
-              style={{ minHeight: '44px' }}
-            >
-              {p.nombre}
-              {p.activo === false ? ' (dado de baja)' : ''}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Los dos apartados opcionales van juntos, uno al lado del otro — ninguno depende
           del otro, agrupan lo que "no siempre hace falta cargar" antes del bloque de texto
           libre que sí se escribe siempre */}
+      <p className="text-sm text-text-secondary">Podés registrar solo signos vitales, sin completar los campos de texto.</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
           type="button"

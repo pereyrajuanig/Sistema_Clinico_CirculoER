@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { useAuth } from '@/lib/AuthContext'
 import { ESTADOS_PATOLOGIA } from '@/lib/patologias'
 import { registrarAuditoria } from '@/lib/auditoria'
 import SelectorColorResaltado from '@/components/SelectorColorResaltado'
@@ -20,8 +21,8 @@ export default function PatologiaEntryForm({
   submitEsPrimario = true,
 }) {
   const esEdicion = Boolean(patologia)
-  const [profesionales, setProfesionales] = useState([])
-  const [profesionalId, setProfesionalId] = useState(patologia?.usuario_id || null)
+  const { profesional } = useAuth()
+  const profesionalId = profesional?.id
   const [nombre, setNombre] = useState(patologia?.nombre || '')
   const [estado, setEstado] = useState(patologia?.estado || 'Activa')
   const [observaciones, setObservaciones] = useState(patologia?.observaciones || '')
@@ -29,50 +30,12 @@ export default function PatologiaEntryForm({
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // usuario_id es obligatorio en la base (a diferencia de antecedentes, que no rastrea quién
-  // carga) — el selector va siempre visible, no solo en edición
-  useEffect(() => {
-    async function cargarProfesionales() {
-      const { data, error } = await supabase
-        .from('profesionales')
-        .select('id, nombre, activo')
-        .eq('activo', true)
-        .order('nombre')
-
-      if (error) {
-        setError(error.message)
-        return
-      }
-
-      // Si se edita una patología cargada por alguien ya dado de baja, lo agregamos igual
-      // a la lista (marcado) — no tiene sentido que la edición borre o falsee quién la
-      // cargó realmente
-      const idOriginal = patologia?.usuario_id
-      if (idOriginal && !data.some((p) => p.id === idOriginal)) {
-        const { data: inactivo } = await supabase
-          .from('profesionales')
-          .select('id, nombre, activo')
-          .eq('id', idOriginal)
-          .maybeSingle()
-
-        if (inactivo) {
-          setProfesionales([...data, inactivo])
-          return
-        }
-      }
-
-      setProfesionales(data)
-    }
-
-    cargarProfesionales()
-  }, [patologia?.usuario_id])
-
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
 
     if (!profesionalId) {
-      setError('Elegí quién carga antes de guardar.')
+      setError('No hay un profesional activo en la sesión. Volvé a ingresar.')
       return
     }
 
@@ -104,12 +67,11 @@ export default function PatologiaEntryForm({
       estado,
       observaciones: observaciones || null,
       color,
-      usuario_id: profesionalId,
     }
 
     const query = esEdicion
       ? supabase.from('patologias').update(payload).eq('id', patologia.id)
-      : supabase.from('patologias').insert({ paciente_id: pacienteId, ...payload })
+      : supabase.from('patologias').insert({ paciente_id: pacienteId, usuario_id: profesionalId, ...payload })
 
     const { data, error } = await query.select().single()
 
@@ -125,30 +87,6 @@ export default function PatologiaEntryForm({
 
   const campos = (
     <>
-      <div className="space-y-2">
-        <label className="text-sm text-text-secondary">
-          ¿Quién carga? <span className="text-text-primary">*</span>
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {profesionales.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setProfesionalId(p.id)}
-              className={
-                'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
-                (profesionalId === p.id
-                  ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
-                  : 'bg-surface text-text-primary border-border hover:bg-background')
-              }
-              style={{ minHeight: '44px' }}
-            >
-              {p.nombre}
-              {p.activo === false ? ' (dado de baja)' : ''}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <div className="space-y-1">
         <label className="text-sm text-text-secondary">

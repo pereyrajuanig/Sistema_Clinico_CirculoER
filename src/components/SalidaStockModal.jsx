@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { useAuth } from '@/lib/AuthContext'
 import { limpiarDni, formatearDni } from '@/lib/dni'
 import { capitalizarPalabras } from '@/lib/pacientes'
 import { formatearPresentacion } from '@/lib/medicamentos'
@@ -12,8 +13,8 @@ function formatFecha(value) {
 }
 
 export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }) {
-  const [profesionales, setProfesionales] = useState([])
-  const [profesionalId, setProfesionalId] = useState(null)
+  const { profesional } = useAuth()
+  const profesionalId = profesional?.id
   const [medicamentoId, setMedicamentoId] = useState('')
   const [lotesDisponibles, setLotesDisponibles] = useState([])
   const [loteId, setLoteId] = useState('')
@@ -22,6 +23,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
   const [pacienteEncontrado, setPacienteEncontrado] = useState(null)
   const [buscandoPaciente, setBuscandoPaciente] = useState(false)
   const [dniError, setDniError] = useState('')
+  const [dniVerificado, setDniVerificado] = useState('')
   const [pacienteNoEncontrado, setPacienteNoEncontrado] = useState(false)
   const [nombreNuevo, setNombreNuevo] = useState('')
   const [apellidoNuevo, setApellidoNuevo] = useState('')
@@ -34,18 +36,6 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
 
   const medicamentoSeleccionado = medicamentos.find((m) => m.id === medicamentoId)
   const loteSeleccionado = lotesDisponibles.find((l) => l.lote_id === loteId) || null
-
-  useEffect(() => {
-    supabase
-      .from('profesionales')
-      .select('id, nombre')
-      .eq('activo', true)
-      .order('nombre')
-      .then(({ data, error }) => {
-        if (error) setError(error.message)
-        else setProfesionales(data)
-      })
-  }, [])
 
   // Trae TODOS los lotes con stock disponible, no solo el que corresponde por FEFO — pedido
   // explícito del cliente: en la práctica, quien administra saca del lote que tiene físicamente
@@ -94,7 +84,9 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
     const dni = limpiarDni(dniBusqueda)
     setPacienteEncontrado(null)
     setDniError('')
+    setDniVerificado('')
     setPacienteNoEncontrado(false)
+    setBuscandoPaciente(dni.length >= 7)
     // Si cambia el DNI, el nombre/apellido tipeados para un paciente nuevo quedan
     // obsoletos — mejor limpiarlos que arriesgar registrar a alguien con el DNI
     // equivocado
@@ -103,7 +95,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
 
     if (dni.length < 7) return
 
-    setBuscandoPaciente(true)
+    let vigente = true
 
     const timeoutId = setTimeout(() => {
       supabase
@@ -112,28 +104,33 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
         .eq('dni', dni)
         .maybeSingle()
         .then(({ data, error }) => {
+          // Cancelar el debounce no cancela una petición que ya salió. Una respuesta
+          // de otro DNI no debe habilitar el alta ni reemplazar al paciente actual.
+          if (!vigente) return
           setBuscandoPaciente(false)
           if (error) {
             setDniError(error.message)
             return
           }
-          if (!data) {
-            setPacienteNoEncontrado(true)
-            return
-          }
+          setDniVerificado(dni)
           setPacienteEncontrado(data)
+          setPacienteNoEncontrado(!data)
+        })
+        .catch(() => {
+          if (!vigente) return
+          setBuscandoPaciente(false)
+          setDniError('No se pudo buscar al paciente. Revisá la conexión e intentá nuevamente.')
         })
     }, 300)
 
-    return () => clearTimeout(timeoutId)
+    return () => { vigente = false; clearTimeout(timeoutId) }
   }, [dniBusqueda])
 
   useEffect(() => {
-    if (!pacienteEncontrado) {
-      setConsultas([])
-      setConsultaId('')
-      return
-    }
+    setConsultas([])
+    setConsultaId('')
+    if (!pacienteEncontrado) return
+    let vigente = true
 
     supabase
       .from('consultas')
@@ -142,24 +139,31 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
       .is('eliminado_en', null)
       .order('fecha', { ascending: false })
       .then(({ data, error }) => {
+        if (!vigente) return
         if (error) setError(error.message)
         else setConsultas(data)
       })
+      .catch(() => {
+        if (vigente) setError('No se pudieron cargar las consultas de este paciente.')
+      })
+    return () => { vigente = false }
   }, [pacienteEncontrado])
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (loading) return
     setError('')
 
     if (!profesionalId) {
-      setError('Elegí quién administra antes de guardar.')
+      setError('No hay un profesional activo en la sesión. Volvé a ingresar.')
       return
     }
-    if (!pacienteEncontrado && !pacienteNoEncontrado) {
+    const dni = limpiarDni(dniBusqueda)
+    if (buscandoPaciente || dniError || dniVerificado !== dni || (!pacienteEncontrado && !pacienteNoEncontrado)) {
       setError('Buscá al paciente por DNI antes de guardar.')
       return
     }
-    if (pacienteNoEncontrado && (!nombreNuevo.trim() || !apellidoNuevo.trim())) {
+    if (!pacienteEncontrado && pacienteNoEncontrado && (!nombreNuevo.trim() || !apellidoNuevo.trim())) {
       setError('No se encontró el paciente por DNI — cargá nombre y apellido para registrarlo.')
       return
     }
@@ -171,51 +175,72 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
 
     setLoading(true)
 
-    let pacienteId = pacienteEncontrado?.id
+    try {
+      let pacienteId = pacienteEncontrado?.id
 
-    // No estaba registrado (no se hace consultas, solo retira medicación) — se lo da de
-    // alta como paciente con los 3 campos mínimos obligatorios (Nombre, Apellido, DNI),
-    // igual que el alta manual desde Pacientes.jsx, para poder cumplir el constraint de
-    // la base que exige paciente_id en toda salida
-    if (pacienteNoEncontrado) {
-      const { data: nuevoPaciente, error: pacienteError } = await supabase
-        .from('pacientes')
-        .insert({
-          nombre: capitalizarPalabras(nombreNuevo.trim()),
-          apellido: capitalizarPalabras(apellidoNuevo.trim()),
-          dni: limpiarDni(dniBusqueda),
-        })
-        .select('id')
-        .single()
+      // El alta rápida conserva los tres campos mínimos y el paciente obligatorio
+      // de toda salida, igual que el alta manual desde Pacientes.jsx.
+      if (!pacienteId && pacienteNoEncontrado) {
+        const { data: nuevoPaciente, error: pacienteError } = await supabase
+          .from('pacientes')
+          .insert({
+            nombre: capitalizarPalabras(nombreNuevo.trim()),
+            apellido: capitalizarPalabras(apellidoNuevo.trim()),
+            dni,
+          })
+          .select('id, nombre, apellido, dni')
+          .single()
 
-      if (pacienteError) {
-        setLoading(false)
-        setError(pacienteError.message)
+        if (pacienteError) {
+          if (pacienteError.code === '23505') {
+            // Otra computadora pudo darlo de alta entre la búsqueda y el guardado.
+            // Mostrar el registro real para confirmarlo, sin sobreescribir sus datos.
+            const { data: existente, error: errorBusqueda } = await supabase.from('pacientes')
+              .select('id, nombre, apellido, dni').eq('dni', dni).maybeSingle()
+            if (!errorBusqueda && existente) {
+              setPacienteEncontrado(existente)
+              setPacienteNoEncontrado(false)
+              setError('Este DNI ya está registrado. Verificá el paciente encontrado y volvé a registrar la salida.')
+            } else {
+              setPacienteNoEncontrado(false)
+              setDniVerificado('')
+              setError('Este DNI ya está registrado, pero no se pudo recuperar el paciente. Volvé a buscarlo por DNI.')
+            }
+            return
+          }
+          setError(pacienteError.message)
+          return
+        }
+
+        pacienteId = nuevoPaciente.id
+        // El alta ya persistió aunque luego falle el movimiento. Un reintento debe
+        // utilizar este paciente, nunca volver a insertarlo con el mismo DNI.
+        setPacienteEncontrado(nuevoPaciente)
+        setPacienteNoEncontrado(false)
+      }
+
+      const { error } = await supabase.from('movimientos_stock').insert({
+        lote_id: loteSeleccionado.lote_id,
+        usuario_id: profesionalId,
+        paciente_id: pacienteId,
+        consulta_id: consultaId || null,
+        tipo: 'salida',
+        cantidad: Number(cantidad),
+        fecha: new Date().toISOString(),
+        motivo: motivo || null,
+      })
+
+      if (error) {
+        setError(error.message)
         return
       }
 
-      pacienteId = nuevoPaciente.id
+      onRegistrado()
+    } catch {
+      setError('No se pudo confirmar la operación. Revisá la conexión y el historial de movimientos antes de reintentar.')
+    } finally {
+      setLoading(false)
     }
-
-    const { error } = await supabase.from('movimientos_stock').insert({
-      lote_id: loteSeleccionado.lote_id,
-      usuario_id: profesionalId,
-      paciente_id: pacienteId,
-      consulta_id: consultaId || null,
-      tipo: 'salida',
-      cantidad: Number(cantidad),
-      fecha: new Date().toISOString(),
-      motivo: motivo || null,
-    })
-
-    setLoading(false)
-
-    if (error) {
-      setError(error.message)
-      return
-    }
-
-    onRegistrado()
   }
 
   return (
@@ -226,30 +251,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
             <h2 className="text-lg font-semibold text-text-primary">Registrar salida (administración)</h2>
           </div>
 
-          <div className="p-4 sm:p-6 space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm text-text-secondary">
-                ¿Quién administra? <span className="text-text-primary">*</span>
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {profesionales.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setProfesionalId(p.id)}
-                    className={
-                      'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
-                      (profesionalId === p.id
-                        ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
-                        : 'bg-surface text-text-primary border-border hover:bg-background')
-                    }
-                    style={{ minHeight: '44px' }}
-                  >
-                    {p.nombre}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <fieldset disabled={loading} className="p-4 sm:p-6 space-y-4">
 
             <div className="space-y-1">
               <label className="text-sm text-text-secondary">
@@ -412,15 +414,15 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
                 className="input"
               />
             </div>
-          </div>
+          </fieldset>
 
           {error && <p className="px-4 sm:px-6 text-base text-text-primary -mt-2 pb-2">{error}</p>}
 
           <div className="px-4 sm:px-6 py-4 border-t border-border flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="btn-secondary">
+            <button type="button" disabled={loading} onClick={onClose} className="btn-secondary">
               Cancelar
             </button>
-            <button type="submit" disabled={loading || buscandoLotes} className="btn-primary">
+            <button type="submit" disabled={loading || buscandoLotes || buscandoPaciente} className="btn-primary">
               {loading ? 'Guardando...' : 'Registrar salida'}
             </button>
           </div>

@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { useState } from 'react'
+import { useAuth } from '@/lib/AuthContext'
 
-// Desde que el login pasó a ser una cuenta institucional compartida (ya no hay 1 login por
-// profesional), cualquier acción que necesite quedar atribuida a una persona puntual tiene
-// que preguntarlo explícitamente acá — nunca se puede inferir de la sesión activa.
+// Conserva la confirmación de bajas; la atribución ahora proviene de la sesión individual.
 export default function ConfirmarConProfesionalModal({
   titulo,
   mensaje,
@@ -11,32 +9,24 @@ export default function ConfirmarConProfesionalModal({
   onCancelar,
   onConfirmar,
 }) {
-  const [profesionales, setProfesionales] = useState([])
-  const [profesionalId, setProfesionalId] = useState(null)
+  const { profesional } = useAuth()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    supabase
-      .from('profesionales')
-      .select('id, nombre')
-      .eq('activo', true)
-      .order('nombre')
-      .then(({ data, error }) => {
-        if (error) setError(error.message)
-        else setProfesionales(data)
-      })
-  }, [])
-
   async function confirmar() {
-    if (!profesionalId) {
-      setError('Elegí quién realiza esta acción.')
+    if (!profesional?.id) {
+      setError('No hay un profesional activo en la sesión. Volvé a ingresar.')
       return
     }
 
     setLoading(true)
-    await onConfirmar(profesionalId)
-    setLoading(false)
+    try {
+      await onConfirmar(profesional.id)
+    } catch {
+      setError('No se pudo completar la acción. Intentá nuevamente.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -49,29 +39,7 @@ export default function ConfirmarConProfesionalModal({
         <div className="p-4 sm:p-6 space-y-4">
           <p className="text-base text-text-primary">{mensaje}</p>
 
-          <div className="space-y-2">
-            <label className="text-sm text-text-secondary">
-              ¿Quién realiza esta acción? <span className="text-alert">*</span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {profesionales.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setProfesionalId(p.id)}
-                  className={
-                    'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
-                    (profesionalId === p.id
-                      ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
-                      : 'bg-surface text-text-primary border-border hover:bg-background')
-                  }
-                  style={{ minHeight: '44px' }}
-                >
-                  {p.nombre}
-                </button>
-              ))}
-            </div>
-          </div>
+          <p className="text-sm text-text-secondary">Responsable: {profesional?.nombre}</p>
 
           {error && <p className="text-base text-text-primary">{error}</p>}
         </div>

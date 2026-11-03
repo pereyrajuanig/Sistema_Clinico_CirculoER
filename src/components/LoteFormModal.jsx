@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { useAuth } from '@/lib/AuthContext'
 
 // `entradaMovimiento` ({ id, cantidad }) solo llega cuando el lote no tiene salidas (mismo
 // gate que ya usa LotesMedicamentoModal.jsx para mostrar "Editar"/"Eliminar") — es la fila de
@@ -11,28 +12,13 @@ export default function LoteFormModal({ lote, entradaMovimiento, onClose, onSave
   const [cantidad, setCantidad] = useState(
     entradaMovimiento ? String(entradaMovimiento.cantidad) : ''
   )
-  const [profesionales, setProfesionales] = useState([])
-  const [profesionalId, setProfesionalId] = useState(null)
+  const { profesional } = useAuth()
+  const profesionalId = profesional?.id
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Solo hace falta elegir quién corrige si la cantidad realmente cambió — si el usuario
-  // solo vino a arreglar el número de lote o la fecha, no hay ninguna fricción de más.
+  // La corrección se atribuye automáticamente a la sesión activa.
   const cantidadCambio = entradaMovimiento && Number(cantidad) !== entradaMovimiento.cantidad
-
-  useEffect(() => {
-    if (!entradaMovimiento) return
-
-    supabase
-      .from('profesionales')
-      .select('id, nombre')
-      .eq('activo', true)
-      .order('nombre')
-      .then(({ data, error }) => {
-        if (error) setError(error.message)
-        else setProfesionales(data)
-      })
-  }, [entradaMovimiento])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -43,7 +29,7 @@ export default function LoteFormModal({ lote, entradaMovimiento, onClose, onSave
       return
     }
     if (cantidadCambio && !profesionalId) {
-      setError('Elegí quién corrige la cantidad antes de guardar.')
+      setError('No hay un profesional activo en la sesión. Volvé a ingresar.')
       return
     }
 
@@ -145,31 +131,6 @@ export default function LoteFormModal({ lote, entradaMovimiento, onClose, onSave
               </div>
             )}
 
-            {cantidadCambio && (
-              <div className="space-y-2">
-                <label className="text-sm text-text-secondary">
-                  ¿Quién corrige la cantidad? <span className="text-text-primary">*</span>
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {profesionales.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setProfesionalId(p.id)}
-                      className={
-                        'rounded-lg px-4 py-2 text-base font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ' +
-                        (profesionalId === p.id
-                          ? 'bg-accent-marino text-white border-accent-marino shadow-sm'
-                          : 'bg-surface text-text-primary border-border hover:bg-background')
-                      }
-                      style={{ minHeight: '44px' }}
-                    >
-                      {p.nombre}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           {error && <p className="px-4 sm:px-6 text-base text-text-primary -mt-2 pb-2">{error}</p>}

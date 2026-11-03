@@ -1062,7 +1062,7 @@ function ConsultaCard({ consulta: c, documentos, onDocumentoSubido, onEditar, on
         </span>
         <div className="flex items-center gap-3">
           <span className="text-sm text-text-secondary">
-            Atendió: {c.profesionales?.nombre || 'sin asignar'}
+            Profesional: {c.profesionales?.nombre || 'sin asignar'}
           </span>
           <button onClick={onEditar} className="text-sm text-text-secondary hover:text-text-primary underline">
             Editar
