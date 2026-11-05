@@ -620,6 +620,26 @@ de los tests de login, contexto Auth, borradores y atribución de formularios.
 
 ## Estado actual del desarrollo
 
+### Salidas distribuidas entre varios lotes (noviembre 2026)
+
+Pedido del cliente: una sola entrega con cantidad total y reparto automático por
+vencimiento, ajustable antes de guardar. `SalidaStockModal.jsx` reemplaza el selector
+de un lote por cantidades por lote, suma exacta, **Recalcular por vencimiento** y
+**Actualizar lotes**. `distribuirSalida`/`validarDistribucionSalida` en `src/lib/stock.js`
+contienen la propuesta y su validación. Se mantienen los filtros de vencidos, el
+paciente por DNI, el alta rápida, la consulta opcional y el responsable de la sesión.
+
+**Este pedido reemplaza la decisión anterior de rechazar repartos y pedir una segunda
+salida**, documentada más abajo como historia del desarrollo. También reemplaza el
+selector manual de un único lote: ahora se pueden ajustar las cantidades de varios.
+
+Se agrega `supabase/migrations/202611050001_salidas_multiples_lotes.sql`: RPC
+`registrar_salida_lotes` con RLS, validaciones en servidor y guardado atómico; trigger
+de INSERT que bloquea el lote y valida disponibilidad de nuevas salidas/bajas, incluso
+desde formularios anteriores. No cambia filas históricas ni vistas/reportes. El
+historial sigue teniendo una fila por lote. **Aplicar el SQL antes del merge/deploy
+del frontend**. Detalle, límites, pruebas y pasos: `docs/salidas-multiples-lotes.md`.
+
 **Historia clínica — hecho:**
 - Login con Supabase Auth, sesión persistente, timeout por inactividad (25 min)
 - Pacientes: listado con búsqueda/orden, alta y edición, DNI normalizado (solo dígitos)

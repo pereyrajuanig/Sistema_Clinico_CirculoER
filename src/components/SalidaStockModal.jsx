@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/lib/AuthContext'
 import { limpiarDni, formatearDni } from '@/lib/dni'
 import { capitalizarPalabras } from '@/lib/pacientes'
 import { formatearPresentacion } from '@/lib/medicamentos'
-import { validarCantidadSalida, hoyLocalISO, loteProximoAVencer } from '@/lib/stock'
+import { distribuirSalida, validarDistribucionSalida, hoyLocalISO, loteProximoAVencer } from '@/lib/stock'
 import SelectorMedicamento from '@/components/SelectorMedicamento'
 
 function formatFecha(value) {
@@ -17,8 +17,10 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
   const profesionalId = profesional?.id
   const [medicamentoId, setMedicamentoId] = useState('')
   const [lotesDisponibles, setLotesDisponibles] = useState([])
-  const [loteId, setLoteId] = useState('')
+  const [ajustes, setAjustes] = useState(null)
   const [buscandoLotes, setBuscandoLotes] = useState(false)
+  const [lotesError, setLotesError] = useState('')
+  const [recargaLotes, setRecargaLotes] = useState(0)
   const [dniBusqueda, setDniBusqueda] = useState('')
   const [pacienteEncontrado, setPacienteEncontrado] = useState(null)
   const [buscandoPaciente, setBuscandoPaciente] = useState(false)
@@ -33,32 +35,26 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
   const [motivo, setMotivo] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const enviando = useRef(false)
 
   const medicamentoSeleccionado = medicamentos.find((m) => m.id === medicamentoId)
-  const loteSeleccionado = lotesDisponibles.find((l) => l.lote_id === loteId) || null
+  const distribucion = ajustes ?? distribuirSalida(lotesDisponibles, cantidad)
+  const totalAsignado = Object.values(distribucion).reduce((suma, valor) => suma + (Number(valor) || 0), 0)
+  const errorDistribucion = validarDistribucionSalida(lotesDisponibles, cantidad, distribucion)
 
-  // Trae TODOS los lotes con stock disponible, no solo el que corresponde por FEFO — pedido
-  // explícito del cliente: en la práctica, quien administra saca del lote que tiene físicamente
-  // a mano, no siempre el que vence antes, y antes no había forma de reflejar eso en el
-  // sistema (se descontaba siempre del lote sugerido, sin poder elegir otro). Se preselecciona
-  // el primero (el de FEFO) como default razonable, pero queda editable.
-  //
-  // Un lote VENCIDO nunca aparece acá, aunque tenga stock — pedido explícito del cliente tras
-  // un caso real: al ordenar por fecha ascendente, un lote vencido (la fecha más antigua de
-  // todas) terminaba siendo la primera sugerencia, ofreciendo por default algo vencido para
-  // una administración real. No hay ningún caso de uso legítimo para elegirlo acá — si hace
-  // falta sacarlo del stock por estar vencido, esa es una acción distinta ("dar de baja"), no
-  // una salida a un paciente.
+  // El reparto automático y los ajustes usan solamente lotes vigentes con stock.
+  // Ignorar respuestas viejas evita mezclar lotes de dos medicamentos distintos.
   useEffect(() => {
+    let vigente = true
+    setLotesError('')
+    setLotesDisponibles([])
+    setAjustes(null)
     if (!medicamentoId) {
-      setLotesDisponibles([])
-      setLoteId('')
+      setBuscandoLotes(false)
       return
     }
 
     setBuscandoLotes(true)
-    setLotesDisponibles([])
-    setLoteId('')
 
     supabase
       .from('stock_por_lote')
@@ -68,15 +64,21 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
       .gte('fecha_vencimiento', hoyLocalISO())
       .order('fecha_vencimiento', { ascending: true })
       .then(({ data, error }) => {
+        if (!vigente) return
         setBuscandoLotes(false)
         if (error) {
-          setError(error.message)
+          setLotesError('No se pudieron cargar los lotes. Revisá la conexión y volvé a intentar.')
           return
         }
         setLotesDisponibles(data)
-        if (data.length > 0) setLoteId(data[0].lote_id)
       })
-  }, [medicamentoId])
+      .catch(() => {
+        if (!vigente) return
+        setBuscandoLotes(false)
+        setLotesError('No se pudieron cargar los lotes. Revisá la conexión y volvé a intentar.')
+      })
+    return () => { vigente = false }
+  }, [medicamentoId, recargaLotes])
 
   // Busca el paciente por DNI en vez de cargar el listado completo — no escala tener
   // miles de pacientes en un <select>
@@ -151,7 +153,7 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (loading) return
+    if (enviando.current) return
     setError('')
 
     if (!profesionalId) {
@@ -167,12 +169,16 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
       setError('No se encontró el paciente por DNI — cargá nombre y apellido para registrarlo.')
       return
     }
-    const errorCantidad = validarCantidadSalida(loteSeleccionado, cantidad)
-    if (errorCantidad) {
-      setError(errorCantidad)
+    if (buscandoLotes || lotesError || !medicamentoId) {
+      setError('Elegí un medicamento y esperá a que se carguen sus lotes.')
+      return
+    }
+    if (errorDistribucion) {
+      setError(errorDistribucion)
       return
     }
 
+    enviando.current = true
     setLoading(true)
 
     try {
@@ -219,15 +225,17 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
         setPacienteNoEncontrado(false)
       }
 
-      const { error } = await supabase.from('movimientos_stock').insert({
-        lote_id: loteSeleccionado.lote_id,
-        usuario_id: profesionalId,
-        paciente_id: pacienteId,
-        consulta_id: consultaId || null,
-        tipo: 'salida',
-        cantidad: Number(cantidad),
-        fecha: new Date().toISOString(),
-        motivo: motivo || null,
+      // Una sola transacción en la base: vuelve a validar stock y guarda todos los
+      // movimientos por lote o ninguno. El responsable se obtiene de la sesión allí.
+      const { error } = await supabase.rpc('registrar_salida_lotes', {
+        p_medicamento_id: medicamentoId,
+        p_paciente_id: pacienteId,
+        p_consulta_id: consultaId || null,
+        p_cantidad_total: Number(cantidad),
+        p_lotes: Object.entries(distribucion)
+          .filter(([, valor]) => Number(valor) > 0)
+          .map(([lote_id, valor]) => ({ lote_id, cantidad: Number(valor) })),
+        p_motivo: motivo.trim() || null,
       })
 
       if (error) {
@@ -239,18 +247,20 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
     } catch {
       setError('No se pudo confirmar la operación. Revisá la conexión y el historial de movimientos antes de reintentar.')
     } finally {
+      enviando.current = false
       setLoading(false)
     }
   }
 
   return (
     <div className="fixed inset-0 bg-text-primary/40 flex items-center justify-center p-4 z-50">
-      <div className="bg-surface rounded-lg border border-border shadow-sm w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <form onSubmit={handleSubmit}>
-          <div className="px-4 sm:px-6 py-4 border-b border-border">
+      <div className="bg-surface rounded-lg border border-border shadow-sm w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+        <form onSubmit={handleSubmit} className="flex flex-col min-h-0">
+          <div className="px-4 sm:px-6 py-4 border-b border-border shrink-0">
             <h2 className="text-lg font-semibold text-text-primary">Registrar salida (administración)</h2>
           </div>
 
+          <div className="min-h-0 overflow-y-auto">
           <fieldset disabled={loading} className="p-4 sm:p-6 space-y-4">
 
             <div className="space-y-1">
@@ -260,7 +270,13 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
               <SelectorMedicamento
                 medicamentos={medicamentos}
                 value={medicamentoId}
-                onChange={setMedicamentoId}
+                onChange={(id) => {
+                  setMedicamentoId(id)
+                  setLotesDisponibles([])
+                  setAjustes(null)
+                  setCantidad('')
+                  setError('')
+                }}
                 placeholder="Escribir para buscar..."
               />
               {medicamentoSeleccionado && (
@@ -276,42 +292,13 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
               {medicamentoId && buscandoLotes && (
                 <p className="text-sm text-text-secondary">Buscando lotes disponibles...</p>
               )}
-              {medicamentoId && !buscandoLotes && lotesDisponibles.length === 0 && (
+              {lotesError && <p role="alert" className="text-sm text-text-primary">{lotesError}</p>}
+              {medicamentoId && !buscandoLotes && !lotesError && lotesDisponibles.length === 0 && (
                 <p className="text-sm text-text-primary font-semibold">
-                  No hay stock disponible en ningún lote de este medicamento.
+                  No hay stock disponible en lotes habilitados de este medicamento.
                 </p>
               )}
             </div>
-
-            {medicamentoId && !buscandoLotes && lotesDisponibles.length > 0 && (
-              <div className="space-y-1">
-                <label className="text-sm text-text-secondary">
-                  Lote <span className="text-text-primary">*</span>
-                </label>
-                <select
-                  required
-                  value={loteId}
-                  onChange={(e) => setLoteId(e.target.value)}
-                  className="input"
-                >
-                  {lotesDisponibles.map((l) => (
-                    <option key={l.lote_id} value={l.lote_id}>
-                      Lote {l.numero_lote || '(sin número)'} — vence {formatFecha(l.fecha_vencimiento)} —{' '}
-                      {l.stock_actual} disponibles
-                    </option>
-                  ))}
-                </select>
-                {/* Sugerencia por FEFO: el lote preseleccionado es el que vence antes (primero
-                    de la lista), pero queda editable a propósito — en la práctica quien
-                    administra saca del lote que tiene físicamente a mano, no siempre el que
-                    corresponde por vencimiento, y antes no había forma de reflejar eso acá. */}
-                {loteSeleccionado && loteProximoAVencer(loteSeleccionado.fecha_vencimiento) && (
-                  <p className="text-sm text-text-primary font-semibold">
-                    Este lote está próximo a vencer.
-                  </p>
-                )}
-              </div>
-            )}
 
             <div className="space-y-1">
               <label className="text-sm text-text-secondary">
@@ -392,18 +379,76 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
             )}
 
             <div className="space-y-1">
-              <label className="text-sm text-text-secondary">
-                Cantidad <span className="text-text-primary">*</span>
+              <label htmlFor="salida-cantidad-total" className="text-sm text-text-secondary">
+                Cantidad total a entregar <span className="text-text-primary">*</span>
               </label>
               <input
                 type="number"
+                id="salida-cantidad-total"
                 required
                 min="1"
+                step="1"
+                max="2147483647"
                 value={cantidad}
-                onChange={(e) => setCantidad(e.target.value)}
+                onChange={(e) => { setCantidad(e.target.value); setAjustes(null); setError('') }}
                 className="input"
               />
             </div>
+
+            {medicamentoId && !buscandoLotes && (
+              <div className="space-y-3">
+                {lotesDisponibles.length > 0 && (
+                  <>
+                    <div className="space-y-1">
+                      <h3 className="font-medium text-text-primary">Distribución por lotes</h3>
+                      <p className="text-sm text-text-secondary">
+                        Se completa empezando por los que vencen antes. Ajustá las cantidades si entregás de otros lotes.
+                      </p>
+                    </div>
+                    <div className="divide-y divide-border rounded-lg border border-border px-3">
+                      {lotesDisponibles.map((lote) => (
+                        <div key={lote.lote_id} className="flex items-center gap-3 py-3">
+                          <div className="min-w-0 flex-1 text-sm">
+                            <label htmlFor={`salida-lote-${lote.lote_id}`} className="font-medium text-text-primary break-words">
+                              Lote {lote.numero_lote || '(sin número)'}
+                            </label>
+                            <p className="text-text-secondary">Vence {formatFecha(lote.fecha_vencimiento)}</p>
+                            <p className="text-text-secondary">{lote.stock_actual} disponibles</p>
+                            {loteProximoAVencer(lote.fecha_vencimiento) && (
+                              <p className="font-semibold text-text-primary">Próximo a vencer</p>
+                            )}
+                          </div>
+                          <input
+                            id={`salida-lote-${lote.lote_id}`}
+                            type="number"
+                            min="0"
+                            step="1"
+                            max={lote.stock_actual}
+                            value={distribucion[lote.lote_id] ?? 0}
+                            onChange={(e) => { setAjustes({ ...distribucion, [lote.lote_id]: e.target.value }); setError('') }}
+                            className="input w-24 shrink-0"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <p aria-live="polite" className="text-sm font-medium text-text-primary">
+                      Total asignado: {totalAsignado} de {Number(cantidad) || 0} unidades
+                    </p>
+                    {cantidad && errorDistribucion && <p role="alert" className="text-sm text-text-primary">{errorDistribucion}</p>}
+                  </>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {lotesDisponibles.length > 0 && (
+                    <button type="button" className="btn-secondary" onClick={() => { setAjustes(null); setError('') }}>
+                      Recalcular por vencimiento
+                    </button>
+                  )}
+                  <button type="button" className="btn-secondary" onClick={() => { setRecargaLotes((n) => n + 1); setError('') }}>
+                    Actualizar lotes
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1">
               <label className="text-sm text-text-secondary">Observación</label>
@@ -417,12 +462,13 @@ export default function SalidaStockModal({ medicamentos, onClose, onRegistrado }
           </fieldset>
 
           {error && <p className="px-4 sm:px-6 text-base text-text-primary -mt-2 pb-2">{error}</p>}
+          </div>
 
-          <div className="px-4 sm:px-6 py-4 border-t border-border flex justify-end gap-3">
+          <div className="px-4 sm:px-6 py-4 border-t border-border flex justify-end gap-3 shrink-0">
             <button type="button" disabled={loading} onClick={onClose} className="btn-secondary">
               Cancelar
             </button>
-            <button type="submit" disabled={loading || buscandoLotes || buscandoPaciente} className="btn-primary">
+            <button type="submit" disabled={loading || buscandoLotes || buscandoPaciente || !!lotesError || !!errorDistribucion} className="btn-primary">
               {loading ? 'Guardando...' : 'Registrar salida'}
             </button>
           </div>

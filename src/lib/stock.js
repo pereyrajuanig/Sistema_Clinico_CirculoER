@@ -84,16 +84,53 @@ export function etiquetaTipoMovimiento(tipo) {
   return 'Salida'
 }
 
-// Misma validación que handleSubmit de SalidaStockModal.jsx — extraída para poder testearla sin
-// mockear Supabase. Decisión explícita del cliente para el caso "pide más de lo que tiene el
-// lote FEFO": rechazar la operación con un mensaje que indique la acción a seguir, NO dividir
-// automáticamente entre dos lotes.
+// Validación de una cantidad contra un lote puntual (también usada por los tests históricos).
 export function validarCantidadSalida(loteSugerido, cantidad) {
   if (!loteSugerido) {
     return 'Este medicamento no tiene stock disponible en ningún lote.'
   }
   if (Number(cantidad) > loteSugerido.stock_actual) {
-    return `Este lote solo tiene ${loteSugerido.stock_actual} unidades disponibles — registrá el resto en una segunda salida.`
+    return `Este lote solo tiene ${loteSugerido.stock_actual} unidades disponibles.`
   }
+  return null
+}
+
+// Propone el reparto completo por vencimiento. Nunca asigna más stock del disponible;
+// si no alcanza, la validación indica el faltante y no permite guardar una entrega parcial.
+export function distribuirSalida(lotes, cantidad, hoy = hoyLocalISO()) {
+  let restante = Number(cantidad)
+  if (!Number.isSafeInteger(restante) || restante <= 0) return {}
+  const distribucion = {}
+  const disponibles = lotes.filter((l) => l.stock_actual > 0 && !loteVencido(l.fecha_vencimiento, hoy))
+    .sort((a, b) => a.fecha_vencimiento.localeCompare(b.fecha_vencimiento) || a.lote_id.localeCompare(b.lote_id))
+  for (const lote of disponibles) {
+    if (restante === 0) break
+    const asignada = Math.min(restante, Number(lote.stock_actual))
+    distribucion[lote.lote_id] = asignada
+    restante -= asignada
+  }
+  return distribucion
+}
+
+export function validarDistribucionSalida(lotes, cantidad, distribucion, hoy = hoyLocalISO()) {
+  const total = Number(cantidad)
+  if (!Number.isSafeInteger(total) || total <= 0 || total > 2147483647) {
+    return 'Ingresá una cantidad total entera mayor a cero.'
+  }
+  const disponibles = lotes.filter((l) => l.stock_actual > 0 && !loteVencido(l.fecha_vencimiento, hoy))
+  const stock = disponibles.reduce((suma, lote) => suma + Number(lote.stock_actual), 0)
+  if (stock < total) return `Hay ${stock} unidades disponibles entre los lotes habilitados. Faltan ${total - stock} para completar la entrega.`
+  let asignado = 0
+  for (const [loteId, valor] of Object.entries(distribucion)) {
+    const unidades = Number(valor)
+    if (!Number.isSafeInteger(unidades) || unidades < 0) return 'Las cantidades por lote deben ser números enteros mayores o iguales a cero.'
+    if (unidades === 0) continue
+    const lote = disponibles.find((l) => l.lote_id === loteId)
+    if (!lote) return 'Uno de los lotes ya no está habilitado. Recalculá la distribución.'
+    if (unidades > Number(lote.stock_actual)) return `El lote ${lote.numero_lote || '(sin número)'} solo tiene ${lote.stock_actual} unidades disponibles.`
+    asignado += unidades
+  }
+  if (asignado < total) return `Faltan asignar ${total - asignado} unidades para completar la entrega.`
+  if (asignado > total) return `Hay ${asignado - total} unidades de más en la distribución.`
   return null
 }

@@ -8,6 +8,8 @@ import {
   loteVencido,
   loteProximoAVencer,
   etiquetaTipoMovimiento,
+  distribuirSalida,
+  validarDistribucionSalida,
 } from './stock'
 
 // Fecha de referencia fija para no depender de la fecha real del sistema en los tests que ya
@@ -150,7 +152,48 @@ describe('validarCantidadSalida', () => {
   })
 
   it('rechaza una cantidad mayor al stock del lote, con un mensaje que indica qué hacer', () => {
-    expect(validarCantidadSalida({ stock_actual: 3 }, 5)).toMatch(/segunda salida/)
+    expect(validarCantidadSalida({ stock_actual: 3 }, 5)).toMatch(/solo tiene 3 unidades/)
+  })
+})
+
+describe('entrega repartida entre lotes', () => {
+  const lotes = [2, 4, 10, 12].map((stock_actual, i) => ({ lote_id: `L${i}`, numero_lote: `${i}`, stock_actual, fecha_vencimiento: `2026-0${i + 2}-01` }))
+  it('ordena por vencimiento sin cambiar el array original y usa parcialmente el último lote', () => {
+    const desordenados = [lotes[3], lotes[1], lotes[0], lotes[2]]
+    expect(distribuirSalida(desordenados, 24, HOY_FIJO)).toEqual({ L0: 2, L1: 4, L2: 10, L3: 8 })
+    expect(desordenados[0]).toBe(lotes[3])
+    expect(validarDistribucionSalida(lotes, 24, { L0: 2, L1: 4, L2: 10, L3: 8 }, HOY_FIJO)).toBeNull()
+  })
+  it('excluye agotados y vencidos, pero incluye los que vencen hoy', () => {
+    const candidatos = [
+      { lote_id: 'vencido', stock_actual: 100, fecha_vencimiento: '2025-12-31' },
+      { lote_id: 'agotado', stock_actual: 0, fecha_vencimiento: HOY_FIJO },
+      { lote_id: 'hoy', stock_actual: 3, fecha_vencimiento: HOY_FIJO }, ...lotes,
+    ]
+    expect(distribuirSalida(candidatos, 5, HOY_FIJO)).toEqual({ hoy: 3, L0: 2 })
+    expect(validarDistribucionSalida(candidatos, 5, { vencido: 5 }, HOY_FIJO)).toMatch(/ya no está habilitado/)
+  })
+  it('resuelve empates de vencimiento por identificador y cantidades de stock recibidas como texto', () => {
+    expect(distribuirSalida([
+      { lote_id: 'B', stock_actual: '3', fecha_vencimiento: HOY_FIJO },
+      { lote_id: 'A', stock_actual: '2', fecha_vencimiento: HOY_FIJO },
+    ], '4', HOY_FIJO)).toEqual({ A: 2, B: 2 })
+  })
+  it.each(['', 0, -1, 1.5, Infinity, NaN, 2147483648])('rechaza la cantidad total inválida %s', (cantidad) => {
+    expect(validarDistribucionSalida(lotes, cantidad, {}, HOY_FIJO)).toMatch(/entera mayor a cero/)
+  })
+  it('rechaza stock insuficiente sin inventar unidades', () => {
+    const reparto = distribuirSalida(lotes, 34, HOY_FIJO)
+    expect(reparto).toEqual({ L0: 2, L1: 4, L2: 10, L3: 12 })
+    expect(validarDistribucionSalida(lotes, 34, reparto, HOY_FIJO)).toMatch(/Faltan 6/)
+  })
+  it('admite elegir otros lotes si el total coincide y bloquea excesos por lote o en la suma', () => {
+    expect(validarDistribucionSalida(lotes, 5, { L2: 0, L3: '5' }, HOY_FIJO)).toBeNull()
+    expect(validarDistribucionSalida(lotes, 5, { L0: 5 }, HOY_FIJO)).toMatch(/solo tiene 2/)
+    expect(validarDistribucionSalida(lotes, 5, { L3: 4 }, HOY_FIJO)).toMatch(/Faltan asignar 1/)
+    expect(validarDistribucionSalida(lotes, 5, { L3: 6 }, HOY_FIJO)).toMatch(/1 unidades de más/)
+    expect(validarDistribucionSalida(lotes, 5, { L3: -1 }, HOY_FIJO)).toMatch(/números enteros/)
+    expect(validarDistribucionSalida(lotes, 5, { L3: 5.5 }, HOY_FIJO)).toMatch(/números enteros/)
   })
 })
 
